@@ -1,0 +1,24 @@
+{
+  "name": "little-learners",
+  "version": "1.0.0",
+  "description": "Touchscreen learning games for toddlers",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "serve": "python3 -m http.server 8765 -d app",
+    "package:win": "electron-packager . \"Little Learners\" --platform=win32 --arch=x64 --out=dist --overwrite --asar --ignore=\"^/(dist|node_modules|tools|\\.claude|docs)\"",
+    "package:mac": "electron-packager . \"Little Learners\" --platform=darwin --arch=arm64 --out=dist --overwrite --asar --ignore=\"^/(dist|node_modules|tools|\\.claude|docs)\"",
+    "package:all": "npm run package:win && npm run package:mac"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.1"
+  },
+  "productName": "Little Learners"
+}
