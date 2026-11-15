@@ -18,12 +18,17 @@ let gesture = null; // {id, sx, sy, t0, tap} for swipes and tap-on-release targe
 const taps = [];
 const wp = new T.Vector3();
 
+function onStage(o) {
+  while (o) { if (o.isScene) return true; if (!o.visible) return false; o = o.parent; }
+  return false;
+}
 function minSide() { return Math.min(window.innerWidth, window.innerHeight); }
 
 function hitTest(x, y, kinds) {
   let best = null, bestScore = Infinity;
   for (const t of targets) {
     if (!t.enabled || !t.obj.visible || (kinds && !kinds.includes(t.kind))) continue;
+    if (!onStage(t.obj)) continue; // its object was removed from the scene: a stale target from an earlier round
     t.obj.getWorldPosition(wp);
     if (t.offset) wp.add(t.offset);
     const c = project(wp);

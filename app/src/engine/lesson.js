@@ -191,7 +191,9 @@ export class Lesson {
     const praise = PRAISE[this.praiseIdx++ % PRAISE.length];
     // Keep the celebration short: the next round starts ~1 s after a correct answer, while praise finishes.
     const text = line ? `${praise} ${line}` : praise;
-    await Promise.all([this.say(text, { max: Math.min(2.1, 0.5 + text.length * 0.055) }), this.wait(0.85)]);
+    // captions only (no voice), so the praise never holds the game up: the caption stays on screen while play continues
+    this.say(text);
+    await this.wait(0.85);
     await this.afterSuccess();
     this.nextRound();
   }

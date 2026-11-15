@@ -1,8 +1,10 @@
 // Game 12 — Grow a flower. Topics mt_0B64gfJf7j "Seeds & plant growth" and mt_L1469gt34A "What living things need".
 // Plant the seed, water it, let the sun shine: the plant grows one stage per step and blooms.
+// Each round uses a different planter (pot, boot, teacup…). Water makes leaves unfurl around a bud; sun makes the bud
+// burst into a smiling flower, and a bee or butterfly comes to visit.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
-import { mesh, geo, toon, basic } from '../engine/toon.js';
+import { mesh, geo, basic } from '../engine/toon.js';
 import { popIn, hop, wiggle, shake } from '../engine/actors.js';
 import { makeWateringCan, makeSeedBag, makeSeed } from '../engine/farm.js';
 import { makeCloud } from '../engine/scenery.js';
@@ -11,8 +13,10 @@ import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
+import { makePlanter, makePlant, setStem, STEM_H, SOIL, WET_SOIL, petalColor, makeBee, makeButterfly } from './grow-garden.js';
 
 const MOUND = new T.Vector3(0.8, 0, 0.6);
+const PSCALE = 1.3; // planters are drawn a bit bigger than life
 const SUN_AT = new T.Vector3(4.6, 6.1, -1.5);
 const ALL = ['seed', 'water', 'sun'];
 const TOOL_AT = { seed: new T.Vector3(-4.4, 0, 3.0), water: new T.Vector3(-1.9, 0, 3.4), extra: new T.Vector3(4.4, 0, 3.0) };
@@ -23,6 +27,12 @@ const SAY = [
 ];
 const NOUN = { seed: 'the seed', water: 'water', sun: 'the sun' };
 const EXTRA = { rock: 'A rock', sock: 'A sock', ball: 'A ball' };
+// a different planter every round
+const POTS = [
+  ['mound', 'pot', 'boot', 'box', 'teacup', 'tub'],
+  ['pot', 'box', 'teacup', 'mound', 'tub', 'boot'],
+  ['boot', 'tub', 'bluepot', 'teacup', 'pot', 'box'],
+];
 
 // { steps, pre: stages already done, flower, extra: L3 distractor tool }
 const PLANS = [
@@ -32,53 +42,7 @@ const PLANS = [
   [['rock', 'daisy'], ['sock', 'tulip'], ['ball', 'rose'], ['rock', 'sunflower'], ['sock', 'daisy'], ['ball', 'rose']]
     .map(([extra, flower], i) => ({ steps: i >= 4 ? ['seed', 'sun', 'water'] : ALL, pre: 0, flower, extra })),
 ];
-
-function makeBloom(kind) {
-  const g = new T.Group();
-  const col = { daisy: 0xffffff, tulip: 0xff4b6b, sunflower: 0xffd23f, rose: 0xff8fc0 }[kind];
-  const mid = { daisy: 0xffd23f, tulip: 0xffd23f, sunflower: 0x7a4a26, rose: 0xff5a9a }[kind];
-  const petals = [];
-  if (kind === 'tulip') {
-    for (let i = 0; i < 3; i++) {
-      const p = mesh(geo.sphere(0.3, 14, 10), col, { outline: 0.02 });
-      p.scale.set(0.7, 1.2, 0.6); const a = (i / 3) * Math.PI * 2;
-      p.position.set(Math.cos(a) * 0.15, 0.25, Math.sin(a) * 0.15);
-      g.add(p); petals.push(p);
-    }
-  } else {
-    const n = kind === 'sunflower' ? 12 : kind === 'rose' ? 7 : 9, r = kind === 'sunflower' ? 0.55 : 0.4;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const p = mesh(geo.sphere(0.2, 12, 8), col, { outline: 0.015 });
-      p.scale.set(0.6, 1.3, 0.35); p.position.set(Math.cos(a) * r, Math.sin(a) * r, 0); p.rotation.z = a - Math.PI / 2;
-      g.add(p); petals.push(p);
-    }
-    const d = mesh(geo.sphere(kind === 'sunflower' ? 0.36 : 0.22, 14, 10), mid, { outline: 0.02 }); d.scale.z = 0.5; d.position.z = 0.06;
-    g.add(d);
-  }
-  g.userData.petals = petals;
-  return g;
-}
-
-function makePlant(kind) {
-  const g = new T.Group();
-  const seed = makeSeed(); seed.position.y = 0.42; seed.visible = false;
-  const sprout = new T.Group();
-  const stem = mesh(geo.cyl(0.07, 0.09, 1, 8), 0x4f9e3a, { outline: 0.015 }); stem.position.y = 0.5;
-  sprout.add(stem);
-  const leaves = [];
-  for (const s of [-1, 1]) {
-    const l = mesh(geo.sphere(0.22, 12, 8), 0x58c45e, { outline: 0.015 });
-    l.scale.set(1.5, 0.35, 0.8); l.position.set(s * 0.3, 0.45, 0); l.rotation.z = s * 0.5;
-    sprout.add(l); leaves.push(l);
-  }
-  sprout.position.y = 0.4; sprout.scale.setScalar(0.001); sprout.visible = false;
-  const bloom = makeBloom(kind); bloom.position.set(0, 1.4, 0.05); bloom.visible = false;
-  sprout.add(bloom);
-  g.add(seed, sprout);
-  g.userData = { seed, sprout, stem, bloom, stage: 0 };
-  return g;
-}
+PLANS.forEach((plan, l) => plan.forEach((p, i) => { p.pot = POTS[l][i]; }));
 
 function makeExtra(kind) {
   if (kind === 'ball') { const b = makeBeachBall(0.45); b.position.y = 0.45; const g = new T.Group(); g.add(b); return g; }
@@ -97,14 +61,19 @@ export default class GrowLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.pip.position.set(-7.6, 0, -1.5);
-    // soil bed + mound
+    // soil bed at the back where finished flowers line up
     const bed = mesh(geo.box(16, 0.3, 1.6), 0x8a5a3b, { hull: 1.01, outline: 0 }); bed.position.set(0, 0.1, -2.6);
     this.root.add(bed);
-    this.mound = mesh(geo.sphere(1.2, 20, 12), 0x7a4a2c, { outline: 0.03 }); this.mound.scale.set(1.3, 0.35, 1); this.mound.position.copy(MOUND);
-    this.root.add(this.mound);
-    // sun behind a cloud
+    // sun (with a face) behind a cloud
     this.sunG = new T.Group(); this.sunG.position.copy(SUN_AT);
     this.sun = mesh(geo.sphere(0.95, 20, 14), 0xffd23f, { outline: 0.03 });
+    const face = new T.Group(); face.position.z = 0.9;
+    for (const s of [-1, 1]) {
+      const e = mesh(geo.sphere(0.09, 8, 6), 0x3a2838, { outline: 0 }); e.position.set(s * 0.3, 0.15, 0); e.scale.set(1, 1.3, 0.5); face.add(e);
+      const c = new T.Mesh(geo.sphere(0.12, 8, 6), basic(0xff9f3f)); c.position.set(s * 0.5, -0.12, -0.05); c.scale.z = 0.3; face.add(c);
+    }
+    const smile = mesh(geo.torus(0.25, 0.045, Math.PI, 4, 12), 0x3a2838, { outline: 0 }); smile.rotation.z = Math.PI; smile.position.y = -0.1; face.add(smile);
+    this.sun.add(face);
     this.rays = new T.Group();
     for (let i = 0; i < 10; i++) { const r = mesh(geo.cone(0.16, 0.5, 6), 0xffb020, { outline: 0.012 }); const a = (i / 10) * Math.PI * 2; r.position.set(Math.cos(a) * 1.3, Math.sin(a) * 1.3, 0); r.rotation.z = a - Math.PI / 2; this.rays.add(r); }
     this.sunG.add(this.rays, this.sun);
@@ -120,63 +89,113 @@ export default class GrowLesson extends Lesson {
       this.tools[k] = o;
       o.userData.drag = input.addDrag(o, {
         radius: 1.0, minY: 0, offset: new T.Vector3(0, 0.6, 0),
-        zones: () => [{ pos: MOUND.clone().add(new T.Vector3(0, 0.8, 0)), radius: 1.8 }],
+        zones: () => [{ pos: this.soilTop().add(new T.Vector3(0, 0.5, 0)), radius: 1.8 }],
         onPick: () => this.s.tween(o.scale, { x: 1.15, y: 1.15, z: 1.15 }, 0.12),
         onDrop: (z) => this.dropTool(k, z),
       });
     }
     this.planted = [];
+    this.visitorI = 0;
   }
 
   get step() { const p = this.plan[this.round]; return p && p.steps[this.done]; }
+  soilTop() { return MOUND.clone().setY((this.planter ? this.planter.userData.soilY : 0.4) * PSCALE); }
 
   async startRound(r) {
     this.busy = true;
     const p = this.plan[r];
     this.done = 0;
     this.cloud.position.set(SUN_AT.x, SUN_AT.y - 0.15, SUN_AT.z + 0.9);
-    this.sunG.scale.setScalar(0.85);
+    this.s.tween(this.sunG.scale, { x: 0.85, y: 0.85, z: 0.85 }, 0.3);
     this.sunTap.enabled = true;
     // only show the tools this round uses (Level 1), plus the silly distractor (Level 3)
     for (const k of ['seed', 'water']) {
       const t = this.tools[k], need = p.steps.includes(k) || this.level > 0;
-      t.visible = need; t.userData.drag.enabled = need; t.position.copy(TOOL_AT[k]); t.scale.setScalar(1);
+      t.visible = need; t.userData.drag.enabled = need; t.position.copy(TOOL_AT[k]); t.scale.setScalar(1); t.rotation.set(0, 0, 0);
     }
     this.cloud.visible = p.steps.includes('sun') || this.level > 0; this.sunTap.enabled = this.cloud.visible;
     if (this.extra) { input.remove(this.extra.userData.drag); this.root.remove(this.extra); this.extra = null; }
     if (p.extra) {
       const e = makeExtra(p.extra); e.position.copy(TOOL_AT.extra); e.userData.kind = p.extra;
       this.root.add(e); popIn(this.s, e, 1, 0.35); this.extra = e;
-      e.userData.drag = input.addDrag(e, { radius: 1.0, minY: 0, offset: new T.Vector3(0, 0.5, 0), zones: () => [{ pos: MOUND.clone().add(new T.Vector3(0, 0.8, 0)), radius: 1.8 }], onDrop: (z) => this.dropTool(p.extra, z) });
+      e.userData.drag = input.addDrag(e, { radius: 1.0, minY: 0, offset: new T.Vector3(0, 0.5, 0), zones: () => [{ pos: this.soilTop().add(new T.Vector3(0, 0.5, 0)), radius: 1.8 }], onDrop: (z) => this.dropTool(p.extra, z) });
     }
-    // a fresh plant in the mound, with any stages already done
-    this.plant = makePlant(p.flower); this.plant.position.copy(MOUND); this.root.add(this.plant);
+    // a new planter drops in, with a fresh plant (and any stages already done)
+    this.planter = makePlanter(p.pot);
+    this.planter.position.copy(MOUND);
+    this.planter.scale.setScalar(PSCALE);
+    this.root.add(this.planter);
+    this.planter.position.y = 3;
+    this.s.tween(this.planter.position, { y: 0 }, 0.3, Ease.in).then(() => { sfx.thunk(); this.squash(this.planter, 0.25); });
+    this.plant = makePlant(p.flower);
+    this.plant.position.y = this.planter.userData.soilY;
+    this.planter.add(this.plant);
     for (let i = 0; i < p.pre; i++) this.grow(true);
-    await this.wait(0.3);
+    await this.wait(0.32);
     this.busy = false;
     this.cue();
   }
 
   promptText() { return this.step ? SAY[this.level][this.step] : ''; }
 
-  // the plant grows a stage: 1 seed in soil, 2 sprout, 3 bloom
+  squash(o, amt = 0.2, dur = 0.3) {
+    const b = o.scale.x;
+    return this.s.anim(dur, (_, p) => { const k = 1 - amt * Math.sin(p * Math.PI) * (1 - p * 0.5); o.scale.set(b / Math.sqrt(k), b * k, b / Math.sqrt(k)); }).then(() => o.scale.setScalar(b));
+  }
+
+  // the plant grows a stage: 1 seed in soil, 2 stem + unfurling leaves + bud, 3 the bud bursts into a bloom
   grow(instant = false) {
-    const u = this.plant.userData;
+    const pl = this.plant, u = pl.userData;
     u.stage++;
-    const d = instant ? 0.001 : 1;
-    if (u.stage === 1) { u.seed.visible = true; if (!instant) popIn(this.s, u.seed, 0.9, 0.3); }
+    if (u.stage === 1) { u.seed.visible = true; if (!instant) popIn(this.s, u.seed, 1, 0.3, { sound: false }); }
     if (u.stage === 2) {
-      u.seed.visible = false; u.sprout.visible = true;
-      this.s.tween(u.sprout.scale, { x: 0.8, y: 0.8, z: 0.8 }, 0.5 * d, Ease.back);
+      u.stemG.visible = true;
+      if (instant) {
+        u.seed.visible = false; setStem(pl, STEM_H.sprout);
+        u.leaves.forEach((l) => { l.rotation.z = l.userData.s * 0.25; l.scale.setScalar(1); });
+        u.bud.visible = true;
+      } else {
+        // the seed pops open, the stem shoots up, the leaves unfurl one after the other, a bud appears
+        this.s.tween(u.seed.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.15).then(() => { u.seed.visible = false; });
+        sfx.bloop(1);
+        this.s.anim(0.4, (e) => setStem(pl, 0.001 + e * STEM_H.sprout), Ease.back);
+        u.leaves.forEach((l, i) => this.s.wait(0.18 + i * 0.16).then(() => {
+          sfx.rustle();
+          this.s.anim(0.38, (e) => { l.scale.setScalar(Math.max(0.001, e)); l.rotation.z = l.userData.s * (1.45 - 1.2 * e); }, Ease.back);
+        }));
+        u.bud.visible = true; u.bud.scale.setScalar(0.001);
+        this.s.wait(0.35).then(() => { popIn(this.s, u.bud, 1, 0.35, { sound: false }); sfx.bloop(3); });
+      }
     }
     if (u.stage === 3) {
-      u.bloom.visible = true;
-      this.s.tween(u.sprout.scale, { x: 1.25, y: 1.4, z: 1.25 }, 0.45 * d, Ease.back);
-      u.bloom.scale.setScalar(0.001);
-      this.s.tween(u.bloom.scale, { x: 1, y: 1, z: 1 }, 0.5 * d, Ease.elastic);
-      if (!instant) u.bloom.userData.petals.forEach((pt, i) => { const s0 = pt.scale.clone(); pt.scale.multiplyScalar(0.01); this.s.wait(0.05 * i).then(() => this.s.tween(pt.scale, { x: s0.x, y: s0.y, z: s0.z }, 0.3, Ease.back)); });
+      if (instant) { setStem(pl, STEM_H.bloom); u.bud.visible = false; u.bloom.visible = true; return; }
+      this.bloom();
     }
-    if (!instant) { sfx.bloop(u.stage); sfx.twinkle(); }
+  }
+
+  // anticipation (the bud swells and wiggles), then POP: petals burst out and the flower smiles
+  async bloom() {
+    const pl = this.plant, u = pl.userData;
+    const h0 = u.h;
+    this.s.anim(0.3, (e) => setStem(pl, h0 + (STEM_H.bloom - h0) * e), Ease.back);
+    await this.s.anim(0.28, (_, p) => { const k = 1 + p * 0.35; u.bud.scale.set(k, k * (1 + Math.sin(p * Math.PI * 6) * 0.08), k); u.bud.rotation.z = Math.sin(p * Math.PI * 6) * 0.15; });
+    u.bud.visible = false;
+    u.bloom.visible = true;
+    sfx.pop();
+    sfx.twinkle();
+    u.bloom.scale.setScalar(0.001);
+    this.s.anim(0.5, (_, p) => u.bloom.scale.setScalar(Math.max(0.001, Ease.elastic(p))));
+    u.bloom.userData.petals.forEach((pt, i) => { const s0 = pt.scale.clone(); pt.scale.multiplyScalar(0.01); this.s.wait(0.03 * i).then(() => this.s.tween(pt.scale, { x: s0.x, y: s0.y, z: s0.z }, 0.3, Ease.back)); });
+    // petal burst
+    const c = u.bloom.getWorldPosition(new T.Vector3());
+    const col = petalColor(u.kind);
+    for (let i = 0; i < 12; i++) {
+      const d = mesh(geo.sphere(0.12, 8, 6), col, { outline: 0.01 }); d.scale.set(0.6, 1.2, 0.3);
+      d.position.copy(c); this.root.add(d);
+      const a = (i / 12) * Math.PI * 2, v = new T.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2 + 1, 0.8);
+      this.s.anim(0.6, (_, q) => { d.position.copy(c).addScaledVector(v, Ease.out(q)); d.position.y -= q * q * 1.2; d.rotation.z = a + q * 4; d.scale.setScalar(Math.max(0.01, 1 - q) * 0.8); }).then(() => this.root.remove(d));
+    }
+    fx.confetti(c, 14);
   }
 
   async dropTool(k, zone) {
@@ -193,86 +212,135 @@ export default class GrowLesson extends Lesson {
     const o = this.tools[k] || this.extra;
     const home = TOOL_AT[k] || TOOL_AT.extra;
     if (k !== want) {
-      if (o && k !== 'sun') { shake(this.s, o, 0.2); this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.back); }
-      else wiggle(this.s, this.cloud, 0.2);
-      if (EXTRA[k]) { sfx.boing(); this.redirect(`${EXTRA[k]}? Silly! Try ${NOUN[want]}.`); }
+      if (o && k !== 'sun') {
+        // a silly thing bounces off the planter; a tool that isn't needed yet just shakes
+        if (EXTRA[k]) { const top = this.soilTop(); this.s.tween(o.position, { x: top.x, y: top.y + 0.6, z: top.z + 0.4 }, 0.2, Ease.out).then(() => { sfx.boing(); this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.back); }); }
+        else { shake(this.s, o, 0.2); this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.back); }
+      } else wiggle(this.s, this.cloud, 0.2);
+      wiggle(this.s, this.planter, 0.08, 0.4);
+      if (EXTRA[k]) this.redirect(`${EXTRA[k]}? Silly! Try ${NOUN[want]}.`);
       else this.redirect(`Not yet. ${want === 'seed' ? 'Seed' : want === 'water' ? 'Water' : 'Sun'} first!`);
       return;
     }
     this.busy = true;
     input.lock(1400);
     this.clearHints();
+    const top = this.soilTop();
     if (k === 'seed') {
-      await this.s.tween(o.position, { x: MOUND.x - 0.2, y: 1.6, z: MOUND.z }, 0.25, Ease.out);
-      await this.s.tween(o.rotation, { z: -2.2 }, 0.2);
-      const seed = makeSeed(); seed.position.set(MOUND.x, 1.6, MOUND.z); this.root.add(seed);
-      this.s.tween(seed.position, { y: 0.45 }, 0.3, Ease.in).then(() => { this.root.remove(seed); sfx.land(); });
-      await this.wait(0.3);
+      await this.s.tween(o.position, { x: top.x - 0.2, y: top.y + 1.4, z: top.z }, 0.22, Ease.out);
+      await this.s.tween(o.rotation, { z: -2.2 }, 0.16, Ease.back);
+      const seed = makeSeed(); seed.position.set(top.x, top.y + 1.3, top.z); this.root.add(seed);
+      sfx.swoosh();
       this.s.tween(o.rotation, { z: 0 }, 0.25);
       this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.inOut);
+      await this.s.tween(seed.position, { y: top.y + 0.05 }, 0.25, Ease.in);
+      this.root.remove(seed);
+      sfx.land();
+      this.dirt(top, 0x7a4a2c);
+      this.squash(this.planter, 0.12, 0.25);
     } else if (k === 'water') {
-      await this.s.tween(o.position, { x: MOUND.x - 1.7, y: 1.6, z: MOUND.z }, 0.25, Ease.out);
-      await this.s.tween(o.rotation, { z: -0.6 }, 0.2);
-      sfx.pour();
-      for (let i = 0; i < 14; i++) this.s.wait(i * 0.04).then(() => {
-        const d = new T.Mesh(geo.sphere(0.07, 6, 4), basic(0x7fd0ff));
-        const rp = o.userData.rose.getWorldPosition(new T.Vector3());
-        d.position.copy(rp).add(new T.Vector3(Math.random() * 0.3, 0, Math.random() * 0.3 - 0.15));
-        this.root.add(d);
-        this.s.tween(d.position, { y: 0.4, x: d.position.x + 0.2 }, 0.4, Ease.in).then(() => this.root.remove(d));
-      });
-      await this.wait(0.65);
-      this.s.tween(o.rotation, { z: 0 }, 0.25);
-      this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.inOut);
+      await this.pour(o, top, home);
     } else {
       sfx.swoosh();
-      this.s.tween(this.cloud.position, { x: SUN_AT.x + 6 }, 0.5, Ease.in);
-      this.s.tween(this.sunG.scale, { x: 1.15, y: 1.15, z: 1.15 }, 0.4, Ease.back);
-      sfx.twinkle();
-      await this.wait(0.35);
+      this.s.tween(this.cloud.position, { x: SUN_AT.x + 6 }, 0.4, Ease.in);
+      this.s.anim(0.5, (_, p) => this.sunG.scale.setScalar(0.85 + Ease.back(p) * 0.35));
+      this.s.wait(0.2).then(() => { sfx.sparkle(); fx.float(top.clone().add(new T.Vector3(0.6, 2.2, 0.5)), '☀', { color: '#ffb020', size: 6 }); });
+      // the plant stretches towards the sun
+      this.s.anim(0.6, (_, p) => { this.plant.rotation.z = -Math.sin(p * Math.PI) * 0.18; }).then(() => { this.plant.rotation.z = 0; });
+      await this.wait(0.15);
     }
     this.grow();
     this.done++;
-    this.cur.hints = this.cur.hints; // steps within a round share the round's record
     if (this.done < this.plan[this.round].steps.length) {
-      await this.wait(0.35);
+      await this.wait(0.3);
       this.busy = false;
       this.idle = 0; this.ladder = 0;
       this.cue();
       return;
     }
-    // bloomed!
-    await this.wait(0.35);
-    this.bee();
-    hop(this.s, this.plant, 0.3, 0.3);
+    if (this.plant.userData.stage >= 3) {
+      // bloomed! a visitor comes, the praise starts while the petals are still flying
+      await this.wait(0.22);
+      this.visit();
+    } else {
+      // a seed or a sprout (Level 1's short rounds): the planter does a happy bounce
+      await this.wait(0.1);
+      hop(this.s, this.planter, 0.4, 0.35, { sound: true });
+      sfx.sparkle();
+      fx.float(top.clone().add(new T.Vector3(0, 1.4, 0.5)), this.plant.userData.stage === 1 ? '♥' : '✨', { color: '#ff5a7a', size: 6 });
+    }
     this.busy = false;
-    this.success(MOUND.clone().add(new T.Vector3(0, 2.4, 0)), 'It grew!');
+    this.success(top.clone().add(new T.Vector3(0, 2.0, 0)));
   }
 
-  bee() {
-    const b = new T.Group();
-    const body = mesh(geo.sphere(0.2, 12, 8), 0xffd23f, { outline: 0.02 }); body.scale.set(1.3, 1, 1);
-    const stripe = mesh(geo.cyl(0.21, 0.21, 0.08, 12), 0x3a2838, { outline: 0 }); stripe.rotation.z = Math.PI / 2;
-    const w = mesh(geo.sphere(0.14, 8, 6), 0xffffff, { outline: 0.01 }); w.scale.set(0.6, 1, 0.3); w.position.y = 0.2;
-    b.add(body, stripe, w);
-    this.root.add(b);
-    sfx.buzz();
-    this.s.anim(1.4, (_, p) => {
-      const a = p * Math.PI * 2;
-      b.position.set(MOUND.x + Math.cos(a) * 1.4, 2.4 + Math.sin(a * 2) * 0.4, MOUND.z + Math.sin(a) * 0.8 + 0.5);
-      w.rotation.x = Math.sin(p * 80) * 0.6;
-    }).then(() => this.root.remove(b));
+  // the watering can leans back, tips forward with a stream of drops that splash on the soil, and the soil darkens
+  async pour(o, top, home) {
+    await this.s.tween(o.position, { x: top.x - 1.75, y: top.y + 0.75, z: top.z + 0.2 }, 0.22, Ease.out);
+    await this.s.tween(o.rotation, { z: 0.2 }, 0.1, Ease.out);
+    await this.s.tween(o.rotation, { z: -0.75 }, 0.18, Ease.back);
+    sfx.pour();
+    const soil = this.planter.userData.soil, c0 = new T.Color(SOIL), c1 = new T.Color(WET_SOIL);
+    const n = 18;
+    for (let i = 0; i < n; i++) this.s.wait(i * 0.03).then(() => {
+      const d = new T.Mesh(geo.sphere(0.075, 6, 4), basic(0x7fd0ff));
+      const rp = o.userData.rose.getWorldPosition(new T.Vector3());
+      d.position.copy(rp);
+      this.root.add(d);
+      const v = new T.Vector3(1.4 + Math.random() * 0.5, -0.3, (Math.random() - 0.5) * 0.6), p0 = rp.clone();
+      const fall = Math.max(0.2, Math.sqrt(Math.max(0.05, rp.y - top.y) / 4.5));
+      this.s.anim(fall, (_, q) => { const t = q * fall; d.position.set(p0.x + v.x * t, p0.y + v.y * t - 4.5 * t * t, p0.z + v.z * t); d.scale.set(1, 1.4, 1); }).then(() => {
+        this.root.remove(d);
+        if (i % 3 === 0) this.ring(d.position.clone().setY(top.y + 0.03));
+      });
+    });
+    this.s.anim(0.6, (_, p) => soil.material.color.copy(c0).lerp(c1, p));
+    this.s.wait(0.3).then(() => wiggle(this.s, this.plant, 0.12, 0.4));
+    await this.wait(0.6);
+    sfx.splash();
+    this.s.tween(o.rotation, { z: 0 }, 0.25);
+    this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.inOut);
+  }
+  ring(pos) {
+    const r = new T.Mesh(geo.ring(0.12, 0.18, 18), basic(0xbfeaff, { transparent: true, opacity: 0.9 }));
+    r.rotation.x = -Math.PI / 2; r.position.copy(pos); this.root.add(r);
+    this.s.anim(0.35, (_, p) => r.scale.setScalar(1 + p * 2)).then(() => this.root.remove(r));
+  }
+  dirt(pos, col) {
+    for (let i = 0; i < 6; i++) {
+      const d = mesh(geo.sphere(0.08, 6, 4), col, { outline: 0 }); d.position.copy(pos); this.root.add(d);
+      const a = (i / 6) * Math.PI * 2, v = new T.Vector3(Math.cos(a) * 1.2, 1.6, Math.sin(a) * 0.6);
+      this.s.anim(0.35, (_, q) => { const t = q * 0.5; d.position.set(pos.x + v.x * t, pos.y + v.y * t - 6 * t * t, pos.z + v.z * t); }).then(() => this.root.remove(d));
+    }
+  }
+
+  // a bee or a butterfly (taking turns) flies in, lands on the new flower, and flies away
+  visit() {
+    const bee = this.visitorI++ % 2 === 0;
+    const v = bee ? makeBee() : makeButterfly([0xa77bff, 0x4a90ff, 0xff9f3f][this.round % 3]);
+    const land = this.plant.userData.bloom.getWorldPosition(new T.Vector3()).add(new T.Vector3(0.15, 0.55, 0.25));
+    const from = new T.Vector3(9, 6, 1), to = new T.Vector3(-9, 7, 1);
+    this.root.add(v);
+    if (bee) sfx.buzz(); else sfx.twinkle();
+    const w = v.userData.wings;
+    const flap = (t, fast) => { for (let i = 0; i < w.length; i++) { if (bee) w[i].rotation.x = Math.sin(t * 60) * 0.6; else w[i].rotation.z = (i ? -1 : 1) * Math.sin(t * (fast ? 22 : 8)) * 0.9; } };
+    let t = 0;
+    return this.s.anim(1.5, (_, p) => {
+      t += 1 / 60;
+      if (p < 0.35) { const e = Ease.out(p / 0.35); v.position.lerpVectors(from, land, e); v.position.y += Math.sin(e * Math.PI * 3) * 0.4 * (1 - e); v.rotation.y = bee ? Math.PI : -0.4; flap(t, true); }
+      else if (p < 0.65) { v.position.copy(land); v.position.y += Math.abs(Math.sin(t * 6)) * 0.05; flap(t, false); if (!v.userData.sat) { v.userData.sat = true; fx.float(land.clone().add(new T.Vector3(0, 0.6, 0)), '♥', { color: '#ff5a7a', size: 5 }); } }
+      else { const e = Ease.in((p - 0.65) / 0.35); v.position.lerpVectors(land, to, e); v.position.y += Math.sin(e * Math.PI * 2) * 0.5; v.rotation.y = bee ? 0 : 0.4; flap(t, true); }
+    }).then(() => this.root.remove(v));
   }
 
   async afterSuccess() {
-    // the finished flower hops to its spot in the back row
-    const pl = this.plant, i = this.planted.length;
+    // the finished flower hops, planter and all, to its spot in the back row
+    const pl = this.planter, i = this.planted.length;
     this.planted.push(pl);
     const to = new T.Vector3(-5 + i * 2, 0.25, -2.6);
     const from = pl.position.clone();
     sfx.swoosh();
-    this.s.anim(0.45, (e) => { pl.position.lerpVectors(from, to, e); pl.position.y += Math.sin(e * Math.PI) * 1.2; pl.scale.setScalar(1 - e * 0.25); }, Ease.inOut).then(() => sfx.land());
-    if (this.round < 6) this.s.tween(this.mound.scale, { x: 1.3, y: 0.35, z: 1 }, 0.2);
+    this.s.anim(0.45, (e) => { pl.position.lerpVectors(from, to, e); pl.position.y += Math.sin(e * Math.PI) * 1.4; pl.scale.setScalar(PSCALE * (1 - e * 0.55)); }, Ease.inOut).then(() => { sfx.land(); this.squash(pl, 0.15, 0.25); });
+    this.planter = null;
   }
 
   target() {
@@ -285,7 +353,7 @@ export default class GrowLesson extends Lesson {
     if (!k) return;
     if (glow) this.addHalo(k === 'sun' ? this.cloud : this.tools[k], 1.3);
     if (k === 'sun') fx.ghostPath([this.cloud.position.clone()], { mode: 'tap' });
-    else fx.ghostPath([this.target(), MOUND.clone().add(new T.Vector3(0, 1, 0))], { mode: 'drag' });
+    else fx.ghostPath([this.target(), this.soilTop().add(new T.Vector3(0, 0.6, 0))], { mode: 'drag' });
   }
   choicePoints() {
     const pts = [];
@@ -311,11 +379,21 @@ export default class GrowLesson extends Lesson {
 
   update(dt, t) {
     this.rays.rotation.z = t * 0.4;
-    for (const pl of this.planted) pl.rotation.z = Math.sin(t * 1.4 + pl.position.x) * 0.06;
+    for (const pl of this.planted) pl.rotation.z = Math.sin(t * 1.4 + pl.position.x) * 0.04;
+    // blooms nod gently and blink now and then
+    const all = this.planter ? [...this.planted, this.planter] : this.planted;
+    for (const p of all) {
+      const pt = p.children.find((c) => c.userData && c.userData.bloom);
+      const b = pt && pt.userData.bloom;
+      if (!b || !b.visible) continue;
+      b.rotation.z = Math.sin(t * 1.8 + p.position.x) * 0.08;
+      const blink = ((t + p.position.x * 0.37) % 3.2) < 0.12;
+      for (const e of b.userData.eyes) e.scale.y = blink ? 0.2 : 1.3;
+    }
   }
 
   onFinale() {
     this.planted.forEach((pl, i) => this.s.wait(i * 0.15).then(() => { hop(this.s, pl, 0.5, 0.35); sfx.note(i); }));
-    this.bee();
+    this.visit();
   }
 }

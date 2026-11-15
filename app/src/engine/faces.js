@@ -78,6 +78,8 @@ const FACE = {
 export function setFace(face, emo) {
   const p = face.userData, d = FACE[emo] || FACE.happy;
   face.userData.emotion = emo;
+  // happy faces read friendlier without brows; brows appear for the feelings that need them
+  for (const b of p.brows) b.visible = emo !== 'happy' && emo !== 'calm';
   for (const b of p.brows) {
     b.rotation.z = b.userData.s * d.brow; // + = inner ends down (cross), - = inner ends up (worried)
     b.position.y = b.userData.y + d.browY * p.R;

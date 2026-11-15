@@ -25,10 +25,12 @@ export class Viewer {
     const floor = mesh(geo.cyl(30, 30, 0.2, 40), 0x9fd07a, { outline: 0 }); floor.position.y = -0.1; this.root.add(floor);
     const close = !!this.opts.close;
     setCamera(new T.Vector3(0, close ? 2.2 : 2.6, close ? 6.5 : 12), new T.Vector3(0, close ? 1.6 : 1.5, 0));
-    const angles = close ? [0] : [0, -0.75, -Math.PI / 2];
-    const xs = close ? [0] : [-5, 0, 5];
+    const list = this.opts.kinds;
+    if (list) setCamera(new T.Vector3(0, 3, 17), new T.Vector3(0, 1.4, 0));
+    const angles = list ? list.map(() => -0.3) : close ? [0] : [0, -0.75, -Math.PI / 2];
+    const xs = list ? list.map((_, i) => (i - (list.length - 1) / 2) * 2.9) : close ? [0] : [-5, 0, 5];
     this.models = angles.map((a, i) => {
-      const m = makeModel(this.opts.kind || 'bear');
+      const m = makeModel(list ? list[i] : this.opts.kind || 'bear');
       m.position.set(xs[i], 0, 0);
       m.rotation.y = a;
       if (this.opts.emo && m.userData.face) setFace(m.userData.face, this.opts.emo);

@@ -1,118 +1,118 @@
 // Lesson 2 — Apple count. Topics mt_WcfaSfVT33 "One-to-one counting" and mt_dmNvjroCPT "How many in total?".
-// Tap each fruit once: it hops into the basket as its number is said. The last number is stressed as the total.
+// Tap each fruit once: it flies into the basket as its numeral pops up. The last numeral is shown big as the total.
+// Every round the fruit hangs somewhere new (tree, bush, picnic blanket, balloons); Hedgehog watches every fruit,
+// then eats them in its own way each round. One round has a worm surprise.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
-import { mesh, geo, basic } from '../engine/toon.js';
-import { C, makeAnimal, popIn, hop, wiggle, setFace } from '../engine/actors.js';
-import { makeTree } from '../engine/scenery.js';
+import { makeAnimal, popIn, popOut, hop, wiggle, setFace } from '../engine/actors.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
+import { makeFruit, makeBasket, makeWorm, makeHost } from './counting-hosts.js';
 
 const WORDS = ['One', 'Two', 'Three', 'Four', 'Five'];
-const FRUIT = {
-  apple: { one: 'apple', many: 'apples' },
-  orange: { one: 'orange', many: 'oranges' },
-  pear: { one: 'pear', many: 'pears' },
-  plum: { one: 'plum', many: 'plums' },
-};
+const NUM_COL = ['#ff5a5a', '#ff9f3f', '#5fd068', '#4a90ff', '#a77bff'];
 const BASKET = new T.Vector3(0, 0, 3.2);
-
-function makeFruit(kind) {
-  const g = new T.Group();
-  let body;
-  if (kind === 'pear') {
-    body = mesh(geo.sphere(0.45, 20, 14), 0x9ed64a, { outline: 0.035 });
-    const top = mesh(geo.sphere(0.3, 16, 12), 0x9ed64a, { outline: 0.03 });
-    top.position.y = 0.42;
-    g.add(top);
-  } else if (kind === 'orange') {
-    body = mesh(geo.sphere(0.5, 20, 14), C.orange, { outline: 0.035 });
-  } else if (kind === 'plum') {
-    body = mesh(geo.sphere(0.46, 20, 14), 0x9b5de5, { outline: 0.035 });
-    body.scale.set(0.95, 1.05, 0.95);
-  } else {
-    body = mesh(geo.sphere(0.5, 20, 14), 0xff4b4b, { outline: 0.035 });
-    body.scale.set(1.05, 0.95, 1);
-  }
-  g.add(body);
-  const hi = new T.Mesh(geo.sphere(0.1, 8, 6), basic(0xffffff));
-  hi.position.set(-0.18, 0.18, 0.42);
-  g.add(hi);
-  const stem = mesh(geo.cyl(0.04, 0.05, 0.28, 6), C.trunk, { outline: 0.012 });
-  stem.position.y = kind === 'pear' ? 0.78 : 0.52;
-  const leaf = mesh(geo.sphere(0.14, 10, 8), C.leaf, { outline: 0.015 });
-  leaf.scale.set(1.4, 0.35, 0.8);
-  leaf.position.set(0.15, stem.position.y + 0.05, 0);
-  leaf.rotation.z = 0.5;
-  g.add(stem, leaf);
-  return g;
-}
-
-function makeBasket() {
-  const g = new T.Group();
-  const b = mesh(geo.cyl(1.5, 1.1, 1.0, 24), 0xc98b4f, { outline: 0.04 });
-  b.position.y = 0.5;
-  const rim = mesh(geo.torus(1.5, 0.12, Math.PI * 2, 8, 32), 0xa86f3a, { outline: 0.03 });
-  rim.rotation.x = Math.PI / 2;
-  rim.position.y = 1.0;
-  const inside = new T.Mesh(geo.circle(1.42, 28), basic(0x6b4424));
-  inside.rotation.x = -Math.PI / 2;
-  inside.position.y = 0.97;
-  for (let i = 0; i < 3; i++) {
-    const band = mesh(geo.torus(1.3 + i * 0.07, 0.04, Math.PI * 2, 6, 32), 0xa86f3a, { outline: 0 });
-    band.rotation.x = Math.PI / 2;
-    band.position.y = 0.25 + i * 0.25;
-    g.add(band);
-  }
-  g.add(b, rim, inside);
-  return g;
-}
+const HOG_HOME = new T.Vector3(4.6, 0, 2.6);
+const HOG_RY = -0.6;
+const EATS = ['trot', 'roll', 'leap'];
+const WORM_ROUND = 3;
+const tmp = new T.Vector3();
 
 export default class CountingLesson extends Lesson {
   build() {
     const L = this.level;
+    // [count, fruit, layout, host] — counts and fruit unchanged; the host changes every round
     this.plan = L === 0
-      ? [[1, 'apple'], [2, 'apple'], [3, 'apple'], [2, 'orange'], [3, 'pear'], [3, 'apple', 'arc']]
+      ? [[1, 'apple', null, 'tree'], [2, 'apple', null, 'bush'], [3, 'apple', null, 'blanket'], [2, 'orange', null, 'balloons'], [3, 'pear', null, 'tree'], [3, 'apple', 'arc', 'bush']]
       : L === 1
-        ? [[2, 'apple'], [3, 'apple'], [3, 'orange'], [4, 'pear'], [3, 'plum', 'arc'], [4, 'apple']]
-        : [[3, 'apple'], [4, 'orange'], [3, 'pear', 'scatter'], [4, 'plum', 'scatter'], [5, 'apple'], [4, 'orange', 'scatter']];
-    this.tree = makeTree(2.1);
-    this.tree.position.set(0, 0, -2.5);
-    this.root.add(this.tree);
+        ? [[2, 'apple', null, 'tree'], [3, 'apple', null, 'balloons'], [3, 'orange', null, 'blanket'], [4, 'pear', null, 'bush'], [3, 'plum', 'arc', 'tree'], [4, 'apple', null, 'balloons']]
+        : [[3, 'apple', null, 'tree'], [4, 'orange', null, 'blanket'], [3, 'pear', 'scatter', 'balloons'], [4, 'plum', 'scatter', 'bush'], [5, 'apple', null, 'blanket'], [4, 'orange', 'scatter', 'tree']];
     this.basket = makeBasket();
     this.basket.position.copy(BASKET);
     this.root.add(this.basket);
     this.hog = makeAnimal('hedgehog');
-    this.hog.position.set(4.6, 0, 2.6);
-    this.hog.rotation.y = -0.6;
+    this.hog.position.copy(HOG_HOME);
+    this.hog.rotation.y = HOG_RY;
     this.root.add(this.hog);
+    this.hogLook = null;
     this.fruits = [];
+    this.trees = 0;
   }
 
   async startRound(r) {
-    const [n, kind, layout] = this.plan[r];
+    const [n, kind, layout, hostKind] = this.plan[r];
     this.n = n; this.kind = kind; this.count = 0;
+    // tidy up the last round (fruit eaten, worm gone, hedgehog back home)
+    for (const q of this.fruits) this.root.remove(q);
+    if (this.worm) { this.root.remove(this.worm); this.worm = null; }
+    if (this.hog.userData.eating) this.homeLater = true; else this.hogHome();
+    // swap the host: the old one pops away as the new one springs up
+    const old = this.host;
+    if (old) popOut(this.s, old.obj, 0.2).then(() => this.root.remove(old.obj));
+    const host = makeHost(hostKind, hostKind === 'tree' ? this.trees++ % 2 : 0);
+    this.host = host;
+    this.root.add(host.obj);
+    popIn(this.s, host.obj, host.obj.scale.x, 0.45, { sound: false });
+    if (hostKind === 'bush') sfx.rustle(); else if (hostKind === 'balloons') sfx.whoosh(); else if (hostKind === 'blanket') sfx.swoosh(); else sfx.sparkle();
+
     this.fruits = [];
+    const slots = host.slots(n, layout);
     for (let i = 0; i < n; i++) {
       const f = makeFruit(kind);
-      let x = (i - (n - 1) / 2) * 1.9, y = 5.0;
-      if (layout === 'arc') y = 5.6 - Math.abs(i - (n - 1) / 2) * 0.7;
-      if (layout === 'scatter') { x += (i % 2 ? 0.4 : -0.3); y = 4.4 + ((i * 7) % 3) * 0.6; }
-      f.position.set(x, y, 0.9);
+      if (host.decorate) host.decorate(f, i);
+      f.position.copy(slots[i]);
       f.userData.home = f.position.clone();
+      f.userData.ph = i * 1.3;
+      f.scale.setScalar(0.001);
       this.root.add(f);
       this.fruits.push(f);
-      popIn(this.s, f, 1, 0.4 + i * 0.08);
+      if (hostKind === 'balloons') {
+        // balloons drift up from below
+        const y = f.position.y;
+        f.position.y = -2;
+        f.scale.setScalar(1);
+        this.s.wait(i * 0.07).then(() => this.s.tween(f.position, { y }, 0.55, Ease.out));
+      } else popIn(this.s, f, 1, 0.4, { sound: i === 0 }).catch(() => {});
       f.userData.tap = input.addTap(f, { radius: 0.85, onTap: () => this.tapFruit(f) });
     }
-    sfx.sparkle();
-    await this.wait(0.3);
+    this.hogLook = null;
+    // the prompt starts right away; the very first round waits until the fruit is in place for the demo
+    if (this.demoDone) { this.cue(); return; }
+    await this.wait(0.45 + n * 0.07);
     this.cue();
   }
 
-  promptText() { return `Count the ${FRUIT[this.kind].many}!`; }
+  promptText() { return `Count the ${this.kind === 'apple' ? 'apples' : this.kind + 's'}!`; }
+
+  hogHome() {
+    const h = this.hog;
+    setFace(h.userData.face, 'happy');
+    h.rotation.z = 0;
+    h.scale.setScalar(h.userData.baseScale ?? 1);
+    this.s.tween(h.position, { x: HOG_HOME.x, y: 0, z: HOG_HOME.z }, 0.45, Ease.inOut);
+  }
+
+  update(dt, t) {
+    // balloons bob, fruit on the tree sways
+    for (const f of this.fruits) {
+      if (f.userData.counted) continue;
+      const b = f.userData.balloon;
+      if (b) { b.rotation.z = Math.sin(t * 1.6 + f.userData.ph) * 0.12; b.position.y = 1.95 + Math.sin(t * 1.8 + f.userData.ph) * 0.1; }
+      else if (this.host?.kind === 'tree') f.rotation.z = Math.sin(t * 2 + f.userData.ph) * 0.06;
+    }
+    // Hedgehog keeps an eye on the fruit (turns toward what was just tapped, or the next one)
+    const h = this.hog;
+    if (!h.userData.eating) {
+      const look = this.hogLook || this.fruits.find((f) => !f.userData.counted);
+      let ry = HOG_RY;
+      if (look) { look.getWorldPosition(tmp); ry = Math.atan2(tmp.x - h.position.x, tmp.z - h.position.z + 3) * 0.8; }
+      h.rotation.y += (ry - h.rotation.y) * Math.min(1, dt * 6);
+      // sniff sniff
+      if (h.userData.head) h.userData.head.rotation.x = Math.max(0, Math.sin(t * 9)) * 0.05 * (Math.sin(t * 0.7) > 0.6 ? 1 : 0);
+    }
+  }
 
   async tapFruit(f) {
     if (f.userData.counted || this.busy) return;
@@ -122,40 +122,154 @@ export default class CountingLesson extends Lesson {
     const i = this.count++;
     sfx.note(i);
     const last = this.count === this.n;
-    const word = WORDS[i];
-    // fly into the basket in an arc
-    const from = f.position.clone();
-    const slot = new T.Vector3(BASKET.x + (i - (this.n - 1) / 2) * 0.62, 1.25 + (i % 2) * 0.08, BASKET.z + (i % 2 ? -0.25 : 0.2));
-    // the number pops up big over the fruit as it flies (no voice: the numeral carries the count)
-    fx.float(from.clone().add(new T.Vector3(0, 0.9, 0)), String(i + 1), { color: ['#ff5a5a', '#ff9f3f', '#5fd068', '#4a90ff', '#a77bff'][i], size: 11 });
-    this.s.anim(0.42, (e) => {
-      f.position.lerpVectors(from, slot, e);
-      f.position.y += Math.sin(e * Math.PI) * 1.4;
-      f.rotation.z = e * Math.PI * 2;
-    }, Ease.inOut).then(() => { sfx.pop(); f.rotation.z = 0; });
-    if (!last) { this.say(`${word}!`); return; }
+    // the numeral pops up big over the fruit (no voice: the numeral carries the count)
+    f.getWorldPosition(tmp);
+    fx.float(tmp.clone().add(new T.Vector3(0, 0.9, 0)), String(i + 1), { color: NUM_COL[i], size: 11 });
+    this.release(f, i);
+    // Hedgehog follows it with its eyes and gets more excited with every fruit
+    this.hogLook = f;
+    if (!this.hog.userData.eating) {
+      setFace(this.hog.userData.face, 'scared'); // big wide "ooh" eyes
+      this.s.wait(0.35).then(() => { if (!this.hog.userData.eating) setFace(this.hog.userData.face, 'happy'); });
+      hop(this.s, this.hog, 0.18 + i * 0.07, 0.3);
+      if (i % 2) sfx.squeak();
+    }
+    if (!last) { this.say(`${WORDS[i]}!`); return; }
 
-    // last one: stress the total while the fruit lands, recount fast, the hedgehog munches — no dead air
-    this.busy = true;
-    input.lock(2500);
-    const name = this.n === 1 ? FRUIT[this.kind].one : FRUIT[this.kind].many;
-    this.say(this.n === 1 ? `${word} ${name}!` : `${word}! ${word} ${name}!`);
-    await this.wait(0.6);
-    this.fruits.forEach((q, k) => this.s.wait(k * 0.12).then(() => { hop(this.s, q, 0.35, 0.22); sfx.note(k); }));
-    this.s.wait(this.n * 0.12 + 0.05).then(() => { fx.float(new T.Vector3(BASKET.x, 2.6, BASKET.z), String(this.n), { color: '#ffd23f', size: 18 }); sfx.twinkle(); });
-    // hedgehog trots to the basket while the recount plays
-    const h = this.hog, hx = h.position.x;
-    setFace(h.userData.face, 'happy');
-    sfx.patter();
-    await this.s.tween(h.position, { x: BASKET.x + 2.1 }, 0.4 + this.n * 0.06, Ease.inOut);
-    sfx.chomp();
-    for (const q of this.fruits) this.s.tween(q.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.25, Ease.in);
-    hop(this.s, h, 0.4);
-    await this.wait(0.3);
-    for (const q of this.fruits) this.root.remove(q);
-    this.s.tween(h.position, { x: hx }, 0.6, Ease.inOut);
-    this.busy = false;
-    this.success(new T.Vector3(BASKET.x, 2, BASKET.z), 'Yum yum!');
+    // last one: the total shows big while the fruit lands, a quick recount, Hedgehog eats — no dead air
+    const n = this.n, round = this.round;
+    this.success(new T.Vector3(BASKET.x, 2, BASKET.z), `${WORDS[n - 1]}!`);
+    this.s.wait(0.42).then(() => {
+      fx.float(new T.Vector3(BASKET.x, 2.8, BASKET.z), String(n), { color: '#ffd23f', size: 20 });
+      sfx.twinkle();
+      this.fruits.forEach((q, k) => this.s.wait(k * 0.08).then(() => { hop(this.s, q, 0.3, 0.2); sfx.note(k); }));
+    });
+    this.eat(round).then(() => { if (this.homeLater) { this.homeLater = false; this.hogHome(); } });
+  }
+
+  // How a tapped fruit leaves its host and lands in the basket (≈0.45 s).
+  async release(f, i) {
+    const s = this.s, kind = this.host.kind;
+    const slot = new T.Vector3(BASKET.x + (i - (this.n - 1) / 2) * 0.55, 1.25 + (i % 2) * 0.08, BASKET.z + (i % 2 ? -0.25 : 0.2));
+    f.rotation.z = 0;
+    if (kind === 'balloons' && f.userData.balloon) {
+      // POP! the balloon bursts and the fruit drops
+      const b = f.userData.balloon;
+      sfx.pop();
+      f.getWorldPosition(tmp);
+      fx.confetti(tmp.clone().add(new T.Vector3(0, 1.9, 0)), 10);
+      await s.anim(0.08, (_, p) => b.scale.setScalar(1 + p * 0.4));
+      f.remove(b);
+      f.userData.balloon = null;
+    } else if (kind === 'bush') {
+      sfx.rustle();
+      wiggle(s, this.host.obj, 0.03, 0.3);
+      const y0 = f.position.y;
+      await s.tween(f.position, { y: y0 + 0.8 }, 0.12, Ease.out);
+    } else if (kind === 'tree') {
+      // a little pluck: stretch down, snap
+      await s.anim(0.1, (_, p) => f.scale.set(1 - p * 0.1, 1 + p * 0.15, 1 - p * 0.1));
+      f.scale.setScalar(1);
+      wiggle(s, this.host.obj, 0.015, 0.3);
+      sfx.tick();
+    }
+    const from = f.position.clone();
+    const arc = kind === 'blanket' ? 1.8 : 1.2;
+    await s.anim(0.38, (e) => {
+      f.position.lerpVectors(from, slot, e);
+      f.position.y += Math.sin(e * Math.PI) * arc;
+      f.rotation.z = e * Math.PI * 2;
+    }, Ease.inOut);
+    f.rotation.z = 0;
+    f.position.copy(slot);
+    sfx.pop();
+    const b = this.basket;
+    s.anim(0.2, (_, p) => { const k = Math.sin(p * Math.PI) * 0.08; b.scale.set(1 + k, 1 - k, 1 + k); }).then(() => b.scale.setScalar(1));
+  }
+
+  // Hedgehog's payoff, different each round (≈0.9 s, runs during the praise).
+  async eat(round) {
+    const s = this.s, h = this.hog, u = h.userData;
+    u.eating = true;
+    const how = round === WORM_ROUND ? 'worm' : EATS[round % EATS.length];
+    const spot = new T.Vector3(BASKET.x + 2.0, 0, BASKET.z - 0.1);
+    h.rotation.y = -1.2;
+    await s.wait(0.2);
+    if (how === 'worm') this.wormGag();
+    if (how === 'roll') {
+      // curls into a spiky ball and rolls over
+      sfx.boing2();
+      await s.anim(0.36, (e, p) => {
+        h.position.x = HOG_HOME.x + (spot.x - HOG_HOME.x) * e;
+        h.position.z = HOG_HOME.z + (spot.z - HOG_HOME.z) * e;
+        h.rotation.z = e * Math.PI * 2;
+        const k = 1 - Math.sin(p * Math.PI) * 0.3;
+        h.scale.set(1.1, k, 1.1);
+      }, Ease.inOut);
+      h.rotation.z = 0; h.scale.setScalar(1);
+    } else if (how === 'leap') {
+      // a big excited leap
+      sfx.highBoing();
+      await s.anim(0.36, (e, p) => {
+        h.position.x = HOG_HOME.x + (spot.x - HOG_HOME.x) * e;
+        h.position.z = HOG_HOME.z + (spot.z - HOG_HOME.z) * e;
+        h.position.y = Math.sin(p * Math.PI) * 1.4;
+      });
+      h.position.y = 0;
+      sfx.land();
+    } else {
+      // trot trot trot
+      sfx.patter();
+      await s.anim(0.36, (e, p) => {
+        h.position.x = HOG_HOME.x + (spot.x - HOG_HOME.x) * e;
+        h.position.z = HOG_HOME.z + (spot.z - HOG_HOME.z) * e;
+        h.position.y = Math.abs(Math.sin(p * Math.PI * 4)) * 0.15;
+      });
+      h.position.y = 0;
+    }
+    if (this.dead) return;
+    if (how === 'worm') {
+      // the worm got there first! Hedgehog jumps back in surprise, then giggles
+      setFace(u.face, 'scared');
+      sfx.gasp();
+      await s.anim(0.3, (_, p) => { h.position.x = spot.x + Math.sin(p * Math.PI / 2) * 0.8; h.position.y = Math.sin(p * Math.PI) * 0.6; });
+      h.position.y = 0;
+      setFace(u.face, 'happy');
+      sfx.giggle();
+    } else {
+      // CHOMP: the fruit vanishes, cheeks puff, a happy wiggle
+      sfx.chomp();
+      for (const q of this.fruits) s.tween(q.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in);
+      fx.float(new T.Vector3(spot.x, 2.0, spot.z), '♥', { color: '#ff7aa8', size: 7 });
+      await s.anim(0.25, (_, p) => { const k = Math.sin(p * Math.PI) * 0.18; h.scale.set(1 + k, 1 - k * 0.5, 1 + k); });
+      h.scale.setScalar(1);
+      sfx.mmm();
+      wiggle(s, h, 0.2, 0.35);
+    }
+    u.eating = false;
+  }
+
+  wormGag() {
+    const w = makeWorm();
+    w.position.set(BASKET.x - 0.3, 0.7, BASKET.z);
+    w.scale.setScalar(0.001);
+    this.root.add(w);
+    this.worm = w;
+    const s = this.s, segs = w.userData.segs;
+    sfx.squeak();
+    s.anim(0.3, (_, p) => { w.scale.setScalar(Math.max(0.001, Ease.back(p) * 0.9)); w.position.y = 0.7 + p * 0.4; });
+    // wiggle-waggle, gobble the fruit, wave, dive back down
+    s.anim(1.1, (_, p) => {
+      segs.forEach((q, k) => { q.position.x = Math.sin(p * 14 - k * 0.9) * 0.08; });
+      w.userData.head.position.x = Math.sin(p * 14 - 4 * 0.9) * 0.1;
+      w.rotation.z = Math.sin(p * 10) * 0.2;
+    });
+    s.wait(0.4).then(() => {
+      sfx.chomp();
+      for (const q of this.fruits) s.tween(q.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in);
+      fx.float(new T.Vector3(BASKET.x, 2.6, BASKET.z), '♥', { color: '#ff7aa8', size: 7 });
+    });
+    s.wait(0.9).then(() => { if (this.worm === w) { sfx.boing2(); s.tween(w.position, { y: -0.6 }, 0.3, Ease.in); } });
   }
 
   showHint(glow = true) {

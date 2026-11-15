@@ -16,7 +16,7 @@ Fifteen touchscreen learning games for a 2-year-old, in three worlds (meadow, be
 |---|---|
 | **Pick a level** | The **Level 1 · 2 · 3** buttons, bottom-left of the home screen. The level applies to every game. |
 | **More games** | **Swipe** left or right on the home screen, or tap the ◀ ▶ arrows. World 1 is the meadow, World 2 the beach and World 3 the farm. |
-| Open the parent panel | Hold the **top-right corner** for 3 seconds. The panel has the quit button, sound volume, sticker reset and recent results. |
+| Open the parent panel (and **Quit**) | Hold the **⚙️ gear button** in the top-right corner for 1.5 seconds. The panel has the quit button, sound volume, sticker reset and recent results. |
 | Quit from the keyboard | Ctrl+Shift+Q (⌘⇧Q on a Mac) |
 | Go back home (the child can do this) | Hold the 🏠 button for about 1 second |
 | Sleepy time | After 20 minutes a "bye bye" moon screen appears. Dismiss it from the parent panel. |
@@ -94,6 +94,9 @@ app/src/lessons/       the fifteen games and meta.js (worlds and the taxonomy ma
 app/src/home.js        home screen (one page per world, swipe between them)
 app/src/engine/beach.js  beach props: crab, bucket, ball, shell, sponge, gull, body-part anchors
 tools/snap.js          dev tool: drives the app and saves screenshots
+tools/viewmodel.sh     renders one character model (front, 3/4, side, close-up)
+tools/autoplay.js      plays every game automatically (inject with snap.js) for testing
+app/src/models/        one file per character model
 docs/DESIGN.md         the design plan for the original five games
 docs/DESIGN-WORLD2.md  the design for the beach world and the level tables
 docs/DESIGN-WORLD3.md  the farm world, the polish pass and the quality review
