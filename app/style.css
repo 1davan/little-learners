@@ -52,7 +52,7 @@ body[data-mode="home"] #home-btn { display: none; }
 }
 
 /* parent gate: hold top-right corner 3 s */
-#parent-corner { position: fixed; right: 1.6vmin; top: 1.6vmin; width: 9vmin; height: 9vmin; z-index: 10; border-radius: 50%;
+#parent-corner { position: fixed; right: 1.6vmin; top: 1.6vmin; width: 9vmin; height: 9vmin; z-index: 13; border-radius: 50%;
   background: rgba(255,255,255,.75); border: .45vmin solid var(--ink); display: grid; place-items: center; opacity: .8; }
 #parent-corner .ring { inset: -.6vmin; }
 #parent-corner .gear { font-size: 4.6vmin; line-height: 1; margin-top: -1.2vmin; }

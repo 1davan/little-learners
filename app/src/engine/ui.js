@@ -188,6 +188,13 @@ sleepy.innerHTML = '<div class="moon">🌙</div><div class="zzz">💤</div>';
 ui.appendChild(sleepy);
 let sessionStart = Date.now();
 const SESSION_MS = 20 * 60 * 1000;
+// Only count play time: if nobody has touched the screen for 5 minutes, start the clock again.
+let lastInput = Date.now();
+window.addEventListener('pointerdown', () => {
+  const now = Date.now();
+  if (now - lastInput > 5 * 60 * 1000 && !sleepy.classList.contains('on')) sessionStart = now;
+  lastInput = now;
+}, true);
 export function checkSleepy() {
   if (Date.now() - sessionStart > SESSION_MS && !sleepy.classList.contains('on')) {
     sleepy.classList.add('on');
