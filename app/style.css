@@ -52,8 +52,11 @@ body[data-mode="home"] #home-btn { display: none; }
 }
 
 /* parent gate: hold top-right corner 3 s */
-#parent-corner { position: fixed; right: 0; top: 0; width: 11vmin; height: 11vmin; z-index: 10; }
-#parent-corner .ring { inset: 2vmin; }
+#parent-corner { position: fixed; right: 1.6vmin; top: 1.6vmin; width: 9vmin; height: 9vmin; z-index: 10; border-radius: 50%;
+  background: rgba(255,255,255,.75); border: .45vmin solid var(--ink); display: grid; place-items: center; opacity: .8; }
+#parent-corner .ring { inset: -.6vmin; }
+#parent-corner .gear { font-size: 4.6vmin; line-height: 1; margin-top: -1.2vmin; }
+#parent-corner .hold { position: absolute; bottom: .7vmin; font-size: 1.8vmin; font-weight: 800; color: var(--ink); letter-spacing: .05em; }
 
 /* sticker shelf on home */
 #shelf {

@@ -8,6 +8,7 @@ import { resumeAudio, setVolume } from './engine/audio.js';
 import { store } from './engine/store.js';
 import { fadeTo, setMode, setHomeHandler, setResetHandler, renderShelf } from './engine/ui.js';
 import { Home } from './home.js';
+import { Viewer } from './viewer.js';
 import { META, worldIndex } from './lessons/meta.js';
 import ColoursLesson from './lessons/colours.js';
 import CountingLesson from './lessons/counting.js';
@@ -49,8 +50,8 @@ export const router = {
     currentName = name;
     if (name === 'home') { if (opts.page !== undefined) lastPage = opts.page; opts = { ...opts, page: lastPage }; }
     else lastPage = worldIndex(name);
-    if (name !== 'home' && !LESSONS[name]) { switching = false; return router.go('home'); }
-    current = name === 'home' ? new Home(router, opts) : new LESSONS[name](router, META[name]);
+    if (name !== 'home' && name !== 'viewer' && !LESSONS[name]) { switching = false; return router.go('home'); }
+    current = name === 'home' ? new Home(router, opts) : name === 'viewer' ? new Viewer(router, opts) : new LESSONS[name](router, META[name]);
     setMode(name);
     current.start().catch((e) => console.error(e));
     await new Promise((r) => setTimeout(r, 120));

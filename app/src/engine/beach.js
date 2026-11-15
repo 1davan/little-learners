@@ -1,58 +1,11 @@
 // Beach-world props built from primitives: crab, bucket, beach ball, shell, sponge, duck, bubbles.
 import * as T from '../three.js';
 import { mesh, geo, ink, basic, blobShadow, toon } from './toon.js';
-import { C, makeFace } from './actors.js';
-
-export function makeCrab(color = 0xff5a4a) {
-  const g = new T.Group();
-  const body = mesh(geo.sphere(0.7, 20, 14), color, { outline: 0.035 });
-  body.scale.set(1.25, 0.7, 0.95);
-  body.position.y = 0.55;
-  g.add(body);
-  // eyes on stalks
-  const eyes = [];
-  for (const s of [-1, 1]) {
-    const stalk = mesh(geo.cyl(0.05, 0.06, 0.45, 8), color, { outline: 0.015 });
-    stalk.position.set(s * 0.28, 1.05, 0.35);
-    const eye = mesh(geo.sphere(0.17, 12, 10), 0xffffff, { outline: 0.02 });
-    eye.position.set(s * 0.28, 1.32, 0.38);
-    const pupil = ink(geo.sphere(0.085, 10, 8));
-    pupil.position.set(0, 0, 0.12);
-    eye.add(pupil);
-    g.add(stalk, eye); eyes.push(eye);
-  }
-  const smile = ink(geo.torus(0.18, 0.04, Math.PI, 6, 16));
-  smile.rotation.z = Math.PI;
-  smile.position.set(0, 0.62, 0.66);
-  g.add(smile);
-  // claws
-  const claws = [];
-  for (const s of [-1, 1]) {
-    const arm = mesh(geo.cyl(0.07, 0.08, 0.5, 8), color, { outline: 0.015 });
-    arm.position.set(s * 0.95, 0.65, 0.2);
-    arm.rotation.z = s * 0.9;
-    const claw = new T.Group();
-    const top = mesh(geo.sphere(0.25, 12, 8), color, { outline: 0.02 });
-    top.scale.set(1, 0.6, 0.7);
-    top.position.y = 0.08;
-    const bot = mesh(geo.sphere(0.2, 12, 8), color, { outline: 0.02 });
-    bot.scale.set(1, 0.5, 0.7);
-    bot.position.y = -0.1;
-    claw.add(top, bot);
-    claw.position.set(s * 1.2, 0.95, 0.25);
-    g.add(arm, claw); claws.push(claw);
-  }
-  // legs
-  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
-    const leg = mesh(geo.cyl(0.04, 0.05, 0.5, 6), color, { outline: 0.012 });
-    leg.position.set(s * (0.6 + i * 0.12), 0.22, -0.15 + i * 0.18);
-    leg.rotation.z = s * 1.0;
-    g.add(leg);
-  }
-  g.add(blobShadow(0.9));
-  g.userData = { body, eyes, claws, kind: 'crab' };
-  return g;
-}
+import { C, makeFace } from './faces.js';
+import { makeCrab } from '../models/crab.js';
+import { makeDuck } from '../models/duck.js';
+import { makeGull } from '../models/gull.js';
+export { makeCrab, makeDuck, makeGull };
 
 export function makeBucket(color = 0x4a90ff, r = 1.0, h = 1.3) {
   const g = new T.Group();
@@ -121,24 +74,6 @@ export function makeSponge() {
   return g;
 }
 
-export function makeDuck(s = 1) {
-  const g = new T.Group();
-  const body = mesh(geo.sphere(0.5, 16, 12), C.yellow, { outline: 0.03 });
-  body.scale.set(1.2, 0.8, 0.9);
-  body.position.y = 0.4;
-  const head = mesh(geo.sphere(0.32, 14, 10), C.yellow, { outline: 0.025 });
-  head.position.set(0.3, 0.9, 0);
-  const beak = mesh(geo.sphere(0.14, 10, 8), C.orange, { outline: 0.015 });
-  beak.scale.set(1.4, 0.5, 1);
-  beak.position.set(0.6, 0.85, 0);
-  const eye = ink(geo.sphere(0.05, 8, 6));
-  eye.position.set(0.42, 1.0, 0.25);
-  g.add(body, head, beak, eye);
-  g.scale.setScalar(s);
-  g.userData = { body, head, kind: 'duck', baseScale: s };
-  return g;
-}
-
 const bubbleMat = new T.MeshToonMaterial({ color: 0xdff6ff, transparent: true, opacity: 0.75 });
 bubbleMat.userData.shared = true;
 export function makeBubble(r = 0.2) {
@@ -151,39 +86,6 @@ export function makeBubble(r = 0.2) {
 
 export { makeFace };
 
-export function makeGull() {
-  const g = new T.Group();
-  const body = mesh(geo.sphere(0.5, 16, 12), 0xffffff, { outline: 0.03 });
-  body.scale.set(1.3, 0.85, 0.9);
-  body.position.y = 0.6;
-  const head = mesh(geo.sphere(0.32, 14, 10), 0xffffff, { outline: 0.025 });
-  head.position.set(0, 1.15, 0.2);
-  const beak = mesh(geo.cone(0.09, 0.35, 8), C.orange, { outline: 0.012 });
-  beak.rotation.x = Math.PI / 2;
-  beak.position.set(0, 1.1, 0.55);
-  for (const s of [-1, 1]) {
-    const e = ink(geo.sphere(0.055, 8, 6));
-    e.position.set(s * 0.15, 1.22, 0.45);
-    head.parent; g.add(e);
-  }
-  const wings = [];
-  for (const s of [-1, 1]) {
-    const w = mesh(geo.sphere(0.4, 12, 8), 0xa4abbd, { outline: 0.02 });
-    w.scale.set(1.3, 0.2, 0.6);
-    w.position.set(s * 0.65, 0.75, -0.05);
-    g.add(w); wings.push(w);
-  }
-  for (const s of [-1, 1]) {
-    const leg = mesh(geo.cyl(0.03, 0.03, 0.3, 6), C.orange, { outline: 0 });
-    leg.position.set(s * 0.15, 0.15, 0);
-    g.add(leg);
-  }
-  g.add(body, head, beak);
-  g.userData = { head, wings, kind: 'gull' };
-  return g;
-}
-
-// Named body-part anchors on an animal from makeAnimal() (group-local, scale 1). Used by "Pip's nose" and "Splash wash".
 const EARS = { bear: [0.5, 2.3, -0.05], bunny: [0.28, 2.75, -0.05], cat: [0.4, 2.42, 0], frog: [0.25, 2.28, 0.38] };
 export function partAnchors(animal) {
   const kind = animal.userData.kind;
@@ -193,6 +95,8 @@ export function partAnchors(animal) {
   };
   const e = EARS[kind] || EARS.bear;
   P.earL = [-e[0], e[1], e[2] + 0.15]; P.earR = [e[0], e[1], e[2] + 0.15];
+  // a model can publish its own anchor points (scale-1, model space): userData.anchors = { nose: [x,y,z], ... }
+  Object.assign(P, animal.userData.anchors || {});
   const out = {};
   for (const [k, v] of Object.entries(P)) { const o = new T.Object3D(); o.position.set(...v); animal.add(o); out[k] = o; }
   return out;

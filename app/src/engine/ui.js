@@ -138,12 +138,12 @@ export function awardSticker(meta) {
   });
 }
 
-// ---------- parent gate (hold top-right corner 3 s) ----------
+// ---------- parent menu: a visible gear, top-right. Hold it 1.5 s (so little fingers don't open it by accident) ----------
 const corner = document.createElement('div');
 corner.id = 'parent-corner';
-corner.innerHTML = '<div class="ring"></div>';
+corner.innerHTML = '<div class="ring"></div><span class="gear">⚙️</span><span class="hold">hold</span>';
 ui.appendChild(corner);
-holdButton(corner, 3000, () => openParentPanel());
+holdButton(corner, 1500, () => openParentPanel());
 
 const panel = document.createElement('div');
 panel.id = 'parent-panel';
