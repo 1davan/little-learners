@@ -1,6 +1,6 @@
 # Little Learners
 
-Fifteen touchscreen learning games for a 2-year-old, in three worlds (meadow, beach, farm), each with Levels 1–3. Built with Three.js. Everything runs offline; the app makes no network requests.
+Seventeen touchscreen learning games for a 2-year-old, in five worlds (meadow, beach, farm, dress up, building site), each with Levels 1–3 that also change how every world looks. Built with Three.js; every character and prop is sculpted and rigged in Blender (tools/blender). Everything runs offline; the app makes no network requests.
 
 ## Running it
 
@@ -16,10 +16,9 @@ Fifteen touchscreen learning games for a 2-year-old, in three worlds (meadow, be
 |---|---|
 | **Pick a level** | The **Level 1 · 2 · 3** buttons, bottom-left of the home screen. The level applies to every game. |
 | **More games** | **Swipe** left or right on the home screen, or tap the ◀ ▶ arrows. World 1 is the meadow, World 2 the beach and World 3 the farm. |
-| Open the parent panel (and **Quit**) | Hold the **⚙️ gear button** in the top-right corner for 1.5 seconds. The panel has the quit button, sound volume, sticker reset and recent results. |
+| Open the parent panel (and **Quit**) | Hold the **⚙️ gear button** in the top-right corner for 1.5 seconds. The panel has the quit button, sound and music volume, sticker reset and recent results. |
 | Quit from the keyboard | Ctrl+Shift+Q (⌘⇧Q on a Mac) |
 | Go back home (the child can do this) | Hold the 🏠 button for about 1 second |
-| Sleepy time | After 20 minutes a "bye bye" moon screen appears. Dismiss it from the parent panel. |
 
 **How each round starts.** A speech bubble at the top of the screen shows Pip's words for you to read aloud, and a 👆 hand demonstrates the move straight away. A drag leaves a dotted trail. You can then do it together with your child. On Level 3 the hand shows the kind of move without giving the answer away. If nothing happens for a while, the cue plays again.
 
@@ -31,7 +30,13 @@ Fifteen touchscreen learning games for a 2-year-old, in three worlds (meadow, be
 
 **Tip for Windows touch laptops:** swipes from the screen edge open Windows menus. You can turn edge swipes off in Windows settings, or use Assigned Access (kiosk mode), so little fingers can't leave the app.
 
-## The fifteen games
+## The games
+
+**New:** 🐒 Dress Monkey (world 4: drag clothes from the wardrobe onto Monkey; L1 hats, L2 tops, L3 dressing for the weather) and 🧱 Brick letters (world 5: tap bricks to build A–T, 5 bricks per letter rising to 20, counting each brick; L1 A–G, L2 H–N, L3 O–T).
+
+**Music:** one gentle instrumental loop per world (made with Suno for personal use), plus CC0 sound effects (see app/assets/sfx/CREDITS.md).
+
+**Tapping animals:** they react in ~15 different ways, getting sillier; after 15 quick taps they nap for a few seconds (3 taps wake them).
 
 All fifteen use topics from the [Marble os-taxonomy](https://github.com/withmarbleapp/os-taxonomy). The taxonomy rates these topics for ages 3 and up, so for a 2-year-old they are early exposures.
 
@@ -96,7 +101,9 @@ app/src/engine/beach.js  beach props: crab, bucket, ball, shell, sponge, gull, b
 tools/snap.js          dev tool: drives the app and saves screenshots
 tools/viewmodel.sh     renders one character model (front, 3/4, side, close-up)
 tools/autoplay.js      plays every game automatically (inject with snap.js) for testing
-app/src/models/        one file per character model
+app/src/models/        old code-built models (fallbacks)
+tools/blender/         Blender scripts that sculpt, paint and rig every character and prop (build.sh → app/assets/models/*.glb)
+app/assets/            models, sound effects and music
 docs/DESIGN.md         the design plan for the original five games
 docs/DESIGN-WORLD2.md  the design for the beach world and the level tables
 docs/DESIGN-WORLD3.md  the farm world, the polish pass and the quality review

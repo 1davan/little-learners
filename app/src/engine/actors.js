@@ -16,8 +16,10 @@ import { makePig } from '../models/pig.js';
 import { makeSheep } from '../models/sheep.js';
 import { makeHorse } from '../models/horse.js';
 import { C, makeFace, setFace } from './faces.js';
-export { C, makeFace, setFace, makePip };
-const MAKERS = { bear: makeBear, bunny: makeBunny, cat: makeCat, frog: makeFrog, elephant: makeElephant, hedgehog: makeHedgehog, cow: makeCow, pig: makePig, sheep: makeSheep, horse: makeHorse };
+import { orCreature } from './creature.js';
+const makePipAny = orCreature('pip', makePip);
+export { C, makeFace, setFace, makePipAny as makePip };
+const MAKERS = Object.fromEntries(Object.entries({ bear: makeBear, bunny: makeBunny, cat: makeCat, frog: makeFrog, elephant: makeElephant, hedgehog: makeHedgehog, cow: makeCow, pig: makePig, sheep: makeSheep, horse: makeHorse }).map(([k, f]) => [k, orCreature(k, f)]));
 export function makeAnimal(kind = 'bear') { return (MAKERS[kind] || makeBear)(); }
 
 // ---------- reusable animations (all take a tween scope) ----------
@@ -117,62 +119,11 @@ export function breathe(g, t, phase = 0) {
   // wings flutter a little now and then (Pip, gull)
   if (u.wings && u.kind === 'pip' && !u.poking) {
     const f = Math.max(0, Math.sin(t * 0.9 + phase) - 0.92) * 6;
-    u.wings[0].rotation.z = -0.3 - f * Math.sin(t * 30) * 0.3;
+    const w = u.wings[0];
+    if (w.userData.rz0 === undefined) w.userData.rz0 = w.rotation.z; // flutter around the wing's own rest angle
+    w.rotation.z = w.userData.rz0 + f * Math.sin(t * 30) * 0.3;
   }
 }
 
-// ---------- poke reactions: tapping a character outside the game makes it react (never a wrong answer) ----------
-const POKE = {
-  pip: { snd: 'cheep', anim: 'hop', h: 0.7 },
-  bear: { snd: 'mmm', anim: 'wobble' },
-  bunny: { snd: 'boing2', anim: 'hop', h: 1.0 },
-  cat: { snd: 'meow', anim: 'wobble' },
-  frog: { snd: 'ribbit', anim: 'hop', h: 1.2 },
-  elephant: { snd: 'trumpet', anim: 'trunk' },
-  hedgehog: { snd: 'squeak', anim: 'curl' },
-  crab: { snd: 'tap', anim: 'shuffle' },
-  gull: { snd: 'gull', anim: 'hop', h: 0.4 },
-  duck: { snd: 'quack', anim: 'wobble' },
-  cow: { snd: 'moo', anim: 'wobble' },
-  pig: { snd: 'oink', anim: 'hop', h: 0.5 },
-  sheep: { snd: 'baa', anim: 'hop', h: 0.5 },
-  hen: { snd: 'cluck', anim: 'hop', h: 0.6 },
-  horse: { snd: 'neigh', anim: 'rear' },
-  chick: { snd: 'cheep', anim: 'hop', h: 0.6 },
-};
-export function canPoke(g) { return !!POKE[g.userData.kind]; }
-export async function poke(s, g) {
-  const u = g.userData, cfg = POKE[u.kind];
-  if (!cfg || u.poking) return;
-  u.poking = true;
-  sfx[cfg.snd] && sfx[cfg.snd]();
-  if (u.kind === 'crab') s.wait(0.12).then(() => sfx.tap());
-  const face = u.face;
-  const prev = face?.userData?.emotion;
-  if (face && prev) setFace(face, 'scared');
-  sfx.giggle && s.wait(0.25).then(() => { if (Math.random() < 0.5) sfx.giggle(); });
-  const base = u.baseScale ?? g.scale.y;
-  if (cfg.anim === 'hop') await hop(s, g, cfg.h, 0.4, { sound: true });
-  else if (cfg.anim === 'curl') {
-    await s.anim(0.5, (_, p) => { const k = 1 - Math.sin(p * Math.PI) * 0.35; g.scale.set(base * (1 + (1 - k) * 0.5), base * k, base * (1 + (1 - k) * 0.5)); });
-    g.scale.setScalar(base);
-  } else if (cfg.anim === 'shuffle') {
-    const x0 = g.position.x;
-    await s.anim(0.5, (_, p) => { g.position.x = x0 + Math.sin(p * Math.PI * 4) * 0.25 * (1 - p); g.position.y = Math.abs(Math.sin(p * Math.PI * 4)) * 0.12; });
-    g.position.x = x0; g.position.y = 0;
-  } else if (cfg.anim === 'trunk' && u.trunk) {
-    const r0 = u.trunk[0].rotation.x;
-    await s.anim(0.7, (_, p) => { u.trunk[0].rotation.x = r0 - Math.sin(p * Math.PI) * 1.4; });
-    u.trunk[0].rotation.x = r0;
-  } else if (cfg.anim === 'rear') {
-    const r0 = g.rotation.x;
-    await s.anim(0.6, (_, p) => { g.rotation.x = r0 - Math.sin(p * Math.PI) * 0.35; });
-    g.rotation.x = r0;
-  } else {
-    // wobble: squash-and-stretch jelly
-    await s.anim(0.55, (_, p) => { const k = 1 + Math.sin(p * Math.PI * 5) * 0.12 * (1 - p); g.scale.set(base / Math.sqrt(k), base * k, base / Math.sqrt(k)); g.rotation.z = Math.sin(p * Math.PI * 4) * 0.12 * (1 - p); });
-    g.scale.setScalar(base); g.rotation.z = 0;
-  }
-  if (face && prev) setFace(face, prev);
-  u.poking = false;
-}
+// ---------- poke reactions live in react.js (varied, escalating, naps after 15 taps) ----------
+export { poke, canPoke } from './react.js';

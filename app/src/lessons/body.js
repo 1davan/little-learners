@@ -2,17 +2,23 @@
 // A big friendly bear in swim shorts; the child touches the body part Pip names. Every part reacts when touched,
 // and the reaction gets bigger each time that part is touched again. After a right answer Bear touches its own part
 // (boop!) and gets a bit of beach gear on it: sunglasses, a flower, a swim ring, flippers…
+// Each level has its own friends and beach spot (Level 1: Bear on a towel under the umbrella; Level 2: Bunny and Kitty
+// at the paddling pool; Level 3: Froggy, Kitty and Bear at the rock pool), and every right answer brings a shower of
+// beach toys that bounce and roll with real physics (feet kick a ball away, hands bat one back). Tap a toy to bounce it.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
-import { makeAnimal, setFace, popIn, hop, wiggle } from '../engine/actors.js';
+import { makeAnimal, setFace, popIn, popOut, hop, wiggle } from '../engine/actors.js';
 import { partAnchors } from '../engine/beach.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { GEAR } from './body-gear.js';
+import { GEAR, makeSet, makeToy } from './body-gear.js';
+import { physics } from '../engine/physics.js';
+import { project, screenRadius, setCamera } from '../engine/stage.js';
 
 const SCALE = 2.15;
+const MAX_H = 5.5;                 // tallest a friend may stand (a bunny's ears stay below the caption)
 // part name → anchors it covers, tap radius (world units), what Pip calls it
 const PARTS = {
   nose: { anchors: ['nose'], r: 0.55, word: 'nose' },
@@ -25,27 +31,105 @@ const PARTS = {
 };
 const SENSE = { eyes: 'We see with our eyes!', nose: 'We smell with our nose!', ears: 'We hear with our ears!', mouth: 'We eat with our mouth!' };
 // [friend, part] per round
+// toys: what showers down after each right answer (a different one every round)
 const PLANS = [
-  { live: ['nose', 'tummy', 'ears', 'feet'], rounds: [['bear', 'nose'], ['bear', 'tummy'], ['bear', 'ears'], ['bear', 'feet'], ['bear', 'nose'], ['bear', 'tummy']] },
-  { live: Object.keys(PARTS), rounds: [['bear', 'eyes'], ['bear', 'hands'], ['bear', 'mouth'], ['bear', 'ears'], ['bear', 'feet'], ['bear', 'nose']] },
-  { live: Object.keys(PARTS), rounds: [['bear', 'eyes'], ['bear', 'nose'], ['bear', 'ears'], ['bear', 'mouth'], ['bunny', 'ears'], ['bunny', 'feet']], senses: true },
+  { live: ['nose', 'tummy', 'ears', 'feet'], rounds: [['bear', 'nose'], ['bear', 'tummy'], ['bear', 'ears'], ['bear', 'feet'], ['bear', 'nose'], ['bear', 'tummy']],
+    toys: ['flower', 'ball', 'shell', 'ball', 'star', 'duck'] },
+  { live: Object.keys(PARTS), rounds: [['bunny', 'eyes'], ['bunny', 'hands'], ['bunny', 'mouth'], ['cat', 'ears'], ['cat', 'feet'], ['cat', 'nose']],
+    toys: ['star', 'ball', 'duck', 'shell', 'ball', 'flower'] },
+  { live: Object.keys(PARTS), rounds: [['frog', 'eyes'], ['frog', 'mouth'], ['cat', 'nose'], ['cat', 'ears'], ['bear', 'hands'], ['bear', 'feet']], senses: true,
+    toys: ['star', 'spade', 'flower', 'duck', 'ball', 'ball'] },
 ];
-const NAME = { bear: 'Bear', bunny: 'Bunny' };
+const NAME = { bear: 'Bear', bunny: 'Bunny', cat: 'Kitty', frog: 'Froggy' };
 const cap = (w) => w[0].toUpperCase() + w.slice(1);
 
 export default class BodyLesson extends Lesson {
   build() {
+    // closer in: the friend is big, and fits under the caption
+    setCamera(new T.Vector3(0, 3.3, 12.6), new T.Vector3(0, 2.3, 0));
+    this.pip.position.set(-6.4, 0, -2.8);
+    this.fs = SCALE;
     this.cfg = PLANS[this.level];
     this.kind = null;
+    this.set = makeSet(this.level);
+    this.root.add(this.set);
+    for (const d of this.set.userData.statics) {
+      if (Array.isArray(d)) { const [x, y, z, sx, sy, sz] = d; physics.box(new T.Vector3(x, y, z), new T.Vector3(sx, sy, sz)); }
+      else physics.container(new T.Vector3(...d.cont), { r: d.r, h: d.h });
+    }
+    this.toys = [];
+  }
+
+  // ---- physics toys ----
+  toss(kind, from, to, { delay = 0, time = 0.5, arc = 1.5 } = {}) {
+    const t = makeToy(kind);
+    t.position.copy(from);
+    t.visible = false;
+    this.root.add(t);
+    this.toys.push(t);
+    const go = this.s.wait(delay).then(() => {
+      if (!t.parent) return;
+      t.visible = true;
+      const p = physics.toss(t, to, { time, arc, shape: t.userData.shape, r: t.userData.r ?? undefined, bounce: kind === 'ball' ? 0.7 : 0.4 });
+      if (kind !== 'ball') physics.body(t)?.setAngularDamping(4); // shells and apples settle where they land instead of rolling off
+      return p;
+    });
+    return { t, go };
+  }
+  clearToys(keep = 6) {
+    // the oldest toys pop away so the beach never gets too cluttered
+    while (this.toys.length > keep) { const t = this.toys.shift(); physics.remove(t); popOut(this.s, t, 0.2).then(() => this.root.remove(t)); }
+  }
+  // After a right answer: a little shower of this round's toy lands beside the friend; feet kick a ball, hands bat one.
+  toyShower(part) {
+    const kind = this.cfg.toys[this.round - 1] || 'shell'; // success() has already moved the round on
+    const s = this.s;
+    if (part === 'feet') {
+      const foot = this.wp('footR');
+      const { t, go } = this.toss('ball', new T.Vector3(7, 4, 2), new T.Vector3(foot.x + 0.7, 0.45, foot.z + 0.4), { time: 0.4, arc: 1 });
+      go.then(() => s.wait(0.05)).then(() => { sfx.boing(); physics.impulse(t, { x: 7, y: 7, z: -1 }, { x: 0, y: 0, z: -3 }); });
+      return;
+    }
+    if (part === 'hands') {
+      const hand = this.wp('handR');
+      const { t } = this.toss('ball', new T.Vector3(7, 3, 1.5), hand.clone().add(new T.Vector3(0.2, 0, 0.5)), { time: 0.38, arc: 1 });
+      s.wait(0.4).then(() => { if (physics.has(t)) { sfx.boing(); physics.impulse(t, { x: 4, y: 6, z: 0.5 }, { x: 0, y: 0, z: 2 }); } });
+      return;
+    }
+    const n = kind === 'ball' ? 2 : 5;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 ? 1 : -1;
+      const to = new T.Vector3(0.4 + side * (2.4 + Math.random() * 1.6), 0.3, 0.4 + Math.random() * 1.0);
+      this.toss(kind, new T.Vector3(to.x + side * 1.5, 9, to.z - 1), to, { delay: i * 0.06, time: 0.45, arc: 0.5 });
+    }
+    s.wait(0.5).then(() => sfx.bloop(2));
+  }
+  pokeAt(x, y) {
+    if (super.pokeAt(x, y)) return true;
+    const wp = new T.Vector3();
+    for (const t of this.toys) {
+      if (!physics.has(t)) continue;
+      t.getWorldPosition(wp);
+      const c = project(wp);
+      if (Math.hypot(c.x - x, c.y - y) < Math.max(screenRadius(wp, 0.5), Math.min(innerWidth, innerHeight) * 0.06)) {
+        physics.poke(t, 1); t.userData.toy === 'ball' ? sfx.boing() : sfx.bloop(Math.floor(Math.random() * 4));
+        return true;
+      }
+    }
+    return false;
   }
 
   spawnFriend(kind) {
     if (this.friend) this.root.remove(this.friend);
     for (const t of this.taps || []) input.remove(t);
     const f = makeAnimal(kind);
+    f.userData.noLook = true; // tap targets are rest-pose anchors, so the head stays facing the child
     f.position.set(0.4, 0, 0.6);
-    f.scale.setScalar(SCALE);
-    f.userData.baseScale = SCALE;
+    f.updateMatrixWorld(true);
+    const h = new T.Box3().setFromObject(f).getSize(new T.Vector3()).y || 2.3;
+    this.fs = Math.min(SCALE, MAX_H / h);
+    f.scale.setScalar(this.fs);
+    f.userData.baseScale = this.fs;
     this.root.add(f);
     this.friend = f;
     this.kind = kind;
@@ -70,7 +154,7 @@ export default class BodyLesson extends Lesson {
     if (kind !== this.kind) {
       if (this.friend) { sfx.whoosh(); await this.s.tween(this.friend.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.22, Ease.in); }
       const f = this.spawnFriend(kind);
-      await popIn(this.s, f, SCALE, 0.2);
+      await popIn(this.s, f, this.fs, 0.2);
       if (r > 0) { hop(this.s, f, 0.5, 0.35, { sound: true }); await this.say(`Hello ${NAME[kind]}!`, { max: 0.6 }); }
     }
     setFace(this.friend.userData.face, 'happy');
@@ -160,7 +244,7 @@ export default class BodyLesson extends Lesson {
     if (!arms.length) return;
     const home = this.armHome;
     // which paw goes where (world points), per part
-    const pt = (a, dx = 0, dy = 0, dz = 0.12) => this.wp(a).add(new T.Vector3(dx * SCALE, dy * SCALE, dz * SCALE));
+    const pt = (a, dx = 0, dy = 0, dz = 0.12) => this.wp(a).add(new T.Vector3(dx * this.fs, dy * this.fs, dz * this.fs));
     let goals;
     if (name === 'nose') goals = [null, pt('nose', 0.08, -0.03)];
     else if (name === 'mouth') goals = [null, pt('mouth', 0.1, -0.03)];
@@ -238,20 +322,24 @@ export default class BodyLesson extends Lesson {
     this.react(name, a, { correct: ok });
     const who = NAME[this.kind];
     if (!ok) {
-      this.redirect(`That's ${who}'s ${PARTS[name].word}. Find ${PARTS[this.part].word}!`);
+      this.redirect(`That's the ${PARTS[name].word}. Find ${PARTS[this.part].word}!`);
       return;
     }
     const w = PARTS[name].word;
     this.success(this.wp(a), `${cap(w)}!`);
+    this.clearToys();
+    this.toyShower(name);
     this.s.wait(0.12).then(() => this.addGear(name));
     this.s.wait(name === 'hands' ? 0.05 : 0.3).then(() => this.selfTouch(name));
   }
 
+  // a stuck child: the part's spot hops (invisible) and, at the second nudge, its halo rings the part
+  nudgeTarget() { return this.anchors && !this.busy ? this.targetAnchor() : null; }
   targetAnchor() { return this.anchors[PARTS[this.part].anchors[0]]; }
   showHint(glow = true) {
     if (!this.anchors) return;
     const a = this.targetAnchor();
-    if (glow) this.addHalo(a, PARTS[this.part].r * SCALE * 0.5 + 0.3);
+    if (glow) this.addHalo(a, PARTS[this.part].r * this.fs * 0.5 + 0.3);
     fx.ghostPath([a.getWorldPosition(new T.Vector3())], { mode: 'tap' });
   }
   choicePoints() {

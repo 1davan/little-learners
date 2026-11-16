@@ -211,3 +211,106 @@ export const sfx = {
   gull: safe(() => { tone({ type: 'sawtooth', f0: 900, f1: 700, dur: 0.18, vol: 0.06 }); tone({ type: 'sawtooth', f0: 950, f1: 720, dur: 0.2, vol: 0.06, t: 0.22 }); }),
   sparkle: safe(() => { [7, 5, 6, 7].forEach((n, k) => tone({ f0: SCALE[n], dur: 0.25, vol: 0.08, t: k * 0.05 })); }),
 };
+
+// ---------- recorded sounds (CC0, app/assets/sfx, see CREDITS.md) ----------
+// Each event has several takes; a random one plays (never the same twice running) with a touch of pitch
+// variation. Events without recordings keep their synthesized versions above.
+const SKIP = new Set(['moo_2.ogg', 'cheep_2.ogg', 'mouse_1.ogg']);       // people imitating animals
+const KEEP_SYNTH = new Set(['chime', 'note', 'tick']); // pitched / musical: keep exact
+const ALIAS = { boing2: 'highBoing', ooh: 'monkey', puff: 'pop', jingle: 'success', yawn: 'slideDown', chirp: 'cheep' };
+const GAIN = { giggle: 0.8, oink: 0.8, sneeze: 0.7, splash: 0.8, fanfare: 0.85, success: 0.85 };
+const buffers = {};
+export async function loadSamples() {
+  let man;
+  try { man = await (await fetch('assets/sfx/manifest.json')).json(); } catch (e) { console.warn('no sfx', e); return; }
+  const c = ac();
+  await Promise.all(Object.entries(man).map(async ([ev, files]) => {
+    const list = await Promise.all(files.filter((f) => !SKIP.has(f)).map(async (f) => {
+      try { return await c.decodeAudioData(await (await fetch('assets/sfx/' + f)).arrayBuffer()); } catch (e) { return null; }
+    }));
+    const ok = list.filter(Boolean);
+    if (ok.length) buffers[ev] = ok;
+  }));
+  const keys = new Set([...Object.keys(sfx), ...Object.keys(buffers), ...Object.keys(ALIAS)]);
+  for (const k of keys) {
+    if (KEEP_SYNTH.has(k)) continue;
+    const src = buffers[k] ? k : ALIAS[k] && buffers[ALIAS[k]] ? ALIAS[k] : null;
+    if (!src) continue;
+    sfx[k] = sampled(src, GAIN[k] ?? GAIN[src] ?? 1);
+  }
+}
+function sampled(ev, gain) {
+  let last = 0, lastI = -1;
+  return (arg) => {
+    const now = performance.now();
+    if (now - last < 60) return;
+    last = now;
+    try {
+      const c = ac(), list = buffers[ev];
+      let i = (Math.random() * list.length) | 0;
+      if (list.length > 1 && i === lastI) i = (i + 1) % list.length;
+      lastI = i;
+      const s = c.createBufferSource();
+      s.buffer = list[i];
+      // numeric argument = a step up in pitch (counting, rising sequences); otherwise ±1 semitone wobble
+      const semis = typeof arg === 'number' ? arg * 2 : (Math.random() * 2 - 1);
+      s.playbackRate.value = 2 ** (semis / 12);
+      const g = c.createGain();
+      g.gain.value = gain * duck();
+      s.connect(g); g.connect(master);
+      s.start();
+    } catch (e) { /* audio unavailable */ }
+  };
+}
+
+// ---------- background ambience: a quiet loop per world, crossfaded on world change ----------
+const AMB = { meadow: ['amb_meadow', 1.0], beach: ['amb_beach', 0.6], farm: ['amb_farm', 0.4], dressup: ['amb_room', 0.55] };
+let amb = null, ambKey = null;
+export function setAmbience(world) {
+  setMusic(world);
+  const e = AMB[world];
+  const key = e && e[0];
+  if (key === ambKey) return;
+  ambKey = key;
+  try {
+    const c = ac();
+    if (amb) { const old = amb; old.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.4); setTimeout(() => { try { old.s.stop(); } catch (er) { /* */ } }, 2000); amb = null; }
+    const buf = key && buffers[key] && buffers[key][0];
+    if (!buf) { if (key) setTimeout(() => { if (ambKey === key) { ambKey = null; setAmbience(world); } }, 1500); return; }
+    const s = c.createBufferSource(); s.buffer = buf; s.loop = true;
+    const g = c.createGain(); g.gain.value = 0.0001;
+    g.gain.setTargetAtTime(0.16 * e[1], c.currentTime, 0.8);
+    s.connect(g); g.connect(master); s.start();
+    amb = { s, g };
+  } catch (er) { /* audio unavailable */ }
+}
+
+// ---------- background music (Suno instrumentals, app/assets/music/<world>.ogg), one loop per world ----------
+// Quiet, crossfaded on world changes, ducked a little while effects play. Loaded on first use per world.
+let musicVol = 0.5, mus = null, musKey = null;
+const musBufs = {};
+export function setMusicVolume(v) { musicVol = v; if (mus) mus.g.gain.setTargetAtTime(0.28 * musicVol, ac().currentTime, 0.2); }
+export function getMusicVolume() { return musicVol; }
+async function musicBuf(world) {
+  if (!musBufs[world]) {
+    musBufs[world] = (async () => {
+      try { return await ac().decodeAudioData(await (await fetch(`assets/music/${world}.ogg`)).arrayBuffer()); } catch (e) { return null; }
+    })();
+  }
+  return musBufs[world];
+}
+export async function setMusic(world) {
+  if (world === musKey) return;
+  musKey = world;
+  try {
+    const c = ac();
+    if (mus) { const old = mus; old.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.5); setTimeout(() => { try { old.s.stop(); } catch (e) { /* */ } }, 2500); mus = null; }
+    const buf = world && (await musicBuf(world));
+    if (!buf || musKey !== world) return;
+    const s = c.createBufferSource(); s.buffer = buf; s.loop = true;
+    const g = c.createGain(); g.gain.value = 0.0001;
+    g.gain.setTargetAtTime(0.28 * musicVol, c.currentTime, 1.0);
+    s.connect(g); g.connect(master); s.start();
+    mus = { s, g };
+  } catch (e) { /* audio unavailable */ }
+}

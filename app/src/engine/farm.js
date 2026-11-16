@@ -3,9 +3,12 @@ import * as T from '../three.js';
 import { mesh, geo, toon, ink, blobShadow, basic } from './toon.js';
 import { makeAnimal, makeFace, C } from './actors.js';
 
-import { makeHen } from '../models/hen.js';
-import { makeChick } from '../models/chick.js';
-export { makeChick };
+import { makeHen as makeHenCode } from '../models/hen.js';
+import { makeChick as makeChickCode } from '../models/chick.js';
+import { orCreature } from './creature.js';
+import { propModel, propAnchor } from './prop-models.js';
+const makeHen = orCreature('hen', makeHenCode);
+export const makeChick = orCreature('chick', makeChickCode);
 export function makeFarmAnimal(kind) {
   if (kind === 'hen') return makeHen();
   if (kind === 'chick') return makeChick();
@@ -14,6 +17,12 @@ export function makeFarmAnimal(kind) {
 
 // ---------- props ----------
 export function makePot(col = 0xd9774a) {
+  const pm = propModel('prop_pot', { tint: col, size: [1.32, 1.75 / 1.3, 1.32] });
+  if (pm) { // the flowerpot model stands upright: turn it over (drainage hole on top)
+    stillProp(pm);
+    pm.userData.model.rotation.x = Math.PI; pm.userData.model.position.y = 1.75;
+    pm.add(blobShadow(1.3)); pm.userData.kind = 'pot'; return pm;
+  }
   const g = new T.Group();
   // upside-down flowerpot: wide rim at the bottom
   const pot = mesh(geo.cyl(0.85, 1.2, 1.7, 22), col, { outline: 0.035 });
@@ -29,7 +38,25 @@ export function makePot(col = 0xd9774a) {
   return g;
 }
 
-export function makeCarrot(s = 1) {
+// A Blender prop that should just sit there: no idle sway, no walking bob when dragged, no look-at (springs still work).
+export function stillProp(pm) {
+  const m = pm.userData.model;
+  m.userData.body = m; m.userData.head = m; m.userData.noWalk = true; m.userData.noLook = true;
+  return pm;
+}
+
+// Root centred on the origin (tip at y -0.52*s, shoulder at +0.5*s), leafy spring tuft above.
+// opts.face: show the cute face (hero moments); the wrapper's userData.face is then the face for setFace.
+export function makeCarrot(s = 1, { face = false } = {}) {
+  const pm = propModel('prop_carrot');
+  if (pm) {
+    stillProp(pm);
+    const f = pm.userData.model.userData.face;
+    if (f) f.visible = face;
+    pm.userData.face = face ? f : null;
+    pm.scale.setScalar(s);
+    return pm;
+  }
   const g = new T.Group();
   const c = mesh(geo.cone(0.22, 1.0, 12), 0xff8a2a, { outline: 0.025 });
   c.rotation.x = Math.PI;
@@ -46,10 +73,20 @@ export function makeCarrot(s = 1) {
   }
   g.add(c, tops);
   g.scale.setScalar(s);
+  g.userData.face = null;
   return g;
 }
 
 export function makeDrum(col = 0xd94f3d, r = 1.2, h = 1.2) {
+  const pm = propModel('prop_drum', { tint: col, size: [r, h, r] });
+  if (pm) { // Blender shell; the drum head stays a code mesh (games flash and squash userData.skin)
+    stillProp(pm);
+    const skin = mesh(geo.cyl(r * 1.0, r * 1.0, 0.08, 24), 0xfff6e6, { outline: 0.02 });
+    skin.position.y = h + 0.02;
+    pm.add(skin, blobShadow(r * 1.1));
+    pm.userData = { skin, shell: pm.userData.model, r, h };
+    return pm;
+  }
   const g = new T.Group();
   const shell = mesh(geo.cyl(r, r * 0.95, h, 24), col, { outline: 0.035 });
   shell.position.y = h / 2;
@@ -69,7 +106,9 @@ export function makeDrum(col = 0xd94f3d, r = 1.2, h = 1.2) {
   return g;
 }
 
-export function makeWateringCan() {
+export function makeWateringCan(col = 0x4a90ff) {
+  const pm = propModel('prop_can', { tint: col });
+  if (pm) { stillProp(pm); pm.userData.rose = propAnchor(pm, 'rose'); return pm; }
   const g = new T.Group();
   const body = mesh(geo.cyl(0.55, 0.6, 0.9, 18), 0x4a90ff, { outline: 0.03 });
   body.position.y = 0.45;
@@ -85,6 +124,8 @@ export function makeWateringCan() {
 }
 
 export function makeSeedBag() {
+  const pm = propModel('prop_seedbag');
+  if (pm) return stillProp(pm);
   const g = new T.Group();
   const b = mesh(geo.box(0.9, 1.1, 0.3), 0xfff1c9, { hull: 1.06, outline: 0 });
   b.position.y = 0.55;
@@ -96,6 +137,8 @@ export function makeSeedBag() {
 }
 
 export function makeSeed() {
+  const pm = propModel('prop_farmseed');
+  if (pm) return stillProp(pm);
   const s = mesh(geo.sphere(0.16, 10, 8), 0x7a4a26, { outline: 0.015 });
   s.scale.set(0.8, 1.15, 0.8);
   return s;

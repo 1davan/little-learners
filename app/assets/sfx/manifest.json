@@ -1,0 +1,340 @@
+{
+  "tap": [
+    "tap_1.ogg",
+    "tap_2.ogg",
+    "tap_3.ogg",
+    "tap_4.ogg"
+  ],
+  "pick": [
+    "pick_1.ogg",
+    "pick_2.ogg",
+    "pick_3.ogg"
+  ],
+  "land": [
+    "land_1.ogg",
+    "land_2.ogg",
+    "land_3.ogg"
+  ],
+  "thunk": [
+    "thunk_1.ogg",
+    "thunk_2.ogg",
+    "thunk_3.ogg"
+  ],
+  "bloop": [
+    "bloop_1.ogg",
+    "bloop_2.ogg",
+    "bloop_3.ogg",
+    "bloop_4.ogg"
+  ],
+  "patter": [
+    "patter_1.ogg",
+    "patter_2.ogg",
+    "patter_3.ogg"
+  ],
+  "hello": [
+    "hello_1.ogg",
+    "hello_2.ogg",
+    "hello_3.ogg"
+  ],
+  "roundStart": [
+    "roundStart_1.ogg",
+    "roundStart_2.ogg",
+    "roundStart_3.ogg"
+  ],
+  "swoosh": [
+    "swoosh_1.ogg",
+    "swoosh_2.ogg",
+    "swoosh_3.ogg",
+    "swoosh_4.ogg"
+  ],
+  "whoosh": [
+    "whoosh_1.ogg",
+    "whoosh_2.ogg",
+    "whoosh_3.ogg",
+    "whoosh_4.ogg"
+  ],
+  "boing": [
+    "boing_1.ogg",
+    "boing_2.ogg",
+    "boing_3.ogg",
+    "boing_4.ogg"
+  ],
+  "highBoing": [
+    "highBoing_1.ogg",
+    "highBoing_2.ogg",
+    "highBoing_3.ogg"
+  ],
+  "lowBoing": [
+    "lowBoing_1.ogg",
+    "lowBoing_2.ogg",
+    "lowBoing_3.ogg"
+  ],
+  "spring": [
+    "spring_1.ogg",
+    "spring_2.ogg"
+  ],
+  "wobble": [
+    "wobble_1.ogg",
+    "wobble_2.ogg"
+  ],
+  "moo": [
+    "moo_1.ogg",
+    "moo_2.ogg",
+    "moo_3.ogg",
+    "moo_4.ogg",
+    "moo_5.ogg"
+  ],
+  "oink": [
+    "oink_1.ogg",
+    "oink_2.ogg",
+    "oink_3.ogg",
+    "oink_4.ogg",
+    "oink_5.ogg",
+    "oink_6.ogg"
+  ],
+  "baa": [
+    "baa_1.ogg",
+    "baa_2.ogg",
+    "baa_3.ogg"
+  ],
+  "neigh": [
+    "neigh_1.ogg",
+    "neigh_2.ogg",
+    "neigh_3.ogg",
+    "neigh_4.ogg",
+    "neigh_5.ogg"
+  ],
+  "quack": [
+    "quack_1.ogg",
+    "quack_2.ogg",
+    "quack_3.ogg",
+    "quack_4.ogg",
+    "quack_5.ogg"
+  ],
+  "cluck": [
+    "cluck_1.ogg",
+    "cluck_2.ogg",
+    "cluck_3.ogg",
+    "cluck_4.ogg",
+    "cluck_5.ogg",
+    "cluck_6.ogg"
+  ],
+  "trumpet": [
+    "trumpet_1.ogg",
+    "trumpet_2.ogg",
+    "trumpet_3.ogg"
+  ],
+  "trumpetHi": [
+    "trumpetHi_1.ogg",
+    "trumpetHi_2.ogg"
+  ],
+  "cheep": [
+    "cheep_1.ogg",
+    "cheep_2.ogg",
+    "cheep_3.ogg",
+    "cheep_4.ogg",
+    "cheep_5.ogg"
+  ],
+  "ribbit": [
+    "ribbit_1.ogg",
+    "ribbit_2.ogg",
+    "ribbit_3.ogg",
+    "ribbit_4.ogg",
+    "ribbit_5.ogg"
+  ],
+  "meow": [
+    "meow_1.ogg",
+    "meow_2.ogg",
+    "meow_3.ogg",
+    "meow_4.ogg",
+    "meow_5.ogg"
+  ],
+  "purr": [
+    "purr_1.ogg",
+    "purr_2.ogg",
+    "purr_3.ogg",
+    "purr_4.ogg"
+  ],
+  "yawn": [
+    "yawn_1.ogg",
+    "yawn_2.ogg",
+    "yawn_3.ogg"
+  ],
+  "snore": [
+    "snore_1.ogg",
+    "snore_2.ogg",
+    "snore_3.ogg"
+  ],
+  "woof": [
+    "woof_1.ogg"
+  ],
+  "llama": [
+    "llama_1.ogg"
+  ],
+  "monkey": [
+    "monkey_1.ogg",
+    "monkey_2.ogg",
+    "monkey_3.ogg"
+  ],
+  "mouse": [
+    "mouse_1.ogg"
+  ],
+  "gull": [
+    "gull_1.ogg",
+    "gull_2.ogg",
+    "gull_3.ogg",
+    "gull_4.ogg"
+  ],
+  "pour": [
+    "pour_1.ogg",
+    "pour_2.ogg"
+  ],
+  "crunch": [
+    "crunch_1.ogg",
+    "crunch_2.ogg",
+    "crunch_3.ogg",
+    "crunch_4.ogg"
+  ],
+  "chomp": [
+    "chomp_1.ogg",
+    "chomp_2.ogg",
+    "chomp_3.ogg"
+  ],
+  "twinkle": [
+    "twinkle_1.ogg",
+    "twinkle_2.ogg",
+    "twinkle_3.ogg"
+  ],
+  "sparkle": [
+    "sparkle_1.ogg",
+    "sparkle_2.ogg",
+    "sparkle_3.ogg",
+    "sparkle_4.ogg"
+  ],
+  "tick": [
+    "tick_1.ogg",
+    "tick_2.ogg",
+    "tick_3.ogg"
+  ],
+  "pop": [
+    "pop_1.ogg",
+    "pop_2.ogg",
+    "pop_3.ogg",
+    "pop_4.ogg",
+    "pop_5.ogg",
+    "pop_6.ogg",
+    "pop_7.ogg"
+  ],
+  "chime": [
+    "chime_1.ogg",
+    "chime_2.ogg",
+    "chime_3.ogg",
+    "chime_4.ogg"
+  ],
+  "bell": [
+    "bell_1.ogg",
+    "bell_2.ogg",
+    "bell_3.ogg",
+    "bell_4.ogg",
+    "bell_5.ogg",
+    "bell_6.ogg",
+    "bell_7.ogg",
+    "bell_8.ogg"
+  ],
+  "drumSoft": [
+    "drumSoft_1.ogg",
+    "drumSoft_2.ogg",
+    "drumSoft_3.ogg",
+    "drumSoft_4.ogg",
+    "drumSoft_5.ogg"
+  ],
+  "drumLoud": [
+    "drumLoud_1.ogg",
+    "drumLoud_2.ogg",
+    "drumLoud_3.ogg"
+  ],
+  "boop": [
+    "boop_1.ogg",
+    "boop_2.ogg",
+    "boop_3.ogg"
+  ],
+  "fanfare": [
+    "fanfare_1.ogg",
+    "fanfare_2.ogg",
+    "fanfare_3.ogg",
+    "fanfare_4.ogg"
+  ],
+  "success": [
+    "success_1.ogg",
+    "success_2.ogg",
+    "success_3.ogg",
+    "success_4.ogg",
+    "success_5.ogg"
+  ],
+  "giggle": [
+    "giggle_1.ogg",
+    "giggle_2.ogg",
+    "giggle_3.ogg"
+  ],
+  "squeak": [
+    "squeak_1.ogg",
+    "squeak_2.ogg",
+    "squeak_3.ogg",
+    "squeak_4.ogg",
+    "squeak_5.ogg"
+  ],
+  "honk": [
+    "honk_1.ogg"
+  ],
+  "rustle": [
+    "rustle_1.ogg",
+    "rustle_2.ogg",
+    "rustle_3.ogg"
+  ],
+  "scrub": [
+    "scrub_1.ogg",
+    "scrub_2.ogg",
+    "scrub_3.ogg",
+    "scrub_4.ogg"
+  ],
+  "splash": [
+    "splash_1.ogg",
+    "splash_2.ogg",
+    "splash_3.ogg",
+    "splash_4.ogg",
+    "splash_5.ogg",
+    "splash_6.ogg"
+  ],
+  "bubble": [
+    "bubble_1.ogg",
+    "bubble_2.ogg",
+    "bubble_3.ogg",
+    "bubble_4.ogg"
+  ],
+  "sneeze": [
+    "sneeze_1.ogg"
+  ],
+  "rattle": [
+    "rattle_1.ogg",
+    "rattle_2.ogg",
+    "rattle_3.ogg"
+  ],
+  "slideUp": [
+    "slideUp_1.ogg"
+  ],
+  "slideDown": [
+    "slideDown_1.ogg"
+  ],
+  "amb_meadow": [
+    "amb_meadow.ogg"
+  ],
+  "amb_beach": [
+    "amb_beach.ogg"
+  ],
+  "amb_farm": [
+    "amb_farm.ogg"
+  ],
+  "amb_room": [
+    "amb_room.ogg"
+  ]
+}

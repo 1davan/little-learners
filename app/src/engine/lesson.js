@@ -10,8 +10,11 @@ import { fx } from './fx.js';
 import { store } from './store.js';
 import { disposeTree, mesh, geo } from './toon.js';
 import { makePip, dance, wave, breathe, wiggle, setFace, poke, canPoke, hop } from './actors.js';
-import { project, screenRadius } from './stage.js';
+import { project, screenRadius, camera } from './stage.js';
 import { makeScenery, animateScenery } from './scenery.js';
+import { physics } from './physics.js';
+import { setAmbience } from './audio.js';
+import { pokeScenery } from './react.js';
 import { awardSticker } from './ui.js';
 
 const PRAISE = ['Yay!', 'You did it!', 'Wow!', 'Hooray!', 'Great job!', 'Super!', 'Brilliant!', 'Yes!', 'Amazing!', 'Well done!'];
@@ -45,29 +48,34 @@ export class Lesson {
   // ---- lifecycle ----
   async start() {
     scene.add(this.root);
-    setSky(this.meta.world);
-    this.meadow = makeScenery(this.meta.world);
+    physics.clear(); physics.ground(0);
+    setSky(this.meta.world, store.level());
+    setAmbience(this.meta.world);
+    this.meadow = makeScenery(this.meta.world, store.level());
     this.root.add(this.meadow);
     this.pip = makePip();
     this.pip.position.set(-6.9, 0, -0.5);
     this.pip.rotation.y = 0.35;
     this.root.add(this.pip);
     if (this.meta.world === 'beach') {
-      // sun hat for the beach
-      const hat = mesh(geo.cone(0.42, 0.38, 20), 0xff5a5a, { outline: 0.025 });
-      hat.position.y = 0.62;
+      // sun hat for the beach, sitting on the crown of the head (Pip's head is ~0.76 wide at y 0.45 and tops out at 0.75,
+      // so a brim lower than ~0.6 or a crown narrower than the head there disappears inside it)
+      const hat = mesh(geo.cone(0.44, 0.4, 20), 0xff5a5a, { outline: 0.025 });
+      hat.position.y = 0.8;
       const brim = mesh(geo.cyl(0.75, 0.75, 0.05, 24), 0xff5a5a, { outline: 0.02 });
-      brim.position.y = 0.45;
+      brim.position.y = 0.6;
       this.pip.userData.head.add(hat, brim);
+      this.pip.userData.bones?.tuft1?.scale.setScalar(0.01);
     } else if (this.meta.world === 'farm') {
       // straw hat with a red band
-      const crown = mesh(geo.cyl(0.36, 0.42, 0.3, 18), 0xf2d16b, { outline: 0.025 });
-      crown.position.y = 0.6;
-      const band = mesh(geo.cyl(0.43, 0.43, 0.08, 18), 0xd94f3d, { outline: 0 });
-      band.position.y = 0.5;
+      const crown = mesh(geo.cyl(0.4, 0.48, 0.32, 18), 0xf2d16b, { outline: 0.025 });
+      crown.position.y = 0.76;
+      const band = mesh(geo.cyl(0.49, 0.49, 0.08, 18), 0xd94f3d, { outline: 0 });
+      band.position.y = 0.66;
       const brim = mesh(geo.cyl(0.85, 0.85, 0.05, 24), 0xf2d16b, { outline: 0.02 });
-      brim.position.y = 0.45;
+      brim.position.y = 0.6;
       this.pip.userData.head.add(crown, band, brim);
+      this.pip.userData.bones?.tuft1?.scale.setScalar(0.01);
     }
     this.build();
     this.offs.push(input.onAny(() => { this.idle = 0; this.ladder = 0; }));
@@ -78,7 +86,9 @@ export class Lesson {
     await this.wait(0.15);
     wave(this.s, this.pip);
     sfx.hello();
-    await this.say(this.meta.intro, { max: 2.2 });
+    // the intro line shows while the first round is already being set up (play within ~3.5 s of tapping)
+    this.say(this.meta.intro, { max: 2.2 });
+    await this.wait(0.6);
     this.nextRound();
   }
 
@@ -148,7 +158,7 @@ export class Lesson {
       const d = Math.hypot(p.x - x, p.y - y) / r;
       if (d < 1 && d < bd) { bd = d; best = c; }
     }
-    if (!best) return false;
+    if (!best) return pokeScenery(this.s, this.meadow, camera, x, y);
     poke(this.s, best);
     return true;
   }
@@ -166,13 +176,23 @@ export class Lesson {
     if (this.ladder < LADDER.length && this.idle >= LADDER[this.ladder]) {
       const lvl = ++this.ladder;
       // no repeated hand demos: inactivity only re-shows the words, then narrows the choices
-      if (lvl === 1 || lvl === 2) this.prompt();
+      if (lvl === 1 || lvl === 2) { this.prompt(); this.nudge(lvl); }
       else if (lvl === 3) { this.cur.hints++; this.errorless(); }
       else this.timeout();
     }
   }
 
   hint() { this.prompt(); }
+  // A stuck child gets a visual nudge, not just words: at 6 s the answer hops with a sound, at 12 s it also glows.
+  // Lessons expose the answer via nudgeTarget() (an Object3D); without one, Pip bounces encouragingly.
+  nudge(step) {
+    const o = this.nudgeTarget ? this.nudgeTarget() : null;
+    sfx.boing && sfx.boing();
+    if (!o) { hop(this.s, this.pip, 0.5, 0.4); return; }
+    const y0 = o.position.y;
+    this.s.anim(0.5, (_, p) => { o.position.y = y0 + Math.sin(p * Math.PI) * 0.45; }).then(() => (o.position.y = y0));
+    if (step >= 2) { const stop = fx.halo(o, 1.3); this.s.wait(3).then(stop); }
+  }
   addHalo(obj, r) { this.stopHints.push(fx.halo(obj, r)); }
   clearHints() { for (const f of this.stopHints) f(); this.stopHints = []; }
   errorless() { if (this.errorlessOn) return; this.errorlessOn = true; this.makeErrorless(); this.prompt(); }
@@ -186,6 +206,9 @@ export class Lesson {
     fx.confetti(pos);
     sfx.chime();
     this.celebrate();
+    // Pip beams: happy-closed eyes and a big open smile for a moment
+    const pf = this.pip?.userData?.face;
+    if (pf) { setFace(pf, 'joy'); this.s.wait(1.1).then(() => { if (pf.userData.emotion === 'joy') setFace(pf, 'happy'); }); }
     this.records.push({ firstTry: this.cur.wrong === 0 && this.cur.hints === 0, wrong: this.cur.wrong, hints: this.cur.hints, ms: performance.now() - this.cur.t0 });
     this.round++;
     const praise = PRAISE[this.praiseIdx++ % PRAISE.length];
@@ -248,7 +271,7 @@ export class Lesson {
     setFace(this.pip.userData.face, 'happy');
     dance(this.s, this.pip).then(() => dance(this.s, this.pip));
     this.onFinale();
-    this.say('You did it! Here is a sticker for you!');
+    this.say('You did it! A sticker!');
     await this.wait(0.8);
     await this.alive(awardSticker(this.meta));
     input.unlock();
@@ -257,6 +280,7 @@ export class Lesson {
   onFinale() {}
 
   dispose() {
+    physics.clear();
     this.dead = true;
     fx.clearHands();
     this.s.kill();

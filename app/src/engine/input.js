@@ -62,11 +62,14 @@ function onDown(e) {
   gesture = { id: e.pointerId, sx: e.clientX, sy: e.clientY, t0: performance.now(), tap: null };
   try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   const now = performance.now();
-  if (now < lockUntil) return;
-  // Mash detection: >5 taps in 1.5 s → short calm-down
+  // Every touch does something: while answers are locked (demo, success, mashing) taps still poke
+  // characters and scenery and make a sound; only answer/drag targets wait.
+  const pokeOnly = () => { for (const fn of missFns) if (fn(e.clientX, e.clientY)) return; sfx.tap(); };
+  if (now < lockUntil) { pokeOnly(); return; }
+  // Mash detection: >5 taps in 1.5 s → answers rest a moment (pokes keep working)
   taps.push(now);
   while (taps.length && now - taps[0] > 1500) taps.shift();
-  if (taps.length > 5) { taps.length = 0; lockUntil = now + 1500; for (const fn of mashFns) fn(); return; }
+  if (taps.length > 5) { taps.length = 0; lockUntil = now + 1200; for (const fn of mashFns) fn(); pokeOnly(); return; }
 
   const t = hitTest(e.clientX, e.clientY);
   if (!t) { for (const fn of missFns) if (fn(e.clientX, e.clientY)) return; sfx.tap(); return; }

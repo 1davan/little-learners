@@ -1,7 +1,7 @@
 window.addEventListener('error', e => console.error('UNCAUGHT', e.message, e.filename, e.lineno));
 window.addEventListener('unhandledrejection', e => console.error('REJECT', e.reason && (e.reason.stack || e.reason)));
 const origErr = console.error; 
-window.__seq = ['colours','counting','shapes','feelings','sizes','patterns','where','more','body','wash','moo','grow','share','band','pots']; window.__i = 0; window.__done = [];
+window.__seq = ['colours','counting','shapes','feelings','sizes','patterns','where','more','body','wash','moo','grow','share','band','pots','dress','bricks']; window.__i = 0; window.__done = [];
 const BODYA = {nose:'nose',eyes:'eyeL',ears:'earL',mouth:'mouth',tummy:'tummy',hands:'handL',feet:'footL'};
 window.__auto = setInterval(() => {
   const c = __ll.current; if (!c || c.dead) return;
@@ -59,6 +59,14 @@ window.__auto = setInterval(() => {
     const o = c.pots.find(p => p !== c.hidePot);
     if (wrongFirst && o) { c.tapPot(o); return; }
     c.tapPot(c.hidePot);
+  } else if (n === 'DressLesson') {
+    if (c.phase === 'closed') { c.open(); return; }
+    if (c.phase !== 'open' || !c.choices.length) return;
+    const ok = (x) => x.userData.slot === c.slot && (!c.want || x.userData.name === c.want);
+    const x = c.choices.find((x) => ok(x) !== wrongFirst); if (x) c.put(x);
+  } else if (n === 'BricksLesson') {
+    // every tap on any heap brick clicks it into the next slot; two taps a tick keeps the long letters moving
+    for (let k = 0; k < 2 && c.placed + k < c.need; k++) { const b = c.bricks[0]; if (b) c.tapBrick(b); }
   } else if (n === 'WashLesson') {
     if (c.level === 2 && !c.wet) c.setWet(true);
     const s = c.dirty()[0]; if (s) c.scrub(s, 1);

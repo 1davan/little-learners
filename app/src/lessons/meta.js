@@ -10,7 +10,7 @@ export const LESSON_LIST = [
   },
   {
     id: 'counting', world: 'meadow', title: 'Apple count', name: 'Counting!', icon: '🍎', color: '#5fd068',
-    intro: 'Hedgehog is hungry! Let\'s count!',
+    intro: "Someone's hungry! Let's count!",
     topics: [{ id: 'mt_WcfaSfVT33', name: 'One-to-one counting' }, { id: 'mt_dmNvjroCPT', name: 'How many in total? (cardinality)' }],
     goal: 'Touches each of 1–5 objects once, one number per touch; hears the last number as the total.',
   },
@@ -94,6 +94,19 @@ export const LESSON_LIST = [
     topics: [{ id: 'mt_AzNSWFgtxC', name: 'Remembering visual forms' }],
     goal: 'Remembers which pot the chick hid under, even after the pots move.',
   },
+  {
+    id: 'dress', world: 'dressup', title: 'Dress Monkey', name: 'Dress up!', icon: '🐒', color: '#ff8fc0',
+    intro: "Monkey wants to get dressed!",
+    topics: [{ id: 'mt_83gRQ9OPkc', name: 'Body parts & senses' }, { id: 'mt_Dj2xr8CoI0', name: 'Dressing for the weather' }],
+    goal: 'Puts each piece of clothing on the right body part (hat on head, top on body, shoes on feet); later picks clothes for the weather.',
+  },
+  // ---- World 5: the building site ----
+  {
+    id: 'bricks', world: 'build', title: 'Brick letters', name: 'Letters!', icon: '🧱', color: '#ff7a3d',
+    intro: "Let's build letters with bricks!",
+    topics: [{ id: 'mt_frDIaXzWbx', name: 'Knowing all letters' }, { id: 'mt_WcfaSfVT33', name: 'One-to-one counting' }, { id: 'mt_yqAL6O5i_v', name: 'Counting objects to 20' }],
+    goal: 'Taps bricks one at a time, counting each one as it clicks into a capital letter (A–T, 5 to 20 bricks); hears what the letter is for (A is for Apple).',
+  },
 ];
 export const META = Object.fromEntries(LESSON_LIST.map((l) => [l.id, l]));
 
@@ -101,5 +114,7 @@ export const WORLDS = [
   { id: 'meadow', icon: '🌼', name: 'Meadow', lessons: LESSON_LIST.filter((l) => l.world === 'meadow') },
   { id: 'beach', icon: '🏖️', name: 'Beach', lessons: LESSON_LIST.filter((l) => l.world === 'beach') },
   { id: 'farm', icon: '🚜', name: 'Farm', lessons: LESSON_LIST.filter((l) => l.world === 'farm') },
+  { id: 'dressup', icon: '👗', name: 'Dress up', lessons: LESSON_LIST.filter((l) => l.world === 'dressup') },
+  { id: 'build', icon: '🏗️', name: 'Building site', lessons: LESSON_LIST.filter((l) => l.world === 'build') },
 ];
 export const worldIndex = (id) => Math.max(0, WORLDS.findIndex((w) => w.id === (META[id]?.world || id)));

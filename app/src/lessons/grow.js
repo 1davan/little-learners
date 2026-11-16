@@ -2,24 +2,32 @@
 // Plant the seed, water it, let the sun shine: the plant grows one stage per step and blooms.
 // Each round uses a different planter (pot, boot, teacup…). Water makes leaves unfurl around a bud; sun makes the bud
 // burst into a smiling flower, and a bee or butterfly comes to visit.
+// Each level is a different garden: the back garden with a picket fence (one big seed, a blue can), the vegetable patch
+// (three striped sunflower seeds, a green can) and the greenhouse (two speckled beans, an orange can).
+// Planters drop in, seeds fall and bounce into the soil, water drops splash and the bloom's petals flutter down,
+// all with real physics.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { mesh, geo, basic } from '../engine/toon.js';
-import { popIn, hop, wiggle, shake } from '../engine/actors.js';
-import { makeWateringCan, makeSeedBag, makeSeed } from '../engine/farm.js';
+import { popIn, hop, wiggle, shake, setFace } from '../engine/actors.js';
+import { makeWateringCan, makeSeedBag, stillProp } from '../engine/farm.js';
+import { propModel } from '../engine/prop-models.js';
 import { makeCloud } from '../engine/scenery.js';
 import { makeBeachBall } from '../engine/beach.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { makePlanter, makePlant, setStem, STEM_H, SOIL, WET_SOIL, petalColor, makeBee, makeButterfly } from './grow-garden.js';
+import { physics } from '../engine/physics.js';
+import { toon } from '../engine/toon.js';
+import { frame, calmBackdrop } from './view-tools.js';
+import { makePlanter, makePlant, setStem, STEM_H, SOIL, WET_SOIL, petalColor, makeBee, makeButterfly, makeLevelSeed, makeGardenSet, CAN_COLS } from './grow-garden.js';
 
 const MOUND = new T.Vector3(0.8, 0, 0.6);
 const PSCALE = 1.3; // planters are drawn a bit bigger than life
-const SUN_AT = new T.Vector3(4.6, 6.1, -1.5);
+const SUN_AT = new T.Vector3(4.4, 5.0, -1.5);
 const ALL = ['seed', 'water', 'sun'];
-const TOOL_AT = { seed: new T.Vector3(-4.4, 0, 3.0), water: new T.Vector3(-1.9, 0, 3.4), extra: new T.Vector3(4.4, 0, 3.0) };
+const TOOL_AT = { seed: new T.Vector3(-4.0, 0, 2.6), water: new T.Vector3(-1.6, 0, 3.0), extra: new T.Vector3(3.9, 0, 2.6) };
 const SAY = [
   { seed: 'Plant the seed!', water: 'Water it!', sun: 'Let the sun shine!' },
   { seed: 'Plant the seed!', water: 'Water it!', sun: 'Let the sun shine!' },
@@ -47,6 +55,8 @@ PLANS.forEach((plan, l) => plan.forEach((p, i) => { p.pot = POTS[l][i]; }));
 function makeExtra(kind) {
   if (kind === 'ball') { const b = makeBeachBall(0.45); b.position.y = 0.45; const g = new T.Group(); g.add(b); return g; }
   const g = new T.Group();
+  const pm = propModel(kind === 'rock' ? 'prop_farmrock' : 'prop_farmsock', { size: kind === 'rock' ? 1.0 : 0.82 });
+  if (pm) { stillProp(pm); if (kind === 'sock') pm.rotation.y = 0.9; g.add(pm); return g; }
   if (kind === 'rock') { const r = mesh(geo.sphere(0.5, 8, 6), 0x9a95a6, { outline: 0.03 }); r.scale.set(1.2, 0.7, 1); r.position.y = 0.35; g.add(r); }
   else {
     const leg = mesh(geo.cyl(0.25, 0.25, 0.9, 12), 0xff5a5a, { outline: 0.025 }); leg.position.y = 0.7;
@@ -60,12 +70,28 @@ function makeExtra(kind) {
 export default class GrowLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
-    this.pip.position.set(-7.6, 0, -1.5);
+    this.pip.position.set(-6.5, 0, -1.2); // in front of the back bed, never standing inside it
+    frame(0, 3.4, 12.6, 0, 2.4, 0);
+    // one sun only (this game's own sun with a face): the scenery's sky sun goes; no leaf litter by the tools;
+    // weather falls behind the garden
+    calmBackdrop(this.meadow, { hide: (o) => !!o.userData.sun });
     // soil bed at the back where finished flowers line up
     const bed = mesh(geo.box(16, 0.3, 1.6), 0x8a5a3b, { hull: 1.01, outline: 0 }); bed.position.set(0, 0.1, -2.6);
     this.root.add(bed);
     // sun (with a face) behind a cloud
     this.sunG = new T.Group(); this.sunG.position.copy(SUN_AT);
+    const sm = propModel('prop_growsun');
+    if (sm) { // the Blender sun: a code face, rays on their own bone so they can turn
+      stillProp(sm);
+      this.sun = sm; this.rays = sm.userData.bones.rays; this.sunFace = sm.userData.model.userData.face;
+      this.sunG.add(sm);
+    } else this.codeSun();
+    this.cloud = makeCloud(0, 0, 0.9, 1.05); this.cloud.userData.cloud = false; this.cloud.position.set(SUN_AT.x, SUN_AT.y - 0.15, SUN_AT.z + 0.9);
+    this.root.add(this.sunG, this.cloud);
+    this.buildTools();
+  }
+
+  codeSun() {
     this.sun = mesh(geo.sphere(0.95, 20, 14), 0xffd23f, { outline: 0.03 });
     const face = new T.Group(); face.position.z = 0.9;
     for (const s of [-1, 1]) {
@@ -77,12 +103,13 @@ export default class GrowLesson extends Lesson {
     this.rays = new T.Group();
     for (let i = 0; i < 10; i++) { const r = mesh(geo.cone(0.16, 0.5, 6), 0xffb020, { outline: 0.012 }); const a = (i / 10) * Math.PI * 2; r.position.set(Math.cos(a) * 1.3, Math.sin(a) * 1.3, 0); r.rotation.z = a - Math.PI / 2; this.rays.add(r); }
     this.sunG.add(this.rays, this.sun);
-    this.cloud = makeCloud(0, 0, 0.9, 1.05); this.cloud.userData.cloud = false; this.cloud.position.set(SUN_AT.x, SUN_AT.y - 0.15, SUN_AT.z + 0.9);
-    this.root.add(this.sunG, this.cloud);
+  }
+
+  buildTools() {
     this.sunTap = input.addTap(this.cloud, { radius: 1.6, onTap: () => this.use('sun') });
     // tools
     this.tools = {};
-    const seedBag = makeSeedBag(), can = makeWateringCan();
+    const seedBag = makeSeedBag(), can = makeWateringCan(CAN_COLS[this.level]);
     for (const [k, o] of [['seed', seedBag], ['water', can]]) {
       o.position.copy(TOOL_AT[k]);
       this.root.add(o);
@@ -96,6 +123,12 @@ export default class GrowLesson extends Lesson {
     }
     this.planted = [];
     this.visitorI = 0;
+    this.debris = [];
+    this.garden = makeGardenSet(this.level);
+    this.root.add(this.garden);
+    // each level has its own colour of watering can
+    const col = CAN_COLS[this.level];
+    if (col !== 0x4a90ff && !can.userData.model) can.traverse((o) => { if (o.material && !o.userData.outline && (o.material.color?.getHex() === 0x4a90ff || o.material.color?.getHex() === 0x3a78d8)) o.material = toon(o.material.color.getHex() === 0x4a90ff ? col : new T.Color(col).multiplyScalar(0.8).getHex()); });
   }
 
   get step() { const p = this.plan[this.round]; return p && p.steps[this.done]; }
@@ -105,6 +138,10 @@ export default class GrowLesson extends Lesson {
     this.busy = true;
     const p = this.plan[r];
     this.done = 0;
+    // last round's catcher goes (no physics.clear(): nothing freezes); the fallen petals on the grass shrink away
+    physics.removeStatic(this.potBody); this.potBody = null;
+    this.debris.forEach((d, i) => { physics.remove(d); this.s.wait(i * 0.02).then(() => this.s.tween(d.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.18, Ease.in)).then(() => this.root.remove(d)); });
+    this.debris = [];
     this.cloud.position.set(SUN_AT.x, SUN_AT.y - 0.15, SUN_AT.z + 0.9);
     this.s.tween(this.sunG.scale, { x: 0.85, y: 0.85, z: 0.85 }, 0.3);
     this.sunTap.enabled = true;
@@ -125,13 +162,25 @@ export default class GrowLesson extends Lesson {
     this.planter.position.copy(MOUND);
     this.planter.scale.setScalar(PSCALE);
     this.root.add(this.planter);
-    this.planter.position.y = 3;
-    this.s.tween(this.planter.position, { y: 0 }, 0.3, Ease.in).then(() => { sfx.thunk(); this.squash(this.planter, 0.25); });
     this.plant = makePlant(p.flower);
     this.plant.position.y = this.planter.userData.soilY;
     this.planter.add(this.plant);
     for (let i = 0; i < p.pre; i++) this.grow(true);
-    await this.wait(0.32);
+    // it drops in with real physics, lands with a bump, then becomes a solid catcher for seeds and water
+    const pl = this.planter, u = pl.userData;
+    // (it falls in from above the top of the picture, so it never hangs in the sky, and arrives once last round's
+    // flower has hopped out of the way)
+    pl.position.y = 8.5;
+    await this.wait(0.05);
+    const fr = (u.kind === 'box' ? 1.3 : u.kind === 'mound' ? 1.6 : 0.9) * PSCALE;
+    physics.add(pl, { shape: 'box', size: { x: fr * 1.6, y: u.soilY * PSCALE, z: fr }, spin: false, bounce: 0.05, mass: 3 });
+    physics.impulse(pl, { x: 0, y: -11, z: 0 });
+    this.s.wait(0.5).then(() => { sfx.thunk(); this.squash(pl, 0.25); });
+    await this.wait(0.66);
+    physics.remove(pl);
+    pl.position.copy(MOUND);
+    const sy = u.soilY * PSCALE;
+    this.potBody = physics.container(new T.Vector3(MOUND.x, 0, MOUND.z), { r: u.soilR * PSCALE, h: sy + 0.5, floor: sy });
     this.busy = false;
     this.cue();
   }
@@ -189,11 +238,14 @@ export default class GrowLesson extends Lesson {
     // petal burst
     const c = u.bloom.getWorldPosition(new T.Vector3());
     const col = petalColor(u.kind);
-    for (let i = 0; i < 12; i++) {
-      const d = mesh(geo.sphere(0.12, 8, 6), col, { outline: 0.01 }); d.scale.set(0.6, 1.2, 0.3);
-      d.position.copy(c); this.root.add(d);
-      const a = (i / 12) * Math.PI * 2, v = new T.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2 + 1, 0.8);
-      this.s.anim(0.6, (_, q) => { d.position.copy(c).addScaledVector(v, Ease.out(q)); d.position.y -= q * q * 1.2; d.rotation.z = a + q * 4; d.scale.setScalar(Math.max(0.01, 1 - q) * 0.8); }).then(() => this.root.remove(d));
+    // petals burst out and flutter down onto the grass (real physics), where they stay until the next round
+    for (let i = 0; i < 10; i++) {
+      const d = mesh(geo.sphere(0.14, 8, 6), col, { outline: 0.01 }); d.scale.set(0.6, 0.25, 1.2);
+      const a = (i / 10) * Math.PI * 2;
+      d.position.copy(c).add(new T.Vector3(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0.3)); this.root.add(d);
+      physics.add(d, { shape: 'box', size: { x: 0.17, y: 0.07, z: 0.34 }, bounce: 0.2, mass: 0.05 });
+      physics.impulse(d, { x: Math.cos(a) * 3.2, y: Math.sin(a) * 2.5 + 3.5, z: 1.4 + Math.random() }, { x: Math.random() * 0.3, y: Math.random() * 0.3, z: Math.random() * 0.3 });
+      this.debris.push(d);
     }
     fx.confetti(c, 14);
   }
@@ -214,7 +266,7 @@ export default class GrowLesson extends Lesson {
     if (k !== want) {
       if (o && k !== 'sun') {
         // a silly thing bounces off the planter; a tool that isn't needed yet just shakes
-        if (EXTRA[k]) { const top = this.soilTop(); this.s.tween(o.position, { x: top.x, y: top.y + 0.6, z: top.z + 0.4 }, 0.2, Ease.out).then(() => { sfx.boing(); this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.back); }); }
+        if (EXTRA[k]) this.spitOut(o, home);
         else { shake(this.s, o, 0.2); this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.back); }
       } else wiggle(this.s, this.cloud, 0.2);
       wiggle(this.s, this.planter, 0.08, 0.4);
@@ -229,21 +281,31 @@ export default class GrowLesson extends Lesson {
     if (k === 'seed') {
       await this.s.tween(o.position, { x: top.x - 0.2, y: top.y + 1.4, z: top.z }, 0.22, Ease.out);
       await this.s.tween(o.rotation, { z: -2.2 }, 0.16, Ease.back);
-      const seed = makeSeed(); seed.position.set(top.x, top.y + 1.3, top.z); this.root.add(seed);
+      // the seeds tumble out and bounce into the soil (real physics)
       sfx.swoosh();
+      const seeds = [];
+      const n = { 0: 1, 1: 3, 2: 2 }[this.level];
+      for (let i = 0; i < n; i++) {
+        const seed = makeLevelSeed(this.level);
+        seed.position.set(top.x - 0.1 + i * 0.12, top.y + 1.3 + i * 0.12, top.z + (i - 1) * 0.08); this.root.add(seed);
+        physics.add(seed, { shape: 'ball', r: seed.userData.r * 0.95, bounce: 0.45, mass: 0.2 });
+        physics.impulse(seed, { x: 0.4 + i * 0.3, y: 0.5, z: (i - 1) * 0.4 }, { x: 0.5, y: 0.5, z: 0.5 });
+        seeds.push(seed);
+      }
       this.s.tween(o.rotation, { z: 0 }, 0.25);
       this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.45, Ease.inOut);
-      await this.s.tween(seed.position, { y: top.y + 0.05 }, 0.25, Ease.in);
-      this.root.remove(seed);
-      sfx.land();
+      await this.wait(0.3);
       this.dirt(top, 0x7a4a2c);
       this.squash(this.planter, 0.12, 0.25);
+      // they snuggle into the soil
+      this.s.wait(0.2).then(() => { for (const sd of seeds) { physics.remove(sd); this.s.tween(sd.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in).then(() => this.root.remove(sd)); } });
     } else if (k === 'water') {
       await this.pour(o, top, home);
     } else {
       sfx.swoosh();
       this.s.tween(this.cloud.position, { x: SUN_AT.x + 6 }, 0.4, Ease.in);
       this.s.anim(0.5, (_, p) => this.sunG.scale.setScalar(0.85 + Ease.back(p) * 0.35));
+      if (this.sunFace) { setFace(this.sunFace, 'joy'); this.s.wait(1.2).then(() => setFace(this.sunFace, 'happy')); }
       this.s.wait(0.2).then(() => { sfx.sparkle(); fx.float(top.clone().add(new T.Vector3(0.6, 2.2, 0.5)), '☀', { color: '#ffb020', size: 6 }); });
       // the plant stretches towards the sun
       this.s.anim(0.6, (_, p) => { this.plant.rotation.z = -Math.sin(p * Math.PI) * 0.18; }).then(() => { this.plant.rotation.z = 0; });
@@ -273,6 +335,24 @@ export default class GrowLesson extends Lesson {
     this.success(top.clone().add(new T.Vector3(0, 2.0, 0)));
   }
 
+  // a silly thing lands in the planter, and the planter spits it right back out (real physics)
+  spitOut(o, home) {
+    const top = this.soilTop();
+    o.userData.drag.enabled = false;
+    physics.add(o, { shape: 'ball', r: 0.45, bounce: 0.5, mass: 0.6 });
+    physics.toss(o, top.clone().add(new T.Vector3(0, 0.5, 0)), { arc: 1.2, time: 0.35 });
+    this.s.wait(0.38).then(() => {
+      sfx.boing();
+      this.squash(this.planter, 0.2, 0.25);
+      physics.impulse(o, { x: 3.2, y: 6.5, z: 1.2 }, { x: 0, y: 0, z: -2 });
+    });
+    this.s.wait(1.1).then(() => {
+      physics.remove(o);
+      o.rotation.set(0, 0, 0);
+      this.s.tween(o.position, { x: home.x, y: home.y, z: home.z }, 0.35, Ease.back).then(() => { if (o.userData.drag && !this.errorlessOn) o.userData.drag.enabled = true; });
+    });
+  }
+
   // the watering can leans back, tips forward with a stream of drops that splash on the soil, and the soil darkens
   async pour(o, top, home) {
     await this.s.tween(o.position, { x: top.x - 1.75, y: top.y + 0.75, z: top.z + 0.2 }, 0.22, Ease.out);
@@ -281,16 +361,19 @@ export default class GrowLesson extends Lesson {
     sfx.pour();
     const soil = this.planter.userData.soil, c0 = new T.Color(SOIL), c1 = new T.Color(WET_SOIL);
     const n = 18;
+    // real water drops: they arc out of the spout, splash into the soil and soak in
     for (let i = 0; i < n; i++) this.s.wait(i * 0.03).then(() => {
-      const d = new T.Mesh(geo.sphere(0.075, 6, 4), basic(0x7fd0ff));
+      if (this.dead) return;
+      const d = new T.Mesh(geo.sphere(0.08, 6, 4), basic(0x7fd0ff));
       const rp = o.userData.rose.getWorldPosition(new T.Vector3());
       d.position.copy(rp);
       this.root.add(d);
-      const v = new T.Vector3(1.4 + Math.random() * 0.5, -0.3, (Math.random() - 0.5) * 0.6), p0 = rp.clone();
-      const fall = Math.max(0.2, Math.sqrt(Math.max(0.05, rp.y - top.y) / 4.5));
-      this.s.anim(fall, (_, q) => { const t = q * fall; d.position.set(p0.x + v.x * t, p0.y + v.y * t - 4.5 * t * t, p0.z + v.z * t); d.scale.set(1, 1.4, 1); }).then(() => {
-        this.root.remove(d);
+      physics.add(d, { shape: 'ball', r: 0.08, bounce: 0.25, mass: 0.05, spin: false });
+      physics.impulse(d, { x: 1.5 + Math.random() * 0.6, y: 0.2, z: (Math.random() - 0.5) * 0.7 });
+      this.s.wait(0.42).then(() => {
+        physics.remove(d);
         if (i % 3 === 0) this.ring(d.position.clone().setY(top.y + 0.03));
+        this.s.tween(d.scale, { x: 1.8, y: 0.01, z: 1.8 }, 0.12).then(() => this.root.remove(d));
       });
     });
     this.s.anim(0.6, (_, p) => soil.material.color.copy(c0).lerp(c1, p));
@@ -339,8 +422,15 @@ export default class GrowLesson extends Lesson {
     const to = new T.Vector3(-5 + i * 2, 0.25, -2.6);
     const from = pl.position.clone();
     sfx.swoosh();
-    this.s.anim(0.45, (e) => { pl.position.lerpVectors(from, to, e); pl.position.y += Math.sin(e * Math.PI) * 1.4; pl.scale.setScalar(PSCALE * (1 - e * 0.55)); }, Ease.inOut).then(() => { sfx.land(); this.squash(pl, 0.15, 0.25); });
+    this.s.anim(0.45, (e) => { pl.position.lerpVectors(from, to, e); pl.position.y += Math.sin(e * Math.PI) * 1.4; pl.scale.setScalar(PSCALE * (1 - e * 0.62)); }, Ease.inOut).then(() => { sfx.land(); this.squash(pl, 0.15, 0.25); });
     this.planter = null;
+  }
+
+  // stuck child: the tool for the next step (or the cloud hiding the sun) hops
+  nudgeTarget() {
+    const k = this.step;
+    if (!k || this.busy) return null;
+    return k === 'sun' ? this.cloud : this.tools[k] || null;
   }
 
   target() {
@@ -388,7 +478,8 @@ export default class GrowLesson extends Lesson {
       if (!b || !b.visible) continue;
       b.rotation.z = Math.sin(t * 1.8 + p.position.x) * 0.08;
       const blink = ((t + p.position.x * 0.37) % 3.2) < 0.12;
-      for (const e of b.userData.eyes) e.scale.y = blink ? 0.2 : 1.3;
+      const ey = b.userData.eyeY ?? 1.3;
+      for (const e of b.userData.eyes) if (e.visible) e.scale.y = blink ? 0.15 * ey : ey;
     }
   }
 

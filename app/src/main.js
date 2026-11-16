@@ -4,10 +4,12 @@ import { input } from './engine/input.js';
 import { cursor } from './engine/cursor.js';
 cursor.init();
 import { speech } from './engine/speech.js';
-import { resumeAudio, setVolume } from './engine/audio.js';
+import { resumeAudio, setVolume, loadSamples, setMusicVolume } from './engine/audio.js';
 import { store } from './engine/store.js';
 import { fadeTo, setMode, setHomeHandler, setResetHandler, renderShelf } from './engine/ui.js';
 import { Home } from './home.js';
+import { loadCreatures } from './engine/creature.js';
+import { physics } from './engine/physics.js';
 import { Viewer } from './viewer.js';
 import { META, worldIndex } from './lessons/meta.js';
 import ColoursLesson from './lessons/colours.js';
@@ -25,11 +27,13 @@ import GrowLesson from './lessons/grow.js';
 import ShareLesson from './lessons/share.js';
 import BandLesson from './lessons/band.js';
 import PotsLesson from './lessons/pots.js';
+import DressLesson from './lessons/dress.js';
+import BricksLesson from './lessons/bricks.js';
 
 const LESSONS = {
   colours: ColoursLesson, counting: CountingLesson, shapes: ShapesLesson, feelings: FeelingsLesson, sizes: SizesLesson,
   patterns: PatternsLesson, where: WhereLesson, more: MoreLesson, body: BodyLesson, wash: WashLesson,
-  moo: MooLesson, grow: GrowLesson, share: ShareLesson, band: BandLesson, pots: PotsLesson,
+  moo: MooLesson, grow: GrowLesson, share: ShareLesson, band: BandLesson, pots: PotsLesson, dress: DressLesson, bricks: BricksLesson,
 };
 
 let current = null;
@@ -74,10 +78,14 @@ window.addEventListener('pointerdown', () => {
 
 (async function boot() {
   setVolume(store.get().settings.volume ?? 0.6);
+  setMusicVolume(store.get().settings.music ?? 0.5);
   await speech.init();
+  // sounds load in the background (synth versions play until they're ready); never block boot for long
+  loadSamples();
+  await Promise.race([Promise.all([loadCreatures(), physics.ready()]), new Promise((r) => setTimeout(r, 30000))]);
   document.getElementById('boot')?.remove();
   router.go('home');
 })();
 
 // Dev hook for automated testing in the browser.
-window.__ll = { router, get current() { return current; }, get switching() { return switching; } };
+window.__ll = { router, physics, get current() { return current; }, get switching() { return switching; } };

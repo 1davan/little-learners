@@ -1,22 +1,29 @@
 // Game 10 — Splash wash. Topic mt_vbbxnY7ZDT "Keeping clean and healthy".
 // A messy friend needs a wash: rub each messy spot with the sponge until it's clean. Level 3: dip the sponge in water first.
 // Each round brings a different mess (sand, mud, paint, jam, grass, chocolate). Rubbing builds foam and makes the
-// friend squirm and giggle; a clean spot lets go of bubbles you can pop; a clean friend does a shake-dry.
+// friend squirm and giggle; a clean spot lets go of bubbles you can pop; a clean friend does a shake-dry, a twirl
+// or a splash-jump. Each level has its own wash spot: Level 1 a sponge on a rock, Level 2 a pink sponge on a wooden tub
+// with a rubber duck, Level 3 a bucket to dip in and a beach shower. Real physics: the mess prop drops in, crumbs of mess
+// fall off and bounce on the sand as you scrub, the sponge falls and tumbles when you let go, and water drops fly and bounce.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { mesh, geo, toonUnique } from '../engine/toon.js';
 import { makeAnimal, setFace, popIn, popOut, hop, wiggle } from '../engine/actors.js';
-import { partAnchors, makeSponge, makeBucket } from '../engine/beach.js';
+import { partAnchors, makeSponge, makeBucket, makeMelon, makeWaterDrop } from '../engine/beach.js';
 import { input } from '../engine/input.js';
-import { project, screenRadius } from '../engine/stage.js';
+import { project, screenRadius, setCamera, camera } from '../engine/stage.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { MESS, makeMess, setMessLook, makeFoam, makeCause, makeDrop, makeSoapBubble } from './wash-mess.js';
+import { MESS, makeMess, setMessLook, makeFoam, makeCause, makeDrop, makeSoapBubble, makeCrumb, makeStation } from './wash-mess.js';
+import { physics } from '../engine/physics.js';
 
 const SCALE = 2.2;
-const SPONGE_HOME = new T.Vector3(4.7, 1.0, 3);
-const BUCKET_POS = new T.Vector3(-4.6, 0, 3);
+const MAX_H = 5.5;                 // tallest a friend may stand (bunny ears stay below the caption)
+const CAM = { pos: new T.Vector3(0, 3.3, 12.6), look: new T.Vector3(0, 2.3, 0) };
+const HOMES = [new T.Vector3(4.7, 1.0, 3), new T.Vector3(4.7, 1.25, 3), new T.Vector3(4.7, 1.0, 3)];
+let SPONGE_HOME = HOMES[0];
+const BUCKET_POS = new T.Vector3(-4.2, 0, 3.2);
 const CAUSE_AT = new T.Vector3(-3.0, 0, 1.4);
 const WORD = { tummy: 'tummy', handL: 'hand', handR: 'hand', footL: 'foot', footR: 'foot', nose: 'nose', earL: 'ear', earR: 'ear' };
 const NAME = { bear: 'Bear', bunny: 'Bunny', cat: 'Kitty', frog: 'Froggy' };
@@ -37,14 +44,22 @@ const MESSES = [
 
 export default class WashLesson extends Lesson {
   build() {
+    setCamera(CAM.pos, CAM.look);
+    this.pip.position.set(-5.9, 0, -4.6);   // back, so the Level 3 bucket doesn't hide him (and clear of the sunset/night lantern post at x -7.8)
     this.plan = PLANS[this.level];
     this.need = NEED[this.level];
-    // a flat rock for the sponge to rest on
-    const rock = mesh(geo.sphere(1, 16, 10), 0xb7b2a6, { outline: 0.03 });
-    rock.scale.set(1.1, 0.45, 0.8);
-    rock.position.set(SPONGE_HOME.x, 0.2, SPONGE_HOME.z);
-    this.root.add(rock);
+    SPONGE_HOME = HOMES[this.level];
+    // where the sponge rests: a rock, a wooden tub or a rock under the shower (with physics shapes)
+    this.station = makeStation(this.level, SPONGE_HOME);
+    this.root.add(this.station);
+    for (const [x, y, z, sx, sy, sz] of this.station.userData.statics) physics.box(new T.Vector3(x, y, z), new T.Vector3(sx, sy, sz));
     this.sponge = makeSponge();
+    // the sponge's colours per level (Level 2: a pink sponge with a blue scrubber); dry = a paler shade
+    this.spongeCol = [0xffd23f, 0xff9ec8, 0xffd23f][this.level];
+    this.sponge.userData.setColors(this.spongeCol, [0x6fd08c, 0x7fd0ff, 0x6fd08c][this.level]);
+    this.showerDrops = [];
+    this.showerT = 0;
+    this.crumbs = [];
     this.sponge.position.copy(SPONGE_HOME);
     this.root.add(this.sponge);
     if (this.level === 2) {
@@ -59,7 +74,7 @@ export default class WashLesson extends Lesson {
     } else this.wet = true;
     this.dragT = input.addDrag(this.sponge, {
       radius: 1.0, minY: 0.5, zones: () => [],
-      onPick: () => { this.last = null; this.s.tween(this.sponge.scale, { x: 1.15, y: 1.15, z: 1.15 }, 0.12); },
+      onPick: () => { this.holdSponge(); this.last = null; this.s.tween(this.sponge.scale, { x: 1.15, y: 1.15, z: 1.15 }, 0.12); },
       onMove: () => this.rub(),
       onDrop: (_z, info) => this.dropSponge(info),
     });
@@ -71,9 +86,30 @@ export default class WashLesson extends Lesson {
     this.offs.push(input.onMiss((x, y) => this.popAt(x, y)));
   }
 
+  // take the sponge out of the physics world (to carry or tween it), upright again
+  holdSponge() {
+    const sp = this.sponge;
+    physics.remove(sp);
+    sp.rotation.set(0, 0, 0);
+    sp.position.z = SPONGE_HOME.z;
+  }
+
+  // a crumb of the mess falls off the spot and bounces on the sand (the oldest shrinks away, so the sand stays tidy)
+  shedCrumb(at, kind = this.mess) {
+    if (this.crumbs.length > 16) { const old = this.crumbs.shift(); physics.remove(old); popOut(this.s, old, 0.15).then(() => this.root.remove(old)); }
+    const c = makeCrumb(kind);
+    c.position.copy(at).add(new T.Vector3((Math.random() - 0.5) * 0.4, 0, 0.5));
+    this.root.add(c);
+    this.crumbs.push(c);
+    physics.add(c, { shape: 'ball', r: c.userData.r, bounce: 0.45 });
+    physics.impulse(c, { x: (Math.random() - 0.5) * 3, y: 1 + Math.random() * 2, z: 1 + Math.random() }, { x: Math.random(), y: 0, z: Math.random() });
+  }
+
   setWet(w) {
     this.wet = w;
-    this.sponge.children[0].material = toonUnique(w ? 0xffd23f : 0xfff3b0);
+    const c = new T.Color(this.spongeCol);
+    if (!w) c.lerp(new T.Color(0xffffff), 0.6);   // a dry sponge is pale; dipped it's full colour
+    this.sponge.userData.setColors(c.getHex(), null);
   }
 
   dirty() { return (this.spots || []).filter((s) => !s.clean); }
@@ -84,40 +120,102 @@ export default class WashLesson extends Lesson {
     this.mess = MESSES[this.level][r];
     for (const t of this.spotTaps || []) input.remove(t);
     const f = makeAnimal(kind);
-    f.scale.setScalar(SCALE);
-    f.userData.baseScale = SCALE;
-    f.position.set(-9, 0, 0.3);
+    // fit every friend to the same height budget (a bunny's ears used to run off the top, behind the caption)
+    f.updateMatrixWorld(true);
+    const h = new T.Box3().setFromObject(f).getSize(new T.Vector3()).y || 2.3;
+    this.fs = Math.min(SCALE, MAX_H / h);
+    f.scale.setScalar(this.fs);
+    f.userData.baseScale = this.fs;
+    f.position.set(-8, 0, 0.3);
+    f.rotation.y = 0.9;   // walks in facing the way it goes, then turns to us
     this.root.add(f);
     this.friend = f;
     this.tickle = 0;
-    setFace(f.userData.face, 'sad');
+    // "eek, icky!": a surprised face for a moment, then a giggle (no tears: getting clean is fun)
+    setFace(f.userData.face, 'scared');
+    this.s.wait(0.9).then(() => { if (this.friend === f && !this.tickle) setFace(f.userData.face, 'calm'); });
     // the thing that made the mess pops up beside the spot the friend runs to
     this.cause = makeCause(this.mess);
     this.cause.position.copy(CAUSE_AT);
-    this.root.add(this.cause);
-    popIn(this.s, this.cause, 1, 0.35);
-    // run in with little bounces
+    // the mess-maker drops in from the sky and bounces (kept upright), once the friend has walked past its spot
+    const cause = this.cause;
+    cause.position.y = 4;
+    this.s.wait(0.6).then(() => {
+      if (this.cause !== cause || this.dead) return;
+      this.root.add(cause);
+      physics.add(cause, { shape: 'box', spin: false, bounce: 0.35 });
+      sfx.whoosh();
+      this.s.wait(0.75).then(() => { if (cause.parent && this.cause === cause) { physics.remove(cause); this.s.tween(cause.position, { y: 0 }, 0.08); } });
+    });
+    // walk in along the sand (the motion layer gives each friend its own gait), then turn to face us
     sfx.patter();
-    this.s.anim(0.5, (e, p) => { f.position.x = -9 + 9 * e; f.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.35 * (1 - p); f.rotation.z = Math.sin(p * Math.PI * 3) * 0.08 * (1 - p); }, Ease.out)
-      .then(() => { f.position.y = 0; f.rotation.z = 0; sfx.land(); });
+    this.s.anim(0.85, (e) => { f.position.x = -8 + 8 * e; }, Ease.out)
+      .then(() => { f.position.y = 0; this.s.tween(f.rotation, { y: 0 }, 0.2); });
+    if (this.level === 2) this.showerT = 0.9;   // the beach shower gives a little splash of a welcome
     await this.wait(0.18);
     const anchors = partAnchors(f);
+    this.hugSurface(f, parts.map((n) => anchors[n]), parts);
     this.spots = parts.map((name, i) => {
-      const sp = makeMess(this.mess);
-      sp.position.z = 0.12;
+      const sp = makeMess(this.mess, anchors[name].userData.curve);
+      sp.position.z = 0.03;
       sp.rotation.z = (i % 2 ? 1 : -1) * 0.3;
-      sp.userData.k = name === 'tummy' ? 1 : 0.68; // smaller splats on hands, feet, ears and noses
+      sp.userData.k = name === 'tummy' ? 1 : /hand/.test(name) ? 0.25 : /foot/.test(name) ? 0.3 : 0.4; // smaller splats on hands, feet, ears and noses (paw-sized, so they stay inside the paw's outline)
       anchors[name].add(sp);
       this.s.wait(0.06 * i).then(() => popIn(this.s, sp, sp.userData.k, 0.3, { sound: false }));
       return { name, obj: sp, anchor: anchors[name], done: 0, clean: false, foam: [] };
     });
     sfx[MESS[this.mess].snd]();
-    this.s.wait(0.15).then(() => sfx.aww());
+    // bits of the mess drip off as the friend arrives
+    this.s.wait(0.2).then(() => { for (const sp of this.spots) this.shedCrumb(sp.anchor.getWorldPosition(new T.Vector3())); });
+    this.s.wait(0.5).then(() => {
+      if (this.friend !== f) return;
+      sfx.giggle();
+      fx.float(f.position.clone().add(new T.Vector3(1.3, f.userData.baseScale * 2.0, 0.6)), 'icky!', { color: '#ff8fc0', size: 4.5 });
+    });
     this.spotTaps = this.spots.map((s) => (s.tap = input.addTap(s.anchor, { radius: 0.6, onTap: () => this.dab(s) })));
     this.washedOnce = 0;
     await this.wait(0.15);
     this.busy = false;
     this.cue();
+  }
+
+  // Move each spot anchor onto the friend's skin where we see it (a ray from the camera), and turn it so its +z
+  // is the surface normal (leaning a little towards us): the mess then lies flat on the body like a real splat.
+  hugSurface(f, list, names = []) {
+    const meshes = [];
+    f.traverse((o) => { if (o.isMesh && o.visible && !o.userData.outline && !(o.material && o.material.transparent)) meshes.push(o); });
+    const end = f.position.x, ry = f.rotation.y;
+    f.position.x = 0; f.rotation.y = 0;        // measure where the friend will stand, facing us (it is still walking in)
+    f.updateMatrixWorld(true);
+    const ray = new T.Raycaster(), Z = new T.Vector3(0, 0, 1);
+    const inv = new T.Matrix4().copy(f.matrixWorld).invert();
+    const nm = new T.Matrix3();
+    for (const [ai, a] of list.entries()) {
+      const w = a.getWorldPosition(new T.Vector3());
+      const dir = w.clone().sub(camera.position).normalize();
+      ray.set(camera.position, dir);
+      const hit = ray.intersectObjects(meshes, false).find((h) => h.face && h.point.distanceTo(w) < 0.9 * this.fs);
+      if (!hit) continue;
+      const n = hit.face.normal.clone().applyMatrix3(nm.getNormalMatrix(hit.object.matrixWorld)).normalize();
+      n.lerp(dir.clone().negate(), 0.35).normalize();
+      a.position.copy(hit.point.clone().applyMatrix4(inv));
+      // the normal in the friend's own space (it is only scaled uniformly and turned about y)
+      const nl = n.clone().transformDirection(inv);
+      a.quaternion.setFromUnitVectors(Z, nl);
+      // how the body curves away under the spot: four rays round it, fitted as z = a x² + b x + c y² + d y in the
+      // spot's own frame, so the mess bends onto the fur (makeMess) instead of sticking out flat
+      a.updateMatrixWorld(true);
+      const D = names[ai] === 'tummy' ? 0.22 : 0.13, zs = [];   // paws, ears and noses curve away sooner
+      for (const [dx, dy] of [[D, 0], [-D, 0], [0, D], [0, -D]]) {
+        const o = a.localToWorld(new T.Vector3(dx, dy, 0.5)), e = a.localToWorld(new T.Vector3(dx, dy, -0.5));
+        ray.set(o, e.sub(o).normalize());
+        const h = ray.intersectObjects(meshes, false).find((x) => x.face);
+        zs.push(h ? Math.max(-0.4, Math.min(0.2, a.worldToLocal(h.point.clone()).z)) : -0.2);
+      }
+      a.userData.curve = { a: (zs[0] + zs[1]) / (2 * D * D), b: (zs[0] - zs[1]) / (2 * D), c: (zs[2] + zs[3]) / (2 * D * D), d: (zs[2] - zs[3]) / (2 * D) };
+    }
+    f.position.x = end; f.rotation.y = ry;
+    f.updateMatrixWorld(true);
   }
 
   who() { return NAME[this.friend?.userData.kind] || 'friend'; }
@@ -181,7 +279,7 @@ export default class WashLesson extends Lesson {
       setFace(f.userData.face, 'happy');
       fx.float(f.position.clone().add(new T.Vector3(1.2, 4.6, 0.5)), 'hee', { color: '#ff8fc0', size: 4.5 });
     }
-    if (Math.floor(p * 4) > Math.floor((before / this.need) * 4)) sfx.bubble();
+    if (Math.floor(p * 4) > Math.floor((before / this.need) * 4)) { sfx.bubble(); this.shedCrumb(s.anchor.getWorldPosition(new T.Vector3())); }
     if (s.done >= this.need) this.cleaned(s);
   }
 
@@ -198,6 +296,7 @@ export default class WashLesson extends Lesson {
   dab(s) {
     if (this.busy || s.clean) return;
     const wp = s.anchor.getWorldPosition(new T.Vector3());
+    this.holdSponge();
     this.s.tween(this.sponge.position, { x: wp.x + 0.3, y: wp.y + 0.2, z: wp.z + 0.8 }, 0.25, Ease.out);
     const amt = this.errorlessOn ? 1 : DAB[this.level];
     if (!amt || (this.level === 2 && !this.wet)) { wiggle(this.s, this.sponge, 0.3); return; }
@@ -269,28 +368,72 @@ export default class WashLesson extends Lesson {
     return true;
   }
 
+  // water drops fly out as real little balls, bounce on the sand, then dry up
   splashAt(pos, n = 14, up = 3.5) {
+    n = Math.min(n, 14);
     for (let i = 0; i < n; i++) {
       const d = makeDrop();
-      d.position.copy(pos);
+      d.position.copy(pos).add(new T.Vector3((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.4, 0.3));
       this.root.add(d);
+      physics.add(d, { shape: 'ball', r: 0.09, bounce: 0.55, mass: 0.3 });
       const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 3;
-      const v = new T.Vector3(Math.cos(a) * sp, up * (0.6 + Math.random() * 0.6), Math.sin(a) * sp * 0.4 + 0.8);
-      const p0 = d.position.clone();
-      this.s.anim(0.55 + Math.random() * 0.2, (_, q) => {
-        const t = q * 0.7;
-        d.position.set(p0.x + v.x * t, p0.y + v.y * t - 6 * t * t, p0.z + v.z * t);
-        d.scale.setScalar(1 - q * 0.6);
-      }).then(() => this.root.remove(d));
+      physics.impulse(d, { x: Math.cos(a) * sp, y: up * (0.7 + Math.random() * 0.6), z: Math.abs(Math.sin(a)) * sp * 0.5 + 0.6 });
+      this.s.wait(0.7 + Math.random() * 0.3).then(() => { physics.remove(d); return this.s.tween(d.scale, { x: 0.01, y: 0.01, z: 0.01 }, 0.2); }).then(() => this.root.remove(d));
     }
   }
 
   allClean() {
+    if (this.level === 2) { this.showerT = 0.8; sfx.pour(); }   // a rinse from the beach shower
     this.busy = true;
     input.lock(1200);
-    this.payoff = this.shakeDry();
+    this.payoff = this.dryOff();
     this.busy = false;
     this.success(this.friend.position.clone().add(new T.Vector3(0, 3.5, 0))); // praise word only: keeps the next round close
+  }
+
+  // a different "all clean!" move each round: shake-dry, twirl, or a big splash-jump (called before the round moves on)
+  async dryOff() {
+    const k = this.round % 3;
+    if (k === 0) return this.shakeDry();
+    const f = this.friend;
+    const snack = this.plan[this.round]?.[2] === 'snack';
+    setFace(f.userData.face, 'happy');
+    this.tickle = 0;
+    f.rotation.z = 0;
+    this.holdSponge();
+    this.s.tween(this.sponge.position, { x: SPONGE_HOME.x, y: SPONGE_HOME.y, z: SPONGE_HOME.z }, 0.45, Ease.out);
+    this.s.tween(this.sponge.scale, { x: 1, y: 1, z: 1 }, 0.3);
+    if (k === 1) {
+      // twirl with sparkles flying off
+      sfx.twinkle();
+      const r0 = f.rotation.y;
+      for (let i = 0; i < 5; i++) this.s.wait(i * 0.1).then(() => fx.float(f.position.clone().add(new T.Vector3(Math.cos(i * 1.3) * 1.4, 1.5 + i * 0.5, 0.6)), '✨', { size: 5 }));
+      await this.s.anim(0.6, (e) => { f.rotation.y = r0 + e * Math.PI * 2; f.position.y = Math.sin(e * Math.PI) * 0.5; }, Ease.inOut);
+      f.rotation.y = r0; f.position.y = 0;
+      sfx.land();
+    } else {
+      // jump up and land with a splash of drops
+      await hop(this.s, f, 1.1, 0.5);
+      sfx.splash();
+      this.splashAt(f.position.clone().add(new T.Vector3(0, 0.3, 0.5)), 14, 2.5);
+    }
+    if (snack) await this.snack();
+    else fx.float(f.position.clone().add(new T.Vector3(-0.9, 4.4, 0.5)), '♥', { color: '#ff5a7a', size: 6 });
+  }
+
+  // a slice of watermelon is thrown to the clean friend: chomp!
+  async snack() {
+    const f = this.friend;
+    const apple = makeMelon(0.75);
+    const from = new T.Vector3(-7, 1, 2), to = new T.Vector3(f.position.x + 0.9, 3.2, f.position.z + 1.2);
+    apple.position.copy(from);
+    this.root.add(apple);
+    sfx.swoosh();
+    await this.s.anim(0.35, (_, t) => { apple.position.lerpVectors(from, to, t); apple.position.y += 4 * 1.5 * t * (1 - t); apple.rotation.z = t * 6; });
+    sfx.chomp();
+    await this.s.tween(apple.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.15);   // chomped
+    this.root.remove(apple);
+    fx.float(f.position.clone().add(new T.Vector3(0.6, 4.2, 0.5)), '♥', { color: '#ff5a7a', size: 6 });
   }
 
   // the clean friend shakes itself dry like a puppy, then sparkles
@@ -300,35 +443,27 @@ export default class WashLesson extends Lesson {
     setFace(f.userData.face, 'happy');
     this.tickle = 0;
     f.rotation.z = 0;
+    this.holdSponge();
     this.s.tween(this.sponge.position, { x: SPONGE_HOME.x, y: SPONGE_HOME.y, z: SPONGE_HOME.z }, 0.45, Ease.out);
     this.s.tween(this.sponge.scale, { x: 1, y: 1, z: 1 }, 0.3);
     // anticipation squash
-    await this.s.anim(0.1, (_, p) => { const k = 1 - 0.12 * p; f.scale.set(SCALE / Math.sqrt(k), SCALE * k, SCALE / Math.sqrt(k)); });
+    const SC = f.userData.baseScale;
+    await this.s.anim(0.1, (_, p) => { const k = 1 - 0.12 * p; f.scale.set(SC / Math.sqrt(k), SC * k, SC / Math.sqrt(k)); });
     sfx.swoosh();
     sfx.splash();
-    this.splashAt(f.position.clone().add(new T.Vector3(0, 2.4, 0.6)), 20, 3);
+    this.splashAt(f.position.clone().add(new T.Vector3(0, 2.4, 0.6)), 14, 3);
     const r0 = f.rotation.y;
     await this.s.anim(0.5, (_, p) => {
       const k = 1 - p, w = Math.sin(p * Math.PI * 12);
       f.rotation.y = r0 + w * 0.45 * k;
       const sq = 1 + Math.abs(w) * 0.07 * k;
-      f.scale.set(SCALE * sq, SCALE / sq, SCALE * sq);
+      f.scale.set(SC * sq, SC / sq, SC * sq);
     });
-    f.rotation.y = r0; f.scale.setScalar(SCALE);
+    f.rotation.y = r0; f.scale.setScalar(SC);
     sfx.twinkle();
     fx.float(f.position.clone().add(new T.Vector3(-0.9, 4.4, 0.5)), '✨', { size: 6 });
-    if (snack) {
-      const apple = mesh(geo.sphere(0.45, 16, 12), 0xff4b4b, { outline: 0.03 });
-      const leaf = mesh(geo.sphere(0.12, 8, 6), 0x5fd068, { outline: 0.012 }); leaf.scale.set(1.6, 0.5, 0.8); leaf.position.set(0.15, 0.48, 0);
-      apple.add(leaf);
-      apple.position.set(f.position.x + 1.4, 2.4, f.position.z + 1.2);
-      this.root.add(apple);
-      await popIn(this.s, apple, 1, 0.25);
-      sfx.chomp();
-      await this.s.tween(apple.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2);
-      this.root.remove(apple);
-      fx.float(f.position.clone().add(new T.Vector3(0.6, 4.2, 0.5)), '♥', { color: '#ff5a7a', size: 6 });
-    } else hop(this.s, f, 0.5, 0.35, { sound: true });
+    if (snack) await this.snack();
+    else hop(this.s, f, 0.5, 0.35, { sound: true });
   }
 
   async afterSuccess() {
@@ -337,19 +472,53 @@ export default class WashLesson extends Lesson {
     // the friend skips off, the messy prop goes too
     sfx.patter();
     const f = this.friend, c = this.cause;
-    this.s.anim(0.6, (e, p) => { f.position.x = 10 * e; f.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.4; }, Ease.in).then(() => this.root.remove(f));
-    if (c) popOut(this.s, c, 0.2).then(() => this.root.remove(c));
+    f.position.y = 0;
+    f.rotation.y = 0.9;   // turns and walks off along the sand
+    // (Level 3 steps back first, then walks off between the beach shower post at (6.4, -0.8), the palm at (10, -2.5) and the lantern at (8.6, -5.2))
+    const zf = this.level === 2 ? -3.8 : 0, z0 = f.position.z;
+    this.s.anim(1.1, (e) => { f.position.x = 10 * e; f.position.z = z0 + zf * Math.min(1, e / 0.4); }, Ease.in).then(() => this.root.remove(f));
+    if (c) { physics.remove(c); popOut(this.s, c, 0.2).then(() => this.root.remove(c)); }
+    for (const cr of this.crumbs.splice(0)) { physics.remove(cr); popOut(this.s, cr, 0.15).then(() => this.root.remove(cr)); }
+    // let it get clear of the middle before the next friend walks in, so the two never pass through each other
+    await this.s.wait(0.7);
   }
 
+  // let go: the sponge falls with real physics, bounces and tumbles to rest (on the sand, the rock or the tub)
   dropSponge() {
-    // the sponge stays where it was put, unless it fell off
-    this.s.tween(this.sponge.scale, { x: 1, y: 1, z: 1 }, 0.15);
+    const sp = this.sponge;
     this.last = null;
-    const p = project(this.sponge.position);
-    if (p.x < 0 || p.x > window.innerWidth || p.y > window.innerHeight * 0.95) this.s.tween(this.sponge.position, { x: SPONGE_HOME.x, y: SPONGE_HOME.y, z: SPONGE_HOME.z }, 0.4, Ease.out);
+    sp.scale.setScalar(1);
+    const p = project(sp.position);
+    if (p.x < 0 || p.x > window.innerWidth || p.y > window.innerHeight * 0.95) { this.s.tween(sp.position, { x: SPONGE_HOME.x, y: SPONGE_HOME.y, z: SPONGE_HOME.z }, 0.4, Ease.out); return; }
+    physics.add(sp, { shape: 'box', bounce: 0.3, friction: 0.9 });
+    physics.impulse(sp, { x: (Math.random() - 0.5) * 1.5, y: 0.5, z: 0 }, { x: 0, y: 0, z: (Math.random() - 0.5) * 1.5 });
+  }
+
+  // Level 3: the beach shower runs for a moment: drops fall from its rose and splash on its tray
+  updateShower(dt) {
+    const rose = this.station.userData.rose;
+    if (!rose) return;
+    if (this.showerT > 0) {
+      if (Math.floor(this.showerT * 20) !== Math.floor((this.showerT - dt) * 20)) {
+        const d = makeWaterDrop(0.07, 0x9fdcff);
+        d.position.set(rose.x + (Math.random() - 0.5) * 0.5, rose.y, rose.z + (Math.random() - 0.5) * 0.5);
+        d.userData.vy = -1.5;
+        this.root.add(d);
+        this.showerDrops.push(d);
+        if (Math.random() < 0.2) sfx.bubble();
+      }
+      this.showerT -= dt;
+    }
+    for (let i = this.showerDrops.length - 1; i >= 0; i--) {
+      const d = this.showerDrops[i];
+      d.userData.vy -= dt * 14;
+      d.position.y += d.userData.vy * dt;
+      if (d.position.y < 0.12) { this.showerDrops.splice(i, 1); this.s.tween(d.scale, { x: d.scale.x * 2, y: 0.002, z: d.scale.z * 2 }, 0.12).then(() => this.root.remove(d)); }
+    }
   }
 
   update(dt, t) {
+    this.updateShower(dt);
     // squirm while being scrubbed
     const f = this.friend;
     if (f && this.tickle > 0) {
@@ -386,12 +555,19 @@ export default class WashLesson extends Lesson {
   }
   demoL3() { this.showHint(false); }
 
+  nudgeTarget() {
+    if (this.level === 2 && !this.wet) return this.water || this.sponge;
+    if (!this.dirty().length) return null;
+    this.holdSponge();               // out of the physics world, so the hop shows
+    return this.sponge;
+  }
+
   makeErrorless() {
     // the sponge floats to the next spot and spots need half the rubbing
     this.need *= 0.5;
     if (this.level === 2) this.setWet(true);
     const d = this.dirty()[0];
-    if (d) { const wp = d.anchor.getWorldPosition(new T.Vector3()); this.s.tween(this.sponge.position, { x: wp.x + 0.6, y: wp.y, z: wp.z + 0.9 }, 0.6, Ease.inOut); }
+    if (d) { const wp = d.anchor.getWorldPosition(new T.Vector3()); this.holdSponge(); this.s.tween(this.sponge.position, { x: wp.x + 0.6, y: wp.y, z: wp.z + 0.9 }, 0.6, Ease.inOut); }
   }
 
   nextRound() { this.need = NEED[this.level]; super.nextRound(); }

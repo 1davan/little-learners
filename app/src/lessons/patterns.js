@@ -1,22 +1,26 @@
 // Game 6 — Pattern parade. Topics mt_ZjIFGc6zPW "Finding the repeating unit" and mt_WXW0hjNhph "Patterns & sequences".
 // A parade of beach things marches onto the boardwalk and plays its pattern as a little tune (shell, star, shell, star…);
 // the child taps what comes next (or what's missing). The finished parade plays its tune and marches off.
+// Each level has its own stage: Level 1 a boardwalk parade where the things drop onto the planks one per beat,
+// Level 2 a toy train where each thing rides in its own wagon, Level 3 striped circus podiums that pop out of the sand
+// and catch the things Gull throws. The right answer is thrown into its spot with real physics (bounce, settle).
 import * as T from '../three.js';
 import { Lesson, shuffle } from '../engine/lesson.js';
 import { mesh, geo, basic, ink } from '../engine/toon.js';
 import { popIn, popOut, hop } from '../engine/actors.js';
-import { makeStarfish } from '../engine/scenery.js';
-import { makeCrab, makeBucket, makeBeachBall, makeShell, makeDuck, makeGull } from '../engine/beach.js';
+import { makeCrab, makeBucket, makeBeachBall, makeShell, makeSeaStar, makeDuck, makeGull } from '../engine/beach.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { project } from '../engine/stage.js';
+import { project, setCamera } from '../engine/stage.js';
+import { physics } from '../engine/physics.js';
+import { makeBoardwalk, makeTrack, makeCart, makeEngine, makePodium, makeChoiceTowel, makeParadeFlag } from './patterns-stage.js';
 
 const NOTE = { shell: 0, star: 2, crab: 4, ball: 5, bucket: 7 };
 const NAME = { shell: 'shell', star: 'starfish', crab: 'crab', ball: 'beach ball', bucket: 'bucket' };
 const ICON = { shell: '🐚', star: '⭐', crab: '🦀', ball: '🏐', bucket: '🪣' };
-const ROW_Y = 2.25, ROW_Z = -1.2, TOWEL_Z = 3.2, CHOICE_S = 1.15, BEAT = 0.17;
+const ROW_Y = 2.25, ROW_Z = -1.2, TOWEL_Z = 3.7, CHOICE_S = 1.15, BEAT = 0.17;
 
 // One look per round so no two parades feel the same: towel stripes, item colours and who leads the parade.
 const THEMES = [
@@ -32,7 +36,7 @@ function makeItem(kind, th = THEMES[0]) {
   const g = new T.Group();
   let m;
   if (kind === 'shell') { m = makeShell(th.shell, 1.15); m.rotation.x = 1.1; m.position.y = 0.45; }
-  else if (kind === 'star') { m = makeStarfish(th.star, 0.55); m.position.y = 0.55; }
+  else if (kind === 'star') { m = makeSeaStar(th.star, 0.55); m.position.y = 0.55; }
   else if (kind === 'crab') { m = makeCrab(th.crab); m.scale.setScalar(0.55); }
   else if (kind === 'ball') { m = makeBeachBall(0.48, th.ball); m.position.y = 0.5; }
   else { m = makeBucket(th.bucket, 0.42, 0.6); m.position.y = 0.02; }
@@ -49,11 +53,9 @@ function makeLeader(th) {
   bird.rotation.y = Math.PI / 2 - 0.35; // faces the way the parade marches
   g.add(bird);
   // a little parade flag on a stick
-  const stick = mesh(geo.cyl(0.035, 0.035, 1.5, 6), 0xa86f3a, { outline: 0.012 });
-  stick.position.set(-0.35, 0.95, 0.3);
-  const flag = new T.Mesh(geo.box(0.55, 0.36, 0.03), basic(th.flag));
-  flag.position.set(-0.07, 1.5, 0.3);
-  g.add(stick, flag);
+  const flag = makeParadeFlag(th.flag);
+  flag.position.set(-0.35, 0.2, 0.3);
+  g.add(flag);
   g.userData.flag = flag;
   g.userData.bird = bird;
   return g;
@@ -93,42 +95,37 @@ const PLANS = [
   ],
 ];
 
+const STAGE = ['walk', 'train', 'podium'];
+const TOWEL_COLS = [null, 0xffb020, 0xa77bff];
+
 export default class PatternsLesson extends Lesson {
   build() {
+    // closer in: the parade fills the middle of the screen and the choices sit big at the bottom
+    setCamera(new T.Vector3(0, 3.3, 12.8), new T.Vector3(0, 2.0, 0));
+    this.pip.position.set(-6.6, 0, -0.5);
     this.plan = PLANS[this.level];
-    // a wooden boardwalk shelf the parade walks along
-    const shelf = new T.Group();
-    const plank = mesh(geo.box(13, 0.3, 1.4), 0xc98b4f, { hull: 1.02 });
-    plank.position.y = ROW_Y - 0.15;
-    shelf.add(plank);
-    for (const x of [-5.8, -2, 2, 5.8]) {
-      const post = mesh(geo.cyl(0.14, 0.16, ROW_Y, 10), 0xa86f3a, { outline: 0.02 });
-      post.position.set(x, ROW_Y / 2 - 0.15, 0);
-      shelf.add(post);
-    }
-    shelf.position.z = ROW_Z;
-    this.root.add(shelf);
+    this.stage = STAGE[this.level];
+    if (this.stage === 'walk') { this.walk = makeBoardwalk(ROW_Y, ROW_Z); this.root.add(this.walk); }
+    else if (this.stage === 'train') this.root.add(makeTrack(ROW_Y, ROW_Z));
     // striped towel holding the choices (its colour changes every round)
-    const towel = new T.Group();
-    this.stripes = [];
-    for (let i = 0; i < 7; i++) {
-      const stripe = new T.Mesh(geo.box(1.0, 0.06, 1.8), i % 2 ? basic(0xffffff) : new T.MeshBasicMaterial({ color: 0x4ab0ff }));
-      stripe.position.x = -3 + i;
-      towel.add(stripe);
-      if (!(i % 2)) this.stripes.push(stripe);
-    }
-    towel.position.set(0, 0.03, TOWEL_Z);
+    const towel = makeChoiceTowel(7, 1.8);
+    towel.position.set(0, 0.045, TOWEL_Z);   // just above the sand's little ripples
     this.root.add(towel);
     this.towel = towel;
     this.row = [];
     this.choices = [];
+    this.bases = []; // per-slot wagons / podiums (levels 2 and 3)
+    this.statics = []; // this round's static colliders (the boardwalk's stay for the whole game)
     this.leader = null;
   }
 
+  nudgeTarget() { return this.choices.find((x) => x.userData.kind === this.answer() && x.parent) || null; }
   answer() { const p = this.plan[this.round]; return p.seq[p.gap ?? p.seq.length - 1]; }
   gapIndex() { const p = this.plan[this.round]; return p.gap ?? p.seq.length - 1; }
 
   slotX(i, n) { const sp = Math.min(1.7, 11.5 / n); return (i - (n - 1) / 2) * sp; }
+  // where a thing stands in slot i (world): on the planks, in its wagon, or on its podium
+  surfY() { return ROW_Y + (this.stage === 'train' ? 0.09 : 0); }   // train: the wagon floor (wagons ride at ROW_Y - 0.2)
 
   // Tap area that matches what you see: measured from the item's own bounds at its towel size.
   fitTap(c) {
@@ -153,6 +150,28 @@ export default class PatternsLesson extends Lesson {
     for (const c of this.choices) { if (c.userData.tap) input.remove(c.userData.tap); c.userData.tap = null; }
   }
 
+  // ---- physics: a thing is thrown so it lands at `to`, bounces and settles (kept upright), then snaps exactly into place.
+  // The crab is a character, so it jumps there itself on a ballistic arc instead.
+  async landAt(it, to, { time = 0.42, arc = 1.2, maxWait = 0.5, note = true } = {}) {
+    if (this.dead || !it.parent) return;
+    it.visible = true;
+    if (it.userData.kind === 'crab') {
+      const from = it.position.clone();
+      const top = Math.max(from.y, to.y) + arc - (from.y + to.y) / 2;
+      await this.s.anim(time, (_, t) => { it.position.lerpVectors(from, to, t); it.position.y += 4 * top * t * (1 - t); });
+      it.position.copy(to);
+      sfx.land();
+      hop(this.s, it, 0.12, 0.2);
+    } else {
+      physics.add(it, { shape: 'box', spin: false, bounce: 0.5, friction: 1 });
+      const done = physics.toss(it, to, { time, arc, spin: 0 });
+      await this.wait(time);
+      await Promise.race([this.alive(done), this.wait(maxWait)]);
+      physics.remove(it);
+      this.s.tween(it.position, { x: to.x, y: to.y, z: to.z }, 0.08);
+    }
+  }
+
   async startRound(r) {
     this.busy = true;
     const p = this.plan[r];
@@ -162,65 +181,60 @@ export default class PatternsLesson extends Lesson {
     for (const o of this.choices) this.root.remove(o);
     for (const o of this.row) if (!o.userData.leaving) this.root.remove(o);
     if (this.leader && !this.leader.userData.leaving) this.root.remove(this.leader);
+    for (const b of this.bases) if (!b.userData.leaving) this.root.remove(b);
     if (this.marker) this.root.remove(this.marker);
-    this.row = []; this.choices = [];
-    this.stripes.forEach((s) => s.material.color.setHex(th.towel));
+    this.row = []; this.choices = []; this.bases = [];
+    // physics: only this round's static shapes go (never physics.clear(): that would freeze anything mid-air)
+    this.dropStatics();
+    this.towel.userData.setColor(TOWEL_COLS[this.level] && r % 2 ? TOWEL_COLS[this.level] : th.towel);
     const n = p.seq.length;
+    const SY = this.surfY();
     // the empty slot: a pulsing ring with a question mark
     const marker = new T.Group();
     const ring = new T.Mesh(geo.ring(0.55, 0.7, 32), new T.MeshBasicMaterial({ color: 0xffffff })); // own material: it changes colour
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = ROW_Y + 0.02;
+    ring.position.y = SY + 0.02;
     const q = new T.Group();
     const arc = ink(geo.torus(0.2, 0.07, Math.PI * 1.4, 6, 16));
     arc.rotation.z = -0.5; arc.position.y = 0.15;
     const dot = ink(geo.sphere(0.08, 8, 6)); dot.position.y = -0.3;
     q.add(arc, dot);
-    q.position.y = ROW_Y + 0.9;
     marker.add(ring, q);
     marker.position.set(this.slotX(gap, n), 0, ROW_Z);
-    marker.userData = { q, ring, pulse: 0 };
+    marker.userData = { q, ring, pulse: 0, qy: SY + 0.9 };
     marker.visible = false;
     this.root.add(marker);
     this.marker = marker;
-    this.slotPos = new T.Vector3(this.slotX(gap, n), ROW_Y, ROW_Z);
+    this.slotPos = new T.Vector3(this.slotX(gap, n), SY, ROW_Z);
 
     // caption: the pattern in pictures, so a grown-up can chant it
     this.say(p.seq.map((k, i) => (i === gap ? '❓' : ICON[k])).join(' '), { rate: 0.8 });
 
-    // the parade marches in from the left behind its leader, stepping to a drum beat
     const items = [];
     for (let i = 0; i < n; i++) {
       if (i === gap) continue;
       const it = makeItem(p.seq[i], th);
       it.userData.slot = i;
       it.userData.hx = this.slotX(i, n);
+      it.userData.baseScale = 1;
       this.root.add(it);
       items.push(it);
     }
+    this.row = items;
     const leader = makeLeader(th);
-    leader.userData.hx = this.slotX(n - 1, n) + 1.45;
     this.root.add(leader);
     this.leader = leader;
-    const marchers = [...items, leader];
-    const D = 13, dur = 0.85;
-    for (const m of marchers) m.position.set(m.userData.hx - D, ROW_Y, ROW_Z);
-    for (let k = 0; k < 5; k++) this.s.wait(k * BEAT).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
     if (th.leader === 'duck') sfx.quack(); else sfx.gull();
-    await this.s.anim(dur, (e, raw) => {
-      for (const m of marchers) {
-        m.position.x = m.userData.hx - D * (1 - e);
-        m.position.y = ROW_Y + Math.abs(Math.sin(raw * Math.PI * 7)) * 0.28 * (1 - raw);
-      }
-    }, Ease.out);
-    for (const m of marchers) m.position.y = ROW_Y;
-    sfx.land();
-    this.row = items;
+
+    if (this.stage === 'walk') await this.arriveWalk(items, leader, n, gap);
+    else if (this.stage === 'train') await this.arriveTrain(items, leader, n, gap, th);
+    else await this.arrivePodiums(items, leader, n, gap, th);
+    if (this.dead) return;
+
     // the marker drops into the empty spot
     marker.visible = true;
     popIn(this.s, marker, 1, 0.3, { sound: false });
-
-    // the choices pop onto the towel while the parade plays its tune
+    // the choices pop onto the towel
     const xs = p.choices.length === 2 ? [-1.9, 1.9] : [-2.8, 0, 2.8];
     shuffle(p.choices).forEach((k, i) => {
       const c = makeItem(k, th);
@@ -229,13 +243,120 @@ export default class PatternsLesson extends Lesson {
       this.root.add(c);
       this.choices.push(c);
       c.userData.tap = this.fitTap(c);
-      c.userData.tap.enabled = false;
       popIn(this.s, c, CHOICE_S, 0.35 + i * 0.08);
     });
-    await this.playTune(p.seq.map((k, i) => (i === gap ? null : items.find((o) => o.userData.slot === i))), 0.22);
-    for (const c of this.choices) if (c.userData.tap) c.userData.tap.enabled = true;
+    if (this.stage === 'train') await this.playTune(p.seq.map((k, i) => (i === gap ? null : items.find((o) => o.userData.slot === i))), 0.2);
     this.busy = false;
     this.cue();
+  }
+
+  // Level 1: the leader marches in along the boardwalk while the things drop onto the planks, one per beat, singing
+  async arriveWalk(items, leader, n, gap) {
+    if (!this.walkStatics) this.walkStatics = this.walk.userData.statics.map(([x, y, z, sx, sy, sz]) => physics.box(new T.Vector3(x, y, z), new T.Vector3(sx, sy, sz)));
+    const hx = this.slotX(n - 1, n) + 1.45;
+    leader.position.set(hx - 13, ROW_Y, ROW_Z);
+    this.s.anim(0.7, (e, raw) => { leader.position.x = hx - 13 * (1 - e); leader.position.y = ROW_Y + Math.abs(Math.sin(raw * Math.PI * 6)) * 0.28 * (1 - raw); }, Ease.out);
+    for (let k = 0; k < 4; k++) this.s.wait(k * BEAT).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
+    const beat = 0.2;
+    const lands = [];
+    for (let i = 0; i < n; i++) {
+      const it = items.find((o) => o.userData.slot === i);
+      const t0 = 0.1 + i * beat;
+      if (!it) { this.s.wait(t0 + 0.4).then(() => { sfx.tick(); this.pulseMarker(); }); continue; }
+      it.position.set(it.userData.hx + (Math.random() - 0.5) * 0.8, ROW_Y + 7, ROW_Z);
+      it.visible = false;
+      this.s.wait(t0 + 0.4).then(() => { sfx.note(NOTE[it.userData.kind]); fx.float(new T.Vector3(it.userData.hx, ROW_Y + 1.2, ROW_Z), '♪', { color: '#ff7a59', size: 4.5 }); });
+      lands.push(this.wait(t0).then(() => this.landAt(it, new T.Vector3(it.userData.hx, ROW_Y, ROW_Z), { time: 0.4, arc: 0.4, maxWait: 0.35 })));
+    }
+    await Promise.all(lands);
+  }
+
+  // Level 2: the train chugs in with every thing riding in its own wagon; the empty wagon waits for the answer
+  async arriveTrain(items, leader, n, gap, th) {
+    const sp = Math.min(1.7, 11.5 / n);
+    const carts = [];
+    for (let i = 0; i < n; i++) {
+      const c = makeCart(i % 2 ? th.flag : th.bucket);
+      c.userData.hx = this.slotX(i, n);
+      c.userData.slot = i;
+      this.root.add(c);
+      carts.push(c);
+    }
+    const eng = makeEngine(th.towel);
+    eng.userData.hx = this.slotX(n - 1, n) + sp * 0.5 + 0.95;
+    this.root.add(eng);
+    carts.push(eng);
+    // the leader drives
+    leader.userData.bird.scale.multiplyScalar(0.8);
+    leader.userData.flag.parent.remove(leader.userData.flag);
+    eng.add(leader);
+    leader.position.copy(eng.userData.seat);
+    leader.rotation.y = 0;
+    this.bases = carts;
+    this.engine = eng;
+    const D = 14, dur = 1.0;
+    const riders = items.map((it) => ({ it, cart: carts[it.userData.slot] }));
+    sfx.whoosh();
+    for (let k = 0; k < 5; k++) this.s.wait(k * 0.2).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
+    await this.s.anim(dur, (e) => {
+      for (const c of carts) {
+        c.position.set(c.userData.hx - D * (1 - e), ROW_Y - 0.2, ROW_Z);
+        c.userData.spin?.(-e * 30);
+      }
+      for (const { it, cart } of riders) it.position.set(cart.position.x, cart.position.y + 0.29, ROW_Z);
+      eng.userData.chimney.scale.y = 1 + Math.abs(Math.sin(e * 30)) * 0.3;
+    }, Ease.out);
+    sfx.trumpetHi?.();
+    // the wagons bump into each other as the train stops
+    carts.forEach((c, i) => this.s.wait(i * 0.03).then(() => hop(this.s, c, 0.12, 0.2)));
+    // the empty wagon becomes a little box the answer can land in (floor top at ROW_Y + 0.09, four walls)
+    const g = carts[gap];
+    this.statics.push(physics.box(new T.Vector3(g.position.x, ROW_Y, ROW_Z), new T.Vector3(1.3, 0.18, 1.0)));
+    for (const dx of [-0.64, 0.64]) this.statics.push(physics.box(new T.Vector3(g.position.x + dx, ROW_Y + 0.4, ROW_Z), new T.Vector3(0.08, 0.8, 1.0)));
+    for (const dz of [-0.5, 0.5]) this.statics.push(physics.box(new T.Vector3(g.position.x, ROW_Y + 0.4, ROW_Z + dz), new T.Vector3(1.3, 0.8, 0.08)));
+    await this.wait(0.15);
+  }
+
+  // Level 3: podiums pop out of the sand, then Gull throws each thing onto its podium, one per beat
+  async arrivePodiums(items, leader, n, gap, th) {
+    const cols = [th.towel, th.flag, th.bucket];
+    for (let i = 0; i < n; i++) {
+      const pd = makePodium(cols[i % 3], ROW_Y);
+      pd.position.set(this.slotX(i, n), 0, ROW_Z);
+      pd.scale.set(1, 0.001, 1);
+      this.root.add(pd);
+      this.bases.push(pd);
+      this.s.wait(i * 0.05).then(() => { sfx.bloop(i % 5); this.s.tween(pd.scale, { y: 1 }, 0.3, Ease.back); });
+      this.statics.push(physics.box(new T.Vector3(this.slotX(i, n), ROW_Y - 0.06, ROW_Z), new T.Vector3(1.2, 0.12, 1.2)));
+    }
+    // the thrower stands at the right end
+    const hx = this.slotX(n - 1, n) + 1.6;
+    leader.position.set(hx + 6, 0, ROW_Z + 0.4);
+    this.s.tween(leader.position, { x: hx }, 0.35, Ease.out);
+    await this.wait(0.3);
+    const beat = 0.2;
+    const lands = [];
+    const from = new T.Vector3(hx - 0.3, 1.6, ROW_Z);
+    for (let i = n - 1; i >= 0; i--) { // throws right to left, but the tune plays left to right below
+      const it = items.find((o) => o.userData.slot === i);
+      if (!it) continue;
+      const k = n - 1 - i;
+      it.visible = false;
+      it.position.copy(from);
+      lands.push(this.wait(k * 0.09).then(() => { sfx.swoosh(); return this.landAt(it, new T.Vector3(it.userData.hx, ROW_Y, ROW_Z), { time: 0.42, arc: 1.4, maxWait: 0.3 }); }));
+    }
+    this.s.wait(0.1).then(() => { hop(this.s, leader, 0.3, 0.3); });
+    await Promise.all(lands);
+    // now the podiums light up left to right with the tune
+    for (let i = 0; i < n; i++) {
+      const it = items.find((o) => o.userData.slot === i);
+      this.s.wait(i * beat).then(() => {
+        const pd = this.bases[i];
+        hop(this.s, pd.userData.inner, 0.1, 0.18);
+        if (it) { sfx.note(NOTE[it.userData.kind]); hop(this.s, it, 0.4, 0.26); } else { sfx.tick(); this.pulseMarker(); }
+      });
+    }
+    await this.wait(n * beat * 0.6);
   }
 
   // Play the parade as a tune: each thing hops and sings its note in turn. null = the empty slot ("what?").
@@ -254,6 +375,8 @@ export default class PatternsLesson extends Lesson {
     }
   }
 
+  dropStatics() { for (const b of this.statics) physics.removeStatic(b); this.statics = []; }
+
   pulseMarker() { if (this.marker) this.marker.userData.pulse = 1; }
 
   promptText() { return this.plan[this.round]?.gap !== undefined ? "What's missing? ❓" : 'What comes next? ❓'; }
@@ -265,40 +388,50 @@ export default class PatternsLesson extends Lesson {
     const ans = this.answer();
     if (k !== ans) {
       this.wrong(c);
-      this.redirect(`That's the ${NAME[k]} ${ICON[k]}. Find the ${NAME[ans]} ${ICON[ans]}!`);
+      this.redirect(`That's the ${NAME[k]}. Find ${ICON[ans]}!`);
       return;
     }
     this.busy = true;
     input.lock(3000);
     this.clearChoices();
-    // fly into the slot with a little spin
-    const from = c.position.clone();
+    // thrown into the empty spot: it flies, lands, bounces and settles (the crab jumps there itself)
     const to = this.slotPos;
-    const inner = c.userData.inner, ry0 = inner.rotation.y;
-    sfx.swoosh();
-    await this.s.anim(0.45, (e) => {
-      c.position.lerpVectors(from, to, e);
-      c.position.y += Math.sin(e * Math.PI) * 2;
-      c.scale.setScalar(CHOICE_S + (1 - CHOICE_S) * e);
-      inner.rotation.y = ry0 + e * Math.PI * 2;
-    }, Ease.inOut);
-    inner.rotation.y = ry0;
+    this.s.tween(c.scale, { x: 1, y: 1, z: 1 }, 0.3);
     c.userData.baseScale = 1;
+    sfx.swoosh();
     this.marker.visible = false;
+    await this.landAt(c, to, { time: 0.45, arc: 1.8, maxWait: 0.3 });
+    c.scale.setScalar(1);
     sfx.pop();
     c.userData.slot = this.gapIndex();
     this.row.push(c);
     this.choices = this.choices.filter((x) => x !== c);
     for (const o of this.choices) popOut(this.s, o, 0.22);
-    // the leader waves its flag, and the finished parade plays the whole pattern as a tune
-    const ordered = this.row.slice().sort((a, b) => a.position.x - b.position.x);
+    // the leader cheers, and the finished parade plays the whole pattern as a tune
+    const ordered = this.row.slice().sort((a, b) => a.userData.slot - b.userData.slot);
     const flag = this.leader.userData.flag;
-    this.s.anim(0.9, (_, pr) => { flag.rotation.z = Math.sin(pr * Math.PI * 6) * 0.5; });
-    hop(this.s, this.leader, 0.5, 0.35);
+    if (flag.parent) this.s.anim(0.9, (_, pr) => { flag.rotation.z = Math.sin(pr * Math.PI * 6) * 0.5; });
+    if (this.stage === 'train') { sfx.trumpetHi?.(); hop(this.s, this.engine, 0.2, 0.3); } else hop(this.s, this.leader, 0.5, 0.35);
+    this.payoff(ordered, c);
     this.playTune(ordered, 0.15, { big: c }).then(() => { if (!this.dead) sfx.drumLoud(); });
     const p = this.plan[this.round];
     this.busy = false;
     this.success(to.clone().add(new T.Vector3(0, 1, 0)), p.seq.map((x) => ICON[x]).join(' ') + '!');
+  }
+
+  // a different little gag each round on top of the tune (≤ 0.9 s)
+  payoff(ordered, c) {
+    const g = this.round % 4, s = this.s;
+    if (g === 0) { // the new one spins with joy
+      const inner = c.userData.inner, r0 = inner.rotation.y;
+      s.anim(0.6, (e) => { inner.rotation.y = r0 + e * Math.PI * 2; }, Ease.inOut).then(() => (inner.rotation.y = r0));
+    } else if (g === 1) { // a wave of sparkles runs along the line
+      ordered.forEach((o, i) => s.wait(i * 0.07).then(() => fx.float(o.position.clone().add(new T.Vector3(0, 1.4, 0)), '✦', { color: '#ffb020', size: 4 })));
+    } else if (g === 2) { // everyone leans left, right — a little dance
+      s.anim(0.8, (_, p) => ordered.forEach((o) => { o.rotation.z = Math.sin(p * Math.PI * 4) * 0.25 * (1 - p); })).then(() => ordered.forEach((o) => (o.rotation.z = 0)));
+    } else { // confetti pops out of the new one
+      s.wait(0.2).then(() => { fx.confetti(c.position.clone().add(new T.Vector3(0, 0.8, 0)), 18); sfx.pop(); });
+    }
   }
 
   // Wrong tap: the thing shakes its head "no", the empty slot pulses, and the last bit of the parade sings again.
@@ -348,24 +481,40 @@ export default class PatternsLesson extends Lesson {
     }
   }
 
-  // Round transition: the finished parade marches off to the right; the next one marches in from the left.
+  // Round transition: the finished line leaves (marches off / the train chugs away / everyone bounces off the podiums)
   async afterSuccess() {
-    if (this.round >= this.totalRounds) return; // the finale marches the last parade off
-    this.marchOff([...this.row, this.leader].filter(Boolean), 0.75);
+    if (this.round >= this.totalRounds) return; // the finale sends the last one off
+    this.leave(0.75);
     await this.wait(0.15);
   }
 
-  marchOff(list, dur, dist = 13) {
+  leave(dur, dist = 13) {
     sfx.swoosh();
+    if (this.stage === 'train') {
+      const movers = [...this.bases, ...this.row];
+      for (const o of movers) { o.userData.leaving = true; o.userData.x0 = o.position.x; }
+      for (let k = 0; k < 4; k++) this.s.wait(k * 0.15).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
+      this.s.anim(dur, (e) => {
+        for (const o of movers) o.position.x = o.userData.x0 + dist * e;
+        for (const c of this.bases) c.userData.spin?.(-e * 30);
+      }, Ease.in).then(() => { for (const o of movers) this.root.remove(o); });
+      return;
+    }
+    const list = [...this.row, this.leader].filter(Boolean);
+    for (let k = 0; k < 4; k++) this.s.wait(k * BEAT).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
     for (const o of list) {
       o.userData.leaving = true;
-      const x0 = o.position.x;
+      const x0 = o.position.x, y0 = this.stage === 'podium' && o !== this.leader ? ROW_Y : o.position.y;
+      const yEnd = this.stage === 'podium' ? 0 : y0;
       this.s.anim(dur, (e, raw) => {
         o.position.x = x0 + dist * e;
-        o.position.y = ROW_Y + Math.abs(Math.sin(raw * Math.PI * 8)) * 0.3;
+        o.position.y = y0 + (yEnd - y0) * Math.min(1, raw * 2.5) + Math.abs(Math.sin(raw * Math.PI * 8)) * 0.3;
       }, Ease.in).then(() => { this.root.remove(o); });
     }
-    for (let k = 0; k < 4; k++) this.s.wait(k * BEAT).then(() => (k % 2 ? sfx.drumSoft() : sfx.tick()));
+    if (this.stage === 'podium') for (const pd of this.bases) {
+      pd.userData.leaving = true;
+      this.s.tween(pd.scale, { y: 0.001 }, 0.35, Ease.in).then(() => this.root.remove(pd));
+    }
   }
 
   update(dt, t) {
@@ -374,7 +523,7 @@ export default class PatternsLesson extends Lesson {
       const u = m.userData;
       u.pulse = Math.max(0, u.pulse - dt * 2.2);
       const k = 1 + Math.sin(t * 6) * 0.08 + u.pulse * 0.7;
-      u.q.position.y = ROW_Y + 0.9 + Math.sin(t * 4) * 0.12 + u.pulse * 0.5;
+      u.q.position.y = u.qy + Math.sin(t * 4) * 0.12 + u.pulse * 0.5;
       u.q.scale.setScalar(1 + u.pulse * 0.6);
       u.ring.scale.setScalar(k);
       u.ring.material.color.setRGB(1, 1 - u.pulse * 0.25, 1 - u.pulse * 0.7);
@@ -382,13 +531,14 @@ export default class PatternsLesson extends Lesson {
     // the waiting parade sways to the beat and the flag flutters
     if (!this.busy) this.row.forEach((o, i) => { o.rotation.z = Math.sin(t * 5 + i * 1.3) * 0.06; });
     if (this.leader) this.leader.userData.flag.rotation.y = Math.sin(t * 7) * 0.3;
+    // the engine puffs
+    if (this.engine && this.engine.parent) this.engine.userData.chimney.scale.y = 1 + Math.max(0, Math.sin(t * 5)) * 0.15;
   }
 
   onFinale() {
-    // the last parade marches off for good, singing its tune as it goes
-    const list = [...this.row, this.leader].filter(Boolean);
+    // the last line leaves for good, singing its tune as it goes
     const ordered = this.row.slice().sort((a, b) => b.position.x - a.position.x);
     ordered.forEach((o, i) => this.s.wait(0.5 + i * 0.18).then(() => sfx.note(NOTE[o.userData.kind])));
-    this.s.wait(0.5).then(() => this.marchOff(list, 2.4, 16));
+    this.s.wait(0.5).then(() => this.leave(2.4, 16));
   }
 }

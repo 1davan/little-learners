@@ -1,9 +1,10 @@
 // DOM overlays: fade transitions, the child home button (hold), the parent gate (hold corner 3 s),
-// the sticker shelf, the sticker award, and the sleepy-time screen.
+// the sticker shelf, and the sticker award.
 import { store } from './store.js';
 import { speech } from './speech.js';
-import { setVolume, getVolume, sfx } from './audio.js';
+import { setVolume, getVolume, sfx, getMusicVolume, setMusicVolume } from './audio.js';
 import { LESSON_LIST, WORLDS } from '../lessons/meta.js';
+import { THEMES } from './theme.js';
 
 const $ = (sel) => document.querySelector(sel);
 const ui = document.getElementById('ui');
@@ -56,17 +57,25 @@ speech.onCaption((text) => {
 const levels = document.createElement('div');
 levels.id = 'levels';
 ui.appendChild(levels);
+// Each button also shows that level's look for the current world (🌷 🍂 ⛄ / ☀️ 🌅 🌙 / 🌱 🎃 🌈).
+let uiWorld = 'meadow';
+let onLevel = null;
+export function setLevelHandler(fn) { onLevel = fn; }
+export function setUiWorld(world) { uiWorld = world; renderLevels(); }
 function renderLevels() {
   const cur = store.level();
+  const looks = THEMES[uiWorld] || THEMES.meadow;
   levels.innerHTML = '<span class="lbl">Level</span>' + [0, 1, 2].map((l) =>
-    `<button data-l="${l}" class="${l === cur ? 'on' : ''}"><b>${l + 1}</b><i>${'★'.repeat(l + 1)}</i></button>`).join('');
+    `<button data-l="${l}" class="${l === cur ? 'on' : ''}" title="${looks[l].name}"><b>${l + 1}</b><i>${'★'.repeat(l + 1)}</i><em>${looks[l].emoji}</em></button>`).join('');
   levels.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     const l = +b.dataset.l;
+    const changed = l !== store.level();
     store.setLevel(l);
     sfx.note(l * 2);
     renderLevels();
-    speech.say(`Level ${l + 1}!`);
+    if (changed && onLevel) onLevel(l);
+    else speech.say(`Level ${l + 1}!`);
   }));
 }
 renderLevels();
@@ -90,28 +99,25 @@ export function renderPages(page) {
 }
 
 // ---------- sticker shelf (home screen) ----------
+// A small row in the top-left corner showing only the stickers this world has earned: one sticker per game,
+// with a little "×n" when it has more. Hidden until the first sticker.
 const shelf = document.createElement('div');
 shelf.id = 'shelf';
 ui.appendChild(shelf);
 export function renderShelf(lessons = LESSON_LIST.slice(0, 5), newId = null) {
   shelf.innerHTML = '';
   for (const l of lessons) {
-    const col = document.createElement('div');
-    col.className = 'shelf-col';
     const n = store.stickers(l.id);
-    const shown = Math.min(3, n);
-    for (let i = 0; i < 3; i++) {
-      const s = document.createElement('div');
-      s.className = 'slot' + (i < shown ? ' got' : '');
-      s.style.setProperty('--c', l.color);
-      if (i < shown) s.textContent = l.icon;
-      if (newId === l.id && i === shown - 1) s.classList.add('new');
-      s.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (i < shown) { s.classList.remove('spin'); void s.offsetWidth; s.classList.add('spin'); sfx.note(i + LESSON_LIST.indexOf(l)); } });
-      col.appendChild(s);
-    }
-    if (n > 3) { const b = document.createElement('div'); b.className = 'extra'; b.textContent = '+' + (n - 3); col.appendChild(b); }
-    shelf.appendChild(col);
+    if (n < 1) continue;
+    const s = document.createElement('div');
+    s.className = 'slot got' + (newId === l.id ? ' new' : '');
+    s.style.setProperty('--c', l.color);
+    s.textContent = l.icon;
+    if (n > 1) { const b = document.createElement('i'); b.className = 'extra'; b.textContent = '×' + n; s.appendChild(b); }
+    s.addEventListener('pointerdown', (e) => { e.stopPropagation(); s.classList.remove('spin'); void s.offsetWidth; s.classList.add('spin'); sfx.note(LESSON_LIST.indexOf(l)); });
+    shelf.appendChild(s);
   }
+  shelf.classList.toggle('empty', !shelf.children.length);
 }
 
 export function setMode(mode) {
@@ -166,6 +172,7 @@ function openParentPanel() {
       <p class="muted">Each lesson is based on a topic from the Marble learning taxonomy. "First try" shows how many rounds were solved with no hint and no wrong choice.</p>
       <p>Current level: <b>Level ${store.level() + 1}</b> (change it with the 1 · 2 · 3 buttons on the home screen).</p><table><tr><th>Game</th><th>Stickers</th><th>Plays</th><th>Recent: level and first-try</th></tr>${rows}</table>
       <label>Sound effects <input type="range" id="pp-vol" min="0" max="1" step="0.05" value="${getVolume()}"></label>
+      <label>Music <input type="range" id="pp-music" min="0" max="1" step="0.05" value="${getMusicVolume()}"></label>
       <div class="btns">
         <button id="pp-reset">Reset stickers</button>
         <button id="pp-close" class="primary">Back to play</button>
@@ -174,32 +181,13 @@ function openParentPanel() {
       <p class="muted">Tip: Ctrl+Shift+Q (⌘⇧Q on Mac) also quits.</p>
     </div>`;
   panel.classList.add('open');
+  $('#pp-music').oninput = (e) => { setMusicVolume(+e.target.value); store.update((s) => { s.settings.music = +e.target.value; }); };
   $('#pp-vol').oninput = (e) => { setVolume(+e.target.value); store.update((s) => { s.settings.volume = +e.target.value; }); };
   $('#pp-reset').onclick = () => { if (confirm('Reset all stickers and progress?')) { store.reset(); onReset(); openParentPanel(); } };
-  $('#pp-close').onclick = () => { panel.classList.remove('open'); sleepy.classList.remove('on'); sessionStart = Date.now(); };
+  $('#pp-close').onclick = () => { panel.classList.remove('open'); };
   $('#pp-quit').onclick = () => window.close();
 }
 panel.addEventListener('pointerdown', (e) => e.stopPropagation());
 
-// ---------- sleepy time after 20 minutes ----------
-const sleepy = document.createElement('div');
-sleepy.id = 'sleepy';
-sleepy.innerHTML = '<div class="moon">🌙</div><div class="zzz">💤</div>';
-ui.appendChild(sleepy);
-let sessionStart = Date.now();
-const SESSION_MS = 20 * 60 * 1000;
-// Only count play time: if nobody has touched the screen for 5 minutes, start the clock again.
-let lastInput = Date.now();
-window.addEventListener('pointerdown', () => {
-  const now = Date.now();
-  if (now - lastInput > 5 * 60 * 1000 && !sleepy.classList.contains('on')) sessionStart = now;
-  lastInput = now;
-}, true);
-export function checkSleepy() {
-  if (Date.now() - sessionStart > SESSION_MS && !sleepy.classList.contains('on')) {
-    sleepy.classList.add('on');
-    speech.say('All done for now! Bye bye!');
-    return true;
-  }
-  return sleepy.classList.contains('on');
-}
+// (No bedtime screen: the parent decides when play ends.)
+export function checkSleepy() { return false; }

@@ -101,6 +101,14 @@ export function disposeTree(root) {
   root.traverse((o) => {
     if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
-    for (const m of mats) if (!m.userData.shared) m.dispose();
+    for (const m of mats) {
+      if (m.userData.shared) continue;
+      // textures (canvas labels, pictures) leak GPU memory unless disposed with their material
+      for (const k of ['map', 'alphaMap', 'emissiveMap', 'normalMap', 'gradientMap']) {
+        const t = m[k];
+        if (t && t.isTexture && !t.userData?.shared && t !== grad) t.dispose();
+      }
+      m.dispose();
+    }
   });
 }

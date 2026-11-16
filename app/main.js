@@ -1,5 +1,9 @@
-const { app, BrowserWindow, globalShortcut, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, globalShortcut, powerSaveBlocker, protocol, net } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
+
+// Serve the app from app://local/ so fetch() can load models and sounds (file:// can't be fetched).
+protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 // Let sound and the narrator's voice start without a prior click (toddlers won't click "enable sound").
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -18,7 +22,7 @@ function createWindow() {
     webPreferences: { contextIsolation: true, nodeIntegration: false, spellcheck: false, backgroundThrottling: false },
   });
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, 'index.html'));
+  win.loadURL('app://local/index.html');
   // Block pinch-zoom inside the app.
   win.webContents.setVisualZoomLevelLimits(1, 1);
   // Never open new windows or navigate away.
@@ -36,6 +40,12 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('app', (req) => {
+    const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, '');
+    const file = path.normalize(path.join(__dirname, rel));
+    if (!file.startsWith(__dirname)) return new Response('no', { status: 403 });
+    return net.fetch(pathToFileURL(file).toString()).catch(() => new Response('missing', { status: 404 }));
+  });
   createWindow();
   // Keep the screen awake while playing.
   powerSaveBlocker.start('prevent-display-sleep');

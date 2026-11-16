@@ -2,6 +2,8 @@
 // Drag snacks from the bin to the friends' plates, one at a time, so everyone gets the same.
 // Each round brings new friends and a new snack (carrots for bunnies, apples for pigs, corn for hens, fish for kittens,
 // and a cookie party for everyone). Dotted spots on each plate show how many each friend gets; plates glow gold when equal.
+// Each level is a different place: a picnic blanket with china plates (L1), inside the barn with wooden bowls (L2),
+// a garden party with leaf plates and bunting (L3). Snacks are thrown with real physics: they arc, bounce and pile up.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { mesh, geo, disposeTree } from '../engine/toon.js';
@@ -11,11 +13,18 @@ import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { SNACKS, makeSnack, makeBin, makePlate, lightPlate } from './share-props.js';
+import { physics } from '../engine/physics.js';
+import { frame, calmBackdrop } from './view-tools.js';
+import { SNACKS, makeSnack, makeBin, makePlate, lightPlate, makeSet, SET_STYLE, addBody } from './share-props.js';
 
-const CRATE = new T.Vector3(-5.6, 0, 3.7);
-const SPAWN = new T.Vector3(CRATE.x, 1.6, CRATE.z + 0.2);
-const XS = { 2: [-1.4, 3.6], 3: [-2.6, 1.2, 5.0], 4: [-3.6, -0.6, 2.4, 5.4] };
+// The snack bin sits low at the front, between two plates (it moves with the layout), so the snack waiting on
+// top never covers Pip or a plate; Pip stands back-left. Everything fits a 4:3 screen with the closer camera.
+const CRATE = new T.Vector3(0, 0, 4.9);
+const SPAWN = new T.Vector3(CRATE.x, 1.0, CRATE.z + 0.2);
+// the snack waiting to be picked up hovers clear above the bin's pile (bob included), never dipping into it
+const SPAWN_Y = { carrot: 1.95, corn: 1.9, apple: 1.9, fish: 1.85, cookie: 1.5 };
+const XS = { 2: [-2.3, 2.3], 3: [-3.5, 0, 3.5], 4: [-4.5, -1.5, 1.5, 4.5] };
+const SHOW = 1.0, HELD = 1.15; // snack scale waiting on the bin / while dragged (it is close to the camera)
 const BOWS = [0xff5a5a, 0x4a90ff, 0xffd23f, 0xa77bff];
 const HEX = ['#ff5a5a', '#4a90ff', '#e8a800', '#a77bff'];
 // [friends, each, pre-filled (one friend already has one)]
@@ -41,6 +50,12 @@ const PARTY = ['bunny', 'pig', 'hen', 'cat'];
 const SIZE = { bunny: 0.95, pig: 0.92, hen: 0.95, cat: 0.95 };
 const CALL = { bunny: 'boing2', pig: 'oink', hen: 'cluck', cat: 'meow' };
 const ONE = ['One for you!', 'One for you!', 'And one for you!'];
+// the payoff when everyone has the same: never the same twice in a row
+const PAYOFFS = [
+  ['munch', 'juggle', 'spin', 'munch', 'juggle', 'spin'],
+  ['juggle', 'spin', 'munch', 'juggle', 'munch', 'spin'],
+  ['spin', 'munch', 'juggle', 'spin', 'juggle', 'munch'],
+];
 
 function makeFriend(kind, i) {
   const f = kind === 'hen' ? makeFarmAnimal('hen') : makeAnimal(kind);
@@ -62,9 +77,21 @@ export default class ShareLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.themes = THEMES[this.level];
-    this.pip.position.set(-7.4, 0, -1.2);
+    this.pip.position.set(-6.4, 0, -2.2);
+    frame(0, 5.6, 12.8, 0, 1.2, 1.0);
+    calmBackdrop(this.meadow);
     this.bunnies = [];
     this.hungryT = 0;
+    this.style = SET_STYLE[this.level];
+    this.set = makeSet(this.level);
+    // centre the set on the play area and stretch its ground pieces forward to reach the bin at the front
+    this.set.position.x = -1.0;
+    for (const c of this.set.children) {
+      if (c.isGroup || c.position.y > 0.07) continue; // flat ground pieces only (not flowers, poles or walls)
+      c.position.z = c.position.z * 1.45 + 1.19;
+      if (Math.abs(c.rotation.x) > 1) c.scale.y *= 1.45; else c.scale.z *= 1.45;
+    }
+    this.root.add(this.set);
   }
 
   setBin(kind) {
@@ -73,24 +100,31 @@ export default class ShareLesson extends Lesson {
     const old = this.bin;
     if (old) popOut(this.s, old, 0.18).then(() => { this.root.remove(old); disposeTree(old); });
     this.bin = makeBin(kind);
-    this.bin.position.copy(CRATE);
+    this.bin.position.copy(CRATE); this.bin.position.x = this.spawnAt ? this.spawnAt.x : CRATE.x;
     this.root.add(this.bin);
-    popIn(this.s, this.bin, 0.85, 0.4);
+    popIn(this.s, this.bin, 0.7, 0.4);
   }
 
   async startRound(r) {
     this.busy = true;
     for (const b of this.bunnies) {
       popOut(this.s, b, 0.18).then(() => this.root.remove(b));
-      for (const c of b.userData.carrots) this.root.remove(c);
+      // (the snacks were all eaten in the payoff: chomped down to nothing)
+      for (const c of b.userData.carrots) { physics.remove(c); this.root.remove(c); }
+      physics.removeStatic(b.userData.plateBody);
       const p = b.userData.plate;
       popOut(this.s, p, 0.18).then(() => { this.root.remove(p); disposeTree(p); });
     }
+    // one bowl-shaped catcher per plate (last round's catchers went with their plates; the floor stays)
     const [n, each, pre] = this.plan[r];
     this.each = each;
     this.snack = this.themes[r];
     this.friend = FRIENDS[this.snack];
+    // the bin sits between the first two plates
+    this.spawnAt = SPAWN.clone(); this.spawnAt.x = (XS[n][0] + XS[n][1]) / 2;
+    this.spawnAt.y = SPAWN_Y[this.snack] ?? SPAWN.y;
     this.setBin(this.snack);
+    if (this.bin.position.x !== this.spawnAt.x) this.s.tween(this.bin.position, { x: this.spawnAt.x }, 0.3, Ease.inOut);
     const sp = SNACKS[this.snack];
     const party = this.friend.kind ? null : PARTY.slice(r % 2, (r % 2) + 4).concat(PARTY).slice(0, n);
     this.bunnies = XS[n].map((x, i) => {
@@ -103,11 +137,12 @@ export default class ShareLesson extends Lesson {
       this.root.add(b);
       b.scale.setScalar(0.001);
       this.s.wait(0.05 + i * 0.07).then(() => popIn(this.s, b, sc, 0.4, { sound: i === 0 }));
-      const plate = makePlate(BOWS[i], each, sp.gap);
+      const plate = makePlate(BOWS[i], each, sp.gap, this.style);
       plate.position.set(x, 0, 1.0);
+      const plateBody = physics.container(plate.position, { r: plate.userData.rr, h: plate.userData.floorY + 0.2, floor: plate.userData.floorY });
       this.root.add(plate);
       popIn(this.s, plate, 1, 0.3, { sound: false });
-      Object.assign(b.userData, { plate, carrots: [], n: 0, kind, col: i, enabled: true });
+      Object.assign(b.userData, { plate, plateBody, carrots: [], n: 0, kind, col: i, enabled: true });
       return b;
     });
     if (pre) { const b = this.bunnies[1]; this.placeCarrot(b, true); }
@@ -120,13 +155,14 @@ export default class ShareLesson extends Lesson {
   spawnCarrot() {
     const c = makeSnack(this.snack);
     const sp = SNACKS[this.snack];
-    c.position.copy(SPAWN);
+    const SP = this.spawnAt;
+    c.position.copy(SP);
     c.rotation.z = sp.held;
     this.root.add(c);
     // pops up out of the bin
     c.position.y = CRATE.y + 0.6;
-    this.s.tween(c.position, { y: SPAWN.y }, 0.3, Ease.back);
-    popIn(this.s, c, 1.25, 0.3);
+    this.s.tween(c.position, { y: SP.y }, 0.3, Ease.back);
+    popIn(this.s, c, SHOW, 0.3);
     sfx.pop();
     hop(this.s, this.pip, 0.25, 0.3); // Pip hands out the next snack
     this.carrot = c;
@@ -134,7 +170,7 @@ export default class ShareLesson extends Lesson {
       radius: 1.0, minY: 0.5, offset: new T.Vector3(0, 0.1, 0),
       zones: () => this.bunnies.map((b) => ({ bunny: b, pos: b.userData.plate.position.clone().add(new T.Vector3(0, 0.8, -0.4)), radius: 1.5, enabled: b.userData.enabled !== false })),
       onPick: () => {
-        this.s.tween(c.scale, { x: 1.45, y: 1.45, z: 1.45 }, 0.12);
+        this.s.tween(c.scale, { x: HELD, y: HELD, z: HELD }, 0.12);
         // the hungry ones go "ooh!" and reach out
         for (const b of this.bunnies) {
           const u = b.userData;
@@ -146,6 +182,9 @@ export default class ShareLesson extends Lesson {
       onDrop: (z) => this.drop(z),
     });
   }
+
+  // stuck child: the waiting snack hops
+  nudgeTarget() { const c = this.carrot; if (!c || !c.userData.drag || !c.parent || this.busy) return null; this.nudgeT = performance.now(); return c; }
 
   min() { return Math.min(...this.bunnies.map((b) => b.userData.n)); }
   valid() { const m = this.min(); return this.bunnies.filter((b) => b.userData.n === m); }
@@ -160,22 +199,22 @@ export default class ShareLesson extends Lesson {
     const sp = SNACKS[this.snack];
     c = c || makeSnack(this.snack);
     const slot = u.plate.userData.slots[i];
-    const to = new T.Vector3(u.plate.position.x + (i - (this.each - 1) / 2) * sp.gap, sp.y, u.plate.position.z + 0.05);
+    const fy = u.plate.userData.floorY;
+    const to = new T.Vector3(u.plate.position.x + (i - (this.each - 1) / 2) * sp.gap, fy + (sp.hull ? 0.32 : 0.12), u.plate.position.z + 0.05);
     const [rx, ry, rz] = sp.lay;
     if (instant) {
       c.position.copy(to); c.rotation.set(rx, ry, rz); c.scale.setScalar(sp.size); this.root.add(c);
       if (slot) slot.visible = false;
+      addBody(c);
     } else {
-      const from = c.position.clone(), r0 = c.rotation.clone(), k0 = c.scale.x;
-      this.s.anim(0.28, (e) => {
-        c.position.lerpVectors(from, to, e); c.position.y += Math.sin(e * Math.PI) * 0.8;
-        c.rotation.set(r0.x + (rx - r0.x) * e, r0.y + (ry - r0.y) * e, r0.z + (rz - r0.z) * e);
-        c.scale.setScalar(k0 + (sp.size - k0) * e);
-      }, Ease.inOut).then(() => {
-        sfx.land();
+      // thrown with real physics: it arcs onto the plate, bounces, tumbles and settles (piling on the others)
+      this.s.stop(c.scale);
+      c.scale.setScalar(sp.size);
+      addBody(c);
+      physics.toss(c, to.clone().setY(fy + 0.3), { arc: 0, time: 0.68, spin: 0.5 });
+      this.s.wait(0.66).then(() => {
         if (slot) slot.visible = false;
-        // the snack lands with a little squash, the plate bounces
-        this.s.anim(0.2, (_, p) => { const q = 1 - Math.sin(p * Math.PI) * 0.25; c.scale.set(sp.size / Math.sqrt(q), sp.size * q, sp.size / Math.sqrt(q)); }).then(() => c.scale.setScalar(sp.size));
+        // the plate bounces as the snack lands
         this.s.anim(0.22, (_, p) => u.plate.scale.set(1 + Math.sin(p * Math.PI) * 0.1, 1 - Math.sin(p * Math.PI) * 0.2, 1 + Math.sin(p * Math.PI) * 0.1)).then(() => u.plate.scale.setScalar(1));
       });
     }
@@ -186,8 +225,9 @@ export default class ShareLesson extends Lesson {
     const c = this.carrot;
     if (!c) return;
     const sp = SNACKS[this.snack];
-    this.s.tween(c.scale, { x: 1.25, y: 1.25, z: 1.25 }, 0.12);
-    const back = () => { this.s.tween(c.position, { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z }, 0.35, Ease.back); c.rotation.z = sp.held; };
+    this.s.tween(c.scale, { x: SHOW, y: SHOW, z: SHOW }, 0.12);
+    const SP = this.spawnAt;
+    const back = () => { this.s.tween(c.position, { x: SP.x, y: SP.y, z: SP.z }, 0.35, Ease.back); c.rotation.z = sp.held; };
     if (!z || this.busy) { back(); sfx.land(); this.calmDown(); return; }
     const b = z.bunny;
     if (b.userData.n > this.min()) {
@@ -245,19 +285,34 @@ export default class ShareLesson extends Lesson {
       const nx = this.bunnies[i + 1];
       if (nx) fx.float(p.position.clone().lerp(nx.userData.plate.position, 0.5).add(new T.Vector3(0, 1.2, 0.3)), '=', { color: '#e8a800', size: 9 });
     }));
-    this.s.wait(0.3).then(() => {
-      sfx.chomp();
-      this.s.wait(0.25).then(() => sfx.crunch());
-      for (const x of this.bunnies) {
-        const xu = x.userData;
-        hop(this.s, x, 0.5, 0.4);
-        xu.reach = 1.4;
-        for (const cc of xu.carrots) this.s.tween(cc.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.35, Ease.in);
-        fx.float(x.position.clone().add(new T.Vector3(0, 3.4, 0)), '♥', { color: '#ff5a8a', size: 7 });
-      }
-    });
+    this.s.wait(0.3).then(() => this.payoff(PAYOFFS[this.level][this.round % 6]));
     this.busy = false;
     this.success(new T.Vector3(1.2, 3.5, 0), 'Same for everyone!');
+  }
+
+  // everyone has the same: a quick party, a different one each round (all under 0.9 s)
+  payoff(kind) {
+    // munch: each snack loses a big bite, then the rest goes (two quick chomps), never just vanishing
+    const eat = (x, d) => this.s.wait(d).then(() => { for (const cc of x.userData.carrots) { physics.remove(cc); const k = cc.scale.x * 0.6; this.s.tween(cc.scale, { x: k, y: k, z: k }, 0.12, Ease.out).then(() => this.s.tween(cc.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.16, Ease.in)); } });
+    if (kind === 'juggle') {
+      // the snacks jump up off the plates (physics), then get gobbled
+      sfx.boing();
+      for (const x of this.bunnies) { for (const cc of x.userData.carrots) physics.poke(cc, 1.1); x.userData.reach = 1.5; hop(this.s, x, 0.4, 0.35); }
+      this.s.wait(0.45).then(() => sfx.chomp());
+      this.bunnies.forEach((x) => eat(x, 0.5));
+    } else if (kind === 'spin') {
+      // everyone does a happy twirl, then munch
+      sfx.whoosh();
+      for (const x of this.bunnies) { const r0 = x.rotation.y; this.s.anim(0.5, (e) => (x.rotation.y = r0 + e * Math.PI * 2), Ease.inOut).then(() => (x.rotation.y = r0)); hop(this.s, x, 0.35, 0.5); }
+      this.s.wait(0.35).then(() => { sfx.chomp(); this.s.wait(0.2).then(() => sfx.crunch()); });
+      this.bunnies.forEach((x) => eat(x, 0.4));
+    } else {
+      sfx.chomp();
+      this.s.wait(0.25).then(() => sfx.crunch());
+      for (const x of this.bunnies) { hop(this.s, x, 0.5, 0.4); x.userData.reach = 1.4; eat(x, 0); }
+    }
+    for (const x of this.bunnies) fx.float(x.position.clone().add(new T.Vector3(0, 3.4, 0)), '♥', { color: '#ff5a8a', size: 7 });
+    this.s.wait(0.2).then(() => sfx[CALL[this.bunnies[0].userData.kind]]?.());
   }
 
   shimmer(k) {
@@ -293,7 +348,7 @@ export default class ShareLesson extends Lesson {
     // the snack to move bobs so it reads as "pick me up"
     const c = this.carrot;
     const dragging = input.dragging();
-    if (c && c.userData.drag && !dragging && Math.abs(c.position.x - SPAWN.x) < 0.01) { c.position.y = SPAWN.y + Math.sin(t * 3) * 0.12; c.rotation.y = Math.sin(t * 1.7) * 0.3; }
+    if (c && c.userData.drag && !dragging && this.spawnAt && Math.abs(c.position.x - this.spawnAt.x) < 0.01 && !(performance.now() - (this.nudgeT || 0) < 600)) { c.position.y = this.spawnAt.y + Math.sin(t * 3) * 0.12; c.rotation.y = Math.sin(t * 1.7) * 0.3; }
     if (!dragging) this.hover = null;
     const k = Math.min(1, dt * 10);
     for (const b of this.bunnies) {

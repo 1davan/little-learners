@@ -2,6 +2,10 @@
 // Pip plays a few beats; the child copies them. Level 2 adds a quiet instrument (loud vs quiet); Level 3 mixes them.
 // Each round brings a new instrument pair (drum, bucket drum, pot and spoon, cowbell: big = loud, small = quiet)
 // and a new friend in the audience. A row of beat dots (big red = loud, small blue = quiet) shows how many beats to copy.
+// Each level is a different stage with its own instruments and audience: a hay-bale stage (drum, pumpkin, bucket),
+// a little red-curtain theatre (pot and spoon, cowbell, milk churn) and an evening concert with fairy lights (all mixed).
+// Little things sit on the instruments (corn, peas, berries, buttons…, new each round) and jump with real physics
+// when they are played: high for loud, a tiny hop for quiet.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { hop, popIn, popOut, wiggle, setFace } from '../engine/actors.js';
@@ -11,7 +15,10 @@ import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { makeInstrument, strike, makeDots, setDot } from './band-props.js';
+import { physics } from '../engine/physics.js';
+import { makeHay } from '../engine/scenery.js';
+import { makeInstrument, strike, makeDots, setDot, animDots, surface, makeBit, makeStage } from './band-props.js';
+import { frame, calmBackdrop } from './view-tools.js';
 import { playInstrument } from './band-sound.js';
 
 const PLANS = [
@@ -21,29 +28,48 @@ const PLANS = [
 ];
 // the instrument pair for each round
 const KINDS = [
-  ['drum', 'pot', 'bucket', 'cowbell', 'pot', 'drum'],
-  ['bucket', 'drum', 'cowbell', 'pot', 'drum', 'bucket'],
-  ['pot', 'cowbell', 'drum', 'bucket', 'cowbell', 'pot'],
+  ['drum', 'pumpkin', 'bucket', 'drum', 'pumpkin', 'bucket'],
+  ['pot', 'cowbell', 'churn', 'pot', 'churn', 'cowbell'],
+  ['churn', 'drum', 'cowbell', 'pumpkin', 'pot', 'bucket'],
 ];
-const NAMES = { drum: 'drum', bucket: 'bucket drum', pot: 'pot', cowbell: 'bell' };
+// what sits on the instruments and jumps when they are played, a new thing each round
+const BITS = [
+  ['corn', 'peas', 'apples', 'berries', 'eggs', 'buttons'],
+  ['berries', 'corn', 'buttons', 'peas', 'apples', 'eggs'],
+  ['buttons', 'apples', 'corn', 'eggs', 'berries', 'peas'],
+];
+// the "what a band!" payoff, never the same twice in a row
+const PAYOFF = [
+  ['pop', 'notes', 'spin', 'pop', 'spin', 'notes'],
+  ['notes', 'pop', 'spin', 'notes', 'pop', 'spin'],
+  ['spin', 'notes', 'pop', 'spin', 'pop', 'notes'],
+];
+const NAMES = { drum: 'drum', bucket: 'bucket drum', pot: 'pot', cowbell: 'bell', pumpkin: 'pumpkin drum', churn: 'milk can' };
 const BEAT = 0.5;
 const NUM = ['1', '2', '3', '4', '5'];
-const POS = { B: new T.Vector3(-0.6, 0, 1.3), s: new T.Vector3(3.9, 0, 1.8) };
-const PIP_INST = new T.Vector3(-5.0, 0, -0.1);
-const DOTS_AT = new T.Vector3(1.6, 4.3, 0.5);
+const POS = { B: new T.Vector3(-0.5, 0, 1.3), s: new T.Vector3(3.4, 0, 1.8) };
+const PIP_INST = new T.Vector3(-4.2, 0, 0.1);
+const DOTS_AT = new T.Vector3(1.4, 4.1, -0.8); // the beat board, above and behind the drums
 // the audience: three seats; one new friend takes a seat each round
-const SEATS = [[6.4, -2.8], [7.8, -0.6], [-2.9, -3.4]];
-const POOL = ['cow', 'hen', 'pig', 'sheep', 'horse'];
-const FAN_SIZE = { cow: 0.8, hen: 0.7, pig: 0.7, sheep: 0.72, horse: 0.72 };
-const CALL = { cow: 'moo', hen: 'cluck', pig: 'oink', sheep: 'baa', horse: 'neigh' };
+const SEATS = [[5.5, -3.0], [6.2, -0.7], [-2.6, -3.6]];
+// the audience for each level (the first three take their seats, the rest come in one by one)
+const POOLS = [['cow', 'hen', 'pig', 'sheep', 'horse'], ['horse', 'sheep', 'chick', 'cow', 'pig'], ['pig', 'chick', 'hen', 'horse', 'sheep', 'cow']];
+const FAN_SIZE = { cow: 0.8, hen: 0.7, pig: 0.7, sheep: 0.72, horse: 0.72, chick: 0.95 };
+const CALL = { cow: 'moo', hen: 'cluck', pig: 'oink', sheep: 'baa', horse: 'neigh', chick: 'cheep' };
 
 export default class BandLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.kinds = KINDS[this.level];
-    this.pip.position.set(-6.9, 0, -0.8);
+    this.pip.position.set(-5.7, 0, -0.4); // clear of the Level 2 curtain folds behind
+    frame(0.4, 3.6, 13, 0.4, 2.3, 0);
+    calmBackdrop(this.meadow);
     this.drums = {};
-    this.fans = ['cow', 'hen', 'pig'].map((k, i) => this.makeFan(k, i, false));
+    this.pool = POOLS[this.level];
+    this.stage = makeStage(this.level, makeHay);
+    this.root.add(this.stage);
+    this.fans = this.pool.slice(0, 3).map((k, i) => this.makeFan(k, i, false));
+    this.bits = [];
   }
 
   makeFan(kind, seat, pop = true) {
@@ -63,13 +89,17 @@ export default class BandLesson extends Lesson {
   swapFan(r) {
     const seat = (r + 2) % 3;
     const have = this.fans.map((f) => f.userData.kind);
-    const kind = POOL.map((_, j) => POOL[(r + j) % POOL.length]).find((k) => !have.includes(k));
+    const P = this.pool;
+    const kind = P.map((_, j) => P[(r + j) % P.length]).find((k) => !have.includes(k));
     if (!kind) return;
     const old = this.fans[seat];
-    popOut(this.s, old, 0.18).then(() => { this.root.remove(old); disposeTree(old); });
-    const f = this.makeFan(kind, seat);
-    this.fans[seat] = f;
-    this.s.wait(0.25).then(() => sfx[CALL[kind]]?.());
+    // the new friend pops in once the old one has gone, so the two never stand inside each other on the seat
+    popOut(this.s, old, 0.18).then(() => {
+      this.root.remove(old); disposeTree(old);
+      if (this.dead || this.fans[seat] !== old) return;
+      this.fans[seat] = this.makeFan(kind, seat);
+      this.s.wait(0.1).then(() => sfx[CALL[kind]]?.());
+    });
   }
 
   setInstruments(kind) {
@@ -104,6 +134,7 @@ export default class BandLesson extends Lesson {
     this.lastHit = 0;
     this.setInstruments(this.kinds[r]);
     if (r > 0) this.swapFan(r);
+    this.placeBits(r);
     if (this.dots) { const o = this.dots; popOut(this.s, o, 0.15).then(() => { this.root.remove(o); disposeTree(o); }); }
     this.dots = makeDots(this.pat);
     this.dots.position.copy(DOTS_AT);
@@ -114,6 +145,44 @@ export default class BandLesson extends Lesson {
     this.busy = false;
     this.cue();
   }
+
+  // new little things drop onto the instruments (into a bowl-shaped catcher on each playing surface)
+  placeBits(r) {
+    // last round's little things hop off and pop (no physics.clear(): nothing freezes mid-air), their catchers go
+    this.bits.forEach((b, i) => {
+      physics.remove(b);
+      const y0 = b.position.y, k = b.scale.x;
+      this.s.wait(i * 0.025).then(() => this.s.anim(0.22, (_, p) => { b.position.y = y0 + Math.sin(p * Math.PI) * 0.5; b.scale.setScalar(Math.max(0.001, k * (1 - p))); }))
+        .then(() => { this.root.remove(b); disposeTree(b); });
+    });
+    if (this.bits.length) this.s.wait(0.05).then(() => sfx.pop());
+    this.bits = [];
+    for (const c of this.catchers || []) physics.removeStatic(c);
+    this.catchers = [];
+    const kind = BITS[this.level][r % 6];
+    for (const d of Object.values(this.drums)) {
+      d.userData.bits = [];
+      const sf = surface(d);
+      if (!d.visible || !sf) continue;
+      const [sh, sr] = sf;
+      this.catchers.push(physics.container(new T.Vector3(d.position.x, sh - 0.05, d.position.z), { r: sr, h: 3.5, floor: 0.05 }));
+      // the milk churn's knob stands up in the middle of its lid: solid, so nothing rests inside it
+      const k = d.userData.inst === 'churn' ? d.userData.r / 0.5 : 0;
+      if (k) this.catchers.push(physics.box(new T.Vector3(d.position.x, sh + 0.1 * k, d.position.z), new T.Vector3(0.28 * k, 0.3 * k, 0.28 * k)));
+      const n = d.userData.kind === 'B' ? 4 : 3;
+      for (let i = 0; i < n; i++) {
+        const b = makeBit(kind, i);
+        const a = (i / n) * Math.PI * 2 + r;
+        b.position.set(d.position.x + Math.cos(a) * sr * 0.45, sh + 1.2 + i * 0.3, d.position.z + Math.sin(a) * sr * 0.45);
+        b.visible = false;
+        this.root.add(b);
+        d.userData.bits.push(b); this.bits.push(b);
+        this.s.wait(0.3 + i * 0.07).then(() => { b.visible = true; physics.add(b, { shape: 'ball', r: b.userData.bitR, bounce: 0.45, mass: 0.3 }); });
+      }
+    }
+  }
+  // the little things on an instrument jump: high when it's loud, a tiny hop when it's quiet
+  jumpBits(d, loud, k = 1) { for (const b of d.userData.bits || []) physics.poke(b, (loud ? 1.0 : 0.32) * k); }
 
   promptText() {
     const name = NAMES[this.kind] || 'drum';
@@ -173,7 +242,7 @@ export default class BandLesson extends Lesson {
     strike(this.s, this.pipInst, loud);
     // light the instrument to copy, and this beat's dot
     const d = this.drums[k];
-    if (d.visible) { this.squash(d, 0.94, 1); strike(this.s, d, loud); }
+    if (d.visible) { this.squash(d, 0.94, 1); strike(this.s, d, loud); this.jumpBits(d, loud, 0.8); }
     this.popDot(dot, 'lit');
     this.s.wait(0.35).then(() => { if (this.listening && dot.userData.state === 'lit') setDot(dot, 'done'); });
     fx.float(this.pipInst.position.clone().add(new T.Vector3(0, 1.6, 0)), loud ? '♪' : '♩', { color: loud ? '#ff5a5a' : '#4a90ff', size: loud ? 8 : 5 });
@@ -246,6 +315,7 @@ export default class BandLesson extends Lesson {
     playInstrument(this.kind, loud);
     this.squash(d, loud ? 0.72 : 0.82, 1);
     strike(this.s, d, loud);
+    this.jumpBits(d, loud);
     this.lastHit = performance.now();
     this.idle = 0;
     const dots = this.dots.userData.dots;
@@ -261,7 +331,7 @@ export default class BandLesson extends Lesson {
     for (const f of this.fans) this.react(f, loud ? 'loud' : 'soft');
     const dot = dots[this.i];
     this.popDot(dot, 'done');
-    fx.float(this.dots.position.clone().add(dot.position).add(new T.Vector3(0, 0.9, 0)), NUM[this.i], { color: loud ? '#ff5a5a' : '#4a90ff', size: 7 });
+    // (the dot's own number pops up on the beat board as it fills)
     this.i++;
     if (this.i < this.pat.length) return;
     // whole pattern copied: the dots flash, and the audience cheers in character
@@ -269,11 +339,37 @@ export default class BandLesson extends Lesson {
     input.lock(1200);
     dots.forEach((x, j) => this.s.wait(0.12 + j * 0.07).then(() => { this.popDot(x, 'lit'); sfx.note(j + 2); }));
     this.fans.forEach((f, j) => this.s.wait(0.15 + j * 0.18).then(() => this.react(f, 'cheer')));
+    this.s.wait(0.12).then(() => this.payoff(PAYOFF[this.level][this.round % 6]));
     this.busy = false;
     this.success(d.position.clone().add(new T.Vector3(0, 3, 0)), 'What a band!');
   }
 
+  // a quick, different payoff each round (under 0.9 s)
+  payoff(kind) {
+    const drums = Object.values(this.drums).filter((d) => d.visible);
+    if (kind === 'pop') {
+      // everything on the instruments goes flying up like popcorn
+      sfx.boing();
+      for (const d of drums) this.jumpBits(d, true, 1.45);
+      this.s.wait(0.25).then(() => sfx.pop());
+    } else if (kind === 'notes') {
+      // a fountain of music notes
+      sfx.twinkle();
+      const syms = ['♪', '♫', '♩', '♬'];
+      drums.forEach((d) => { for (let i = 0; i < 4; i++) this.s.wait(i * 0.1).then(() => fx.float(d.position.clone().add(new T.Vector3((i - 1.5) * 0.5, d.userData.h + 0.8, 0.4)), syms[i], { color: ['#ff5a5a', '#4a90ff', '#ffb020', '#5fd068'][i], size: 6 })); });
+      for (const d of drums) this.jumpBits(d, false, 2);
+    } else {
+      // the big instrument does a jump and a twirl
+      sfx.whoosh();
+      const d = this.drums.B, y0 = d.position.y, r0 = d.rotation.y;
+      this.jumpBits(d, true, 1.25);
+      this.s.anim(0.55, (e, p) => { d.rotation.y = r0 + e * Math.PI * 2; d.position.y = y0 + Math.sin(p * Math.PI) * 0.7; }, Ease.inOut).then(() => { d.rotation.y = r0; d.position.y = y0; sfx.thunk(); this.jumpBits(d, true, 0.9); });
+    }
+  }
+
   update(dt, t) {
+    const bl = this.stage.userData.bulbs;
+    if (bl) bl.forEach((b, i) => { b.material.emissiveIntensity = 0.35 + Math.max(0, Math.sin(t * 3 + i * 1.3)) * 0.6; });
     // a gentle "one more!" if the child stopped part-way
     if (!this.busy && !this.listening && this.i > 0 && this.i < this.pat.length && this.lastHit && performance.now() - this.lastHit > 2500) {
       this.lastHit = 0;
@@ -284,6 +380,14 @@ export default class BandLesson extends Lesson {
       const d = this.dots.userData.dots[this.i];
       if (d) d.scale.setScalar(1 + Math.max(0, Math.sin(t * 5)) * 0.15);
     }
+    if (this.dots) animDots(this.dots);
+  }
+
+  // stuck child: the instrument to play next hops
+  nudgeTarget() {
+    if (this.busy || this.listening || !this.pat) return null;
+    const d = this.drums[this.pat[this.i]];
+    return d && d.visible ? d : null;
   }
 
   showHint(glow = true) {

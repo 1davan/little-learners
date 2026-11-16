@@ -3,6 +3,9 @@
 // Each round a different friend (Chick, Piglet, Kitten) hides under different things (flowerpots, hay bales,
 // buckets, boxes). The wrong ones hide silly surprises; the right one gets a "peekaboo!" and a jump into Pip's arms.
 // (The hiding places are still called pots in the code and in the test hooks.)
+// Each level is a different place with its own hiding things and friends: a garden bed (flowerpots, baskets, buckets),
+// a straw farmyard pen (hay, boxes, buckets) and a vegetable patch with a scarecrow (pumpkins, barrels, baskets).
+// The hiding things drop in with real physics, and the right one is flung off and tumbles away.
 import * as T from '../three.js';
 import { Lesson, shuffle } from '../engine/lesson.js';
 import { popIn, popOut, hop, wiggle, setFace } from '../engine/actors.js';
@@ -11,10 +14,12 @@ import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { makeCover, COVER_SFX, HIDERS, makeHider, makePeek, GAGS, makeGag, gagShow } from './pots-props.js';
+import { physics } from '../engine/physics.js';
+import { setCamera } from '../engine/stage.js';
+import { makeCover, COVER_SFX, COVER_SIZE, HIDERS, makeHider, makePeek, GAGS, makeGag, gagShow, makeSet } from './pots-props.js';
 
-const XS = { 2: [-2.4, 2.6], 3: [-3.8, 0.4, 4.6], 4: [-5.0, -1.6, 1.8, 5.2] };
-const POT_Z = 0.6, LIFT = 2.6;
+const XS = { 2: [-2.2, 2.4], 3: [-3.5, 0.3, 4.1], 4: [-4.6, -1.5, 1.6, 4.7] };
+const POT_Z = 1.0, LIFT = 2.6;      // brought forward: big, and the ground in front is used
 // [pots, swaps, peek (a tail peeks out), frog decoy]
 const PLANS = [
   [[2, 0, 1], [2, 0, 1], [2, 0, 0], [3, 0, 1], [2, 0, 0], [3, 0, 0]],
@@ -22,24 +27,38 @@ const PLANS = [
   [[3, 2, 0], [3, 3, 0], [4, 1, 0], [4, 2, 0], [3, 3, 0], [4, 3, 0, 1]],
 ];
 // [who hides, under what] for each round
+// [who hides, under what, how the right one flies off] for each round. Each level has its own place, friends and things.
 const THEMES = [
-  [['chick', 'pot'], ['piglet', 'hay'], ['kitten', 'bucket'], ['chick', 'box'], ['piglet', 'pot'], ['kitten', 'hay']],
-  [['kitten', 'pot'], ['chick', 'hay'], ['piglet', 'box'], ['kitten', 'bucket'], ['chick', 'pot'], ['piglet', 'hay']],
-  [['piglet', 'pot'], ['kitten', 'box'], ['chick', 'bucket'], ['piglet', 'hay'], ['kitten', 'pot'], ['chick', 'box']],
+  [['chick', 'pot', 'flip'], ['bunny', 'basket', 'fling'], ['piglet', 'bucket', 'pop'], ['chick', 'basket', 'fling'], ['bunny', 'pot', 'pop'], ['piglet', 'bucket', 'flip']],
+  [['kitten', 'hay', 'fling'], ['piglet', 'box', 'flip'], ['chick', 'bucket', 'pop'], ['kitten', 'box', 'fling'], ['piglet', 'hay', 'pop'], ['chick', 'bucket', 'flip']],
+  [['hedgehog', 'pumpkin', 'pop'], ['bunny', 'barrel', 'fling'], ['kitten', 'basket', 'flip'], ['hedgehog', 'barrel', 'pop'], ['chick', 'pumpkin', 'fling'], ['bunny', 'basket', 'flip']],
 ];
-const GAG_KINDS = ['worm', 'sock', 'snail', 'frog'];
+// the silly surprises under the wrong ones, per level
+const GAG_KINDS = [['ball', 'worm', 'sock', 'snail'], ['sock', 'ball', 'frog', 'worm'], ['snail', 'ball', 'worm', 'sock', 'frog']];
 
 export default class PotsLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.themes = THEMES[this.level];
-    this.pip.position.set(-7.6, 0, -2.2);
+    // closer in: the hiding things are big and the ground in front is used
+    setCamera(new T.Vector3(0, 3.3, 11.8), new T.Vector3(0, 2.4, 0));
+    this.pip.position.set(-7.0, 0, -2.4);
     this.pots = [];
     this.gags = [];
-    this.gagI = Math.floor(Math.random() * GAG_KINDS.length);
+    this.gagKinds = GAG_KINDS[this.level];
+    this.gagI = Math.floor(Math.random() * this.gagKinds.length);
+    this.set = makeSet(this.level);
+    this.root.add(this.set);
   }
 
+  nudgeTarget() { const p = this.hidePot; return p && p.userData.tap?.enabled && !this.busy ? p : null; }
+
   clearRound() {
+    // (no physics.clear(): every body leaves the physics world on its own, so nothing ever freezes mid-air)
+    for (const b of this.flyBoxes || []) physics.removeStatic(b);
+    this.flyBoxes = [];
+    for (const p of this.pots) physics.remove(p);
+    for (const g of this.gags) physics.remove(g);
     for (const p of this.pots) { input.remove(p.userData.tap); this.root.remove(p); disposeTree(p); }
     for (const g of this.gags) { this.root.remove(g); disposeTree(g); }
     this.gags = [];
@@ -52,8 +71,9 @@ export default class PotsLesson extends Lesson {
     this.busy = true;
     this.clearRound();
     const [n, swaps, peek, frog] = this.plan[r];
-    const [who, cover] = this.themes[r];
+    const [who, cover, fly] = this.themes[r];
     this.who = who;
+    this.fly = fly;
     this.coverKind = cover;
     const xs = XS[n];
     this.pots = xs.map((x, i) => {
@@ -82,7 +102,7 @@ export default class PotsLesson extends Lesson {
     // something silly under each of the others
     for (const p of this.pots) {
       if (p === this.hidePot) continue;
-      const g = makeGag(GAG_KINDS[this.gagI++ % GAG_KINDS.length]);
+      const g = makeGag(this.gagKinds[this.gagI++ % this.gagKinds.length]);
       g.visible = false;
       this.root.add(g);
       p.userData.gag = g;
@@ -114,9 +134,16 @@ export default class PotsLesson extends Lesson {
       this.root.add(this.frog); popIn(this.s, this.frog, 0.5, 0.3); sfx.ribbit();
     }
     await this.wait(0.2);
-    // down they come: thunk!
-    for (const [i, p] of this.pots.entries()) this.s.wait(i * 0.06).then(() => this.s.tween(p.position, { y: 0 }, 0.26, Ease.in).then(() => { sfx[COVER_SFX[cover]](); this.squash(p); }));
-    await this.wait(0.32 + n * 0.06);
+    // down they come with real physics: they drop, bounce and settle (thunk!)
+    const [sx, sy, sz] = COVER_SIZE[cover] || [2.4, 1.8, 2.2];
+    for (const [i, p] of this.pots.entries()) this.s.wait(i * 0.06).then(() => {
+      physics.add(p, { shape: 'box', size: { x: sx, y: sy, z: sz }, spin: false, bounce: 0.05, friction: 1, mass: 3 });
+      physics.impulse(p, { x: 0, y: -7, z: 0 });
+      this.s.wait(0.2).then(() => { sfx[COVER_SFX[cover]](); this.squash(p); });
+    });
+    await this.wait(0.62 + n * 0.06);
+    // settled: back under our control, exactly in its slot
+    for (const [i, p] of this.pots.entries()) { physics.remove(p); p.position.set(xs[i], 0, POT_Z); p.rotation.set(0, 0, 0); }
     c.visible = false;
     if (this.frog) this.frog.visible = false;
     this.peek = !!peek;
@@ -170,7 +197,8 @@ export default class PotsLesson extends Lesson {
   promptText() { return this.plan[this.round]?.[1] ? `Where's ${this.name()} now?` : `Where's ${this.name()}?`; }
 
   async lift(p, up = true) {
-    await this.s.tween(p.position, { y: up ? 2.2 : 0 }, up ? 0.22 : 0.2, up ? Ease.out : Ease.in);
+    // (lifted clear above Pip's head, so a cover on the far left never hides Pip)
+    await this.s.tween(p.position, { y: up ? (p.position.x < -3 ? 2.85 : 2.3) : 0 }, up ? 0.22 : 0.2, up ? Ease.out : Ease.in);
     if (!up) { sfx[COVER_SFX[this.coverKind]](); this.squash(p); }
   }
 
@@ -188,18 +216,25 @@ export default class PotsLesson extends Lesson {
         if (!g) return;
         popIn(this.s, g, g.userData.baseScale, 0.3, { sound: false });
         sfx[GAGS[g.userData.gag].sfx]?.();
+        const ph = GAGS[g.userData.gag].phys;
         if (g.userData.gag === 'frog') hop(this.s, g, 0.6);
-        else gagShow(this.s, g);
+        else if (ph) {
+          // a ball bounces off, a sock flips over: real physics
+          g.position.y = 0.05;
+          physics.add(g, { ...ph, mass: 0.5 });
+          physics.impulse(g, { x: (Math.random() - 0.5) * 2.5, y: 6.5, z: 1.6 }, { x: 0.4, y: 0.6, z: 0.3 });
+        } else gagShow(this.s, g);
       });
       await this.lift(p);
       // Pip giggles at it
       sfx.giggle();
       wiggle(this.s, this.pip, 0.2, 0.5);
       this.busy = false;
-      this.redirect(`${g ? GAGS[g.userData.gag].line : 'Not there!'} Where's ${this.name()}?`);
+      const gl = g ? GAGS[g.userData.gag].line : 'Not there!', full = `${gl} Where's ${this.name()}?`;
+      this.redirect(full.length <= 30 ? full : gl);   // one line
       this.busy = true;
       await this.wait(0.45);
-      if (g) await popOut(this.s, g, 0.15);
+      if (g) { physics.remove(g); await popOut(this.s, g, 0.15); g.rotation.set(0, g.userData.gag === 'sock' ? 0.9 : 0, 0); }
       await this.lift(p, false);
       this.busy = false;
       return;
@@ -211,9 +246,7 @@ export default class PotsLesson extends Lesson {
     const c = this.chick, u = c.userData;
     c.position.copy(p.position).setY(0);
     c.visible = true;
-    sfx.swoosh();
-    this.s.tween(p.position, { y: 4.2, z: POT_Z - 1.5 }, 0.4, Ease.out);
-    this.s.tween(p.rotation, { x: -1.2 }, 0.4, Ease.out);
+    this.flyOff(p);
     if (u.face) setFace(u.face, 'scared');
     await this.wait(0.1);
     sfx[HIDERS[this.who].call]?.();
@@ -227,10 +260,35 @@ export default class PotsLesson extends Lesson {
     this.jumpToPip(c);
   }
 
+  // the hiding place is thrown off with real physics, a different way each round, and tumbles on the grass
+  flyOff(p) {
+    const [sx, sy, sz] = COVER_SIZE[this.coverKind] || [2.4, 1.8, 2.2];
+    const side = p.position.x > 0 ? 1 : -1;
+    sfx.whoosh();
+    // the others become solid for a moment, so the flying one bounces off them
+    this.flyBoxes = this.pots.filter((q) => q !== p).map((q) => physics.box(new T.Vector3(q.position.x, sy / 2, q.position.z), new T.Vector3(sx * 0.9, sy, sz * 0.9)));
+    // Pip (and the scarecrow on Level 3) are solid too, so a flung cover bounces off them instead of landing inside them
+    const pp = this.pip.position;
+    this.flyBoxes.push(physics.box(new T.Vector3(pp.x, 1.3, pp.z), new T.Vector3(1.9, 2.6, 1.6)));
+    if (this.level === 2) this.flyBoxes.push(physics.box(new T.Vector3(8.4, 1.9, -2.6), new T.Vector3(2.6, 3.8, 1.0)));
+    physics.add(p, { shape: 'box', size: { x: sx * 0.9, y: sy, z: sz * 0.9 }, bounce: 0.35, friction: 0.8, mass: 2 });
+    if (this.fly === 'pop') {
+      // straight up like a cork, spinning, and back down beside the friend
+      physics.impulse(p, { x: side * 1.2, y: 11, z: -1.0 }, { x: 0, y: 2.5, z: side * 0.8 });
+      sfx.pop();
+    } else if (this.fly === 'fling') {
+      // tossed sideways, cartwheeling away
+      physics.impulse(p, { x: side * 6.5, y: 7, z: -1.5 }, { x: 0, y: 0, z: -side * 3.5 });
+    } else {
+      // flipped backwards head over heels
+      physics.impulse(p, { x: 0, y: 8.5, z: -4.5 }, { x: -4, y: 0, z: 0 });
+    }
+  }
+
   async jumpToPip(c) {
     const pip = this.pip, s = this.s;
     const from = c.position.clone();
-    const to = pip.position.clone().add(new T.Vector3(0.45, 0.35, 0.95));
+    const to = pip.position.clone().add(new T.Vector3(0.4, 0.3, 1.25)); // held in front of Pip's tummy, not inside it
     const h = 2.6;
     sfx.boing2();
     const ry0 = c.rotation.y;
@@ -253,12 +311,11 @@ export default class PotsLesson extends Lesson {
   }
 
   async afterSuccess() {
-    const p = this.hidePot;
-    this.s.tween(p.position, { y: 0, z: POT_Z }, 0.22, Ease.in);
-    this.s.tween(p.rotation, { x: 0 }, 0.22);
+    // everything shrinks away together (the flung one keeps tumbling while it shrinks, then leaves the physics world)
     if (this.chick) this.s.tween(this.chick.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in);
     for (const q of this.pots) this.s.tween(q.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in);
     await this.wait(0.2);
+    physics.remove(this.hidePot);
   }
 
   center(p) { return p.position.clone().add(new T.Vector3(0, 1.0, 0.5)); }

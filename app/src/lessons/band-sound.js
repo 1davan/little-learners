@@ -1,4 +1,5 @@
-// Instrument sounds for Barn band: loud and quiet versions of a drum, a bucket drum, a pot-and-spoon and a cowbell.
+// Instrument sounds for Barn band: loud and quiet versions of a drum, a bucket drum, a pot-and-spoon, a cowbell,
+// a pumpkin drum and a milk churn.
 // The engine's sfx has the two drums; the others are synthesized here on a small WebAudio context of our own
 // (the engine's context is private), following the engine volume.
 import { sfx, getVolume } from '../engine/audio.js';
@@ -57,6 +58,19 @@ const PLAY = {
     const parts = [[523, 1], [1187, 0.6], [1873, 0.45], [2687, 0.3], [3511, 0.18]];
     for (const [f, a] of parts) tone({ f0: f * k, dur: loud ? 0.75 : 0.32, vol: (loud ? 0.16 : 0.035) * a, attack: 0.001 });
     noise({ dur: loud ? 0.05 : 0.03, vol: loud ? 0.25 : 0.06, type: 'highpass', f: 3000 });
+  },
+  pumpkin: (loud) => {
+    // a hollow, woody thock
+    const k = VARY();
+    if (loud) { tone({ f0: 95 * k, f1: 55 * k, dur: 0.38, vol: 0.6 }); tone({ type: 'triangle', f0: 230 * k, f1: 150 * k, dur: 0.12, vol: 0.22 }); noise({ dur: 0.05, vol: 0.18, type: 'lowpass', f: 800 }); }
+    else { tone({ f0: 210 * k, f1: 140 * k, dur: 0.14, vol: 0.13 }); tone({ type: 'triangle', f0: 380 * k, f1: 260 * k, dur: 0.05, vol: 0.05 }); }
+  },
+  churn: (loud) => {
+    // a deep metal bong
+    const k = VARY();
+    const parts = [[262, 1], [611, 0.55], [977, 0.4], [1440, 0.22]];
+    for (const [f, a] of parts) tone({ f0: f * k, dur: loud ? 0.9 : 0.35, vol: (loud ? 0.2 : 0.04) * a, attack: 0.001 });
+    noise({ dur: loud ? 0.04 : 0.02, vol: loud ? 0.2 : 0.05, type: 'bandpass', f: 2200, q: 2 });
   },
   cowbell: (loud) => {
     const k = VARY();
