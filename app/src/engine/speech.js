@@ -1,5 +1,6 @@
 // Narration through the operating system's offline voices (speechSynthesis).
 // If no voice is available the app still works — sound effects and the ghost hand carry each lesson.
+import { playVoice } from './audio.js';
 import { store } from './store.js';
 
 // The parent asked for no computer voice: narration is shown as on-screen captions only (for a grown-up to read aloud).
@@ -68,6 +69,18 @@ export const speech = {
   },
   // Speak text. Resolves when finished (or after a safety timeout). Interrupts by default.
   say(text, { interrupt = true, rate = 0.92, pitch = 1.12 } = {}) {
+    if (window.__collectSay) console.log('SAY>' + text);
+    // A pre-recorded voice clip (fal.ai, app/assets/voice) for this exact line plays with the caption.
+    const clip = voiceClip(text);
+    if (clip) {
+      return new Promise((resolve) => {
+        caption(text);
+        playVoice(clip).then((dur) => {
+          const ms = Math.max(900, (dur || 1.2) * 1000 + 150);
+          setTimeout(() => { setTimeout(() => caption(null, text), 1200); resolve(); }, ms);
+        });
+      });
+    }
     return new Promise((resolve) => {
       const estimate = text.length * 85 + 1200;
       caption(text);
@@ -89,3 +102,13 @@ export const speech = {
     });
   },
 };
+
+// ---------- recorded voice lines ----------
+let voiceIndex = null;
+export function voiceKey(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+export async function loadVoice() {
+  try { voiceIndex = await (await fetch('assets/voice/index.json')).json(); } catch (e) { voiceIndex = {}; }
+}
+function voiceClip(text) { return voiceIndex && voiceIndex[voiceKey(text)]; }

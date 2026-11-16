@@ -1,4 +1,4 @@
-// Shared framing helpers for the meadow + farm games (colours, counting, shapes, feelings, sizes, moo, grow, share, band).
+// Shared framing helpers for the meadow + farm games (colours, counting, shapes, feelings, sizes, moo, share, band).
 // Nothing here edits the engine: it only moves the camera, and tidies / re-lights the scenery group a lesson owns.
 import * as T from '../three.js';
 import { scene, setCamera } from '../engine/stage.js';

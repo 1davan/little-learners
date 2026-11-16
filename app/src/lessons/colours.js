@@ -83,7 +83,7 @@ export default class ColoursLesson extends Lesson {
     const mat = makeMat(13, 7.6);
     mat.position.set(0, 0, 2.1);
     this.root.add(mat);
-    this.pip.position.set(-7.1, 0, -3.6);
+    this.pip.position.set(this.P.start.length > 3 ? -7.9 : -7.1, 0, -3.6);
     this.tubes = [];
     for (const c of this.P.start) this.addTube(c, false);
     this.placeTubes(false);
@@ -171,7 +171,7 @@ export default class ColoursLesson extends Lesson {
     this.target = input.addDrag(item, {
       radius: 0.9,
       zones: () => this.zones(),
-      onPick: () => { sfx.bloop(2); this.s.tween(item.scale, { x: 1.2, y: 1.2, z: 1.2 }, 0.15, Ease.back); },
+      onPick: () => { this.s.stop(item.position); sfx.bloop(2); this.s.tween(item.scale, { x: 1.2, y: 1.2, z: 1.2 }, 0.15, Ease.back); },
       onMove: (_t, z) => this.onHover(z),
       onDrop: (z, info) => this.drop(z, info),
     });
@@ -330,6 +330,7 @@ export default class ColoursLesson extends Lesson {
     this.hover = null;
     if (!item || !item.userData.ready || item.userData.inTube || this.busy || item.userData.bouncing) return;
     if (!zone) {
+      this.s.stop(item.scale);
       this.goHome(item);
       if (tapped) {
         // a happy little jump with a twirl

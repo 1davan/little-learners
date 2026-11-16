@@ -57,7 +57,7 @@ speech.onCaption((text) => {
 const levels = document.createElement('div');
 levels.id = 'levels';
 ui.appendChild(levels);
-// Each button also shows that level's look for the current world (🌷 🍂 ⛄ / ☀️ 🌅 🌙 / 🌱 🎃 🌈).
+// Each button also shows that level's look for the current world (🌷 🍂 ⛄ / ☀️ 🌅 🌙 / 🌱 🎃 🌈), or for the map.
 let uiWorld = 'meadow';
 let onLevel = null;
 export function setLevelHandler(fn) { onLevel = fn; }
@@ -94,8 +94,15 @@ let onPage = () => {};
 export function setPageHandler(fn) { onPage = fn; }
 arrowL.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPage('right'); });
 arrowR.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPage('left'); });
+// The dots are buttons too: 🗺️ goes back to the world map, a world's dot jumps straight to that world.
+let onJump = () => {};
+export function setJumpHandler(fn) { onJump = fn || (() => {}); }
 export function renderPages(page) {
-  dots.innerHTML = WORLDS.map((w, i) => `<span class="${i === page ? 'on' : ''}">${w.icon}</span>`).join('');
+  dots.innerHTML = `<span class="map" title="World map">🗺️</span>` + WORLDS.map((w, i) => `<span data-i="${i}" class="${i === page ? 'on' : ''}" title="${w.name}">${w.icon}</span>`).join('');
+  dots.querySelectorAll('span').forEach((d) => d.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    onJump(d.classList.contains('map') ? 'map' : +d.dataset.i);
+  }));
 }
 
 // ---------- sticker shelf (home screen) ----------
@@ -121,7 +128,7 @@ export function renderShelf(lessons = LESSON_LIST.slice(0, 5), newId = null) {
 }
 
 export function setMode(mode) {
-  document.body.dataset.mode = mode === 'home' ? 'home' : 'lesson';
+  document.body.dataset.mode = mode === 'home' || mode === 'map' ? mode : 'lesson';
 }
 
 // ---------- sticker award ----------

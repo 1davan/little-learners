@@ -3,7 +3,7 @@
 // Each round brings new friends and a new snack (carrots for bunnies, apples for pigs, corn for hens, fish for kittens,
 // and a cookie party for everyone). Dotted spots on each plate show how many each friend gets; plates glow gold when equal.
 // Each level is a different place: a picnic blanket with china plates (L1), inside the barn with wooden bowls (L2),
-// a garden party with leaf plates and bunting (L3). Snacks are thrown with real physics: they arc, bounce and pile up.
+// a garden party with leaf plates and bunting (L3). Snacks arc onto their dotted spot on the plate.
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { mesh, geo, disposeTree } from '../engine/toon.js';
@@ -13,9 +13,8 @@ import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { physics } from '../engine/physics.js';
 import { frame, calmBackdrop } from './view-tools.js';
-import { SNACKS, makeSnack, makeBin, makePlate, lightPlate, makeSet, SET_STYLE, addBody } from './share-props.js';
+import { SNACKS, makeSnack, makeBin, makePlate, lightPlate, makeSet, SET_STYLE } from './share-props.js';
 
 // The snack bin sits low at the front, between two plates (it moves with the layout), so the snack waiting on
 // top never covers Pip or a plate; Pip stands back-left. Everything fits a 4:3 screen with the closer camera.
@@ -110,8 +109,7 @@ export default class ShareLesson extends Lesson {
     for (const b of this.bunnies) {
       popOut(this.s, b, 0.18).then(() => this.root.remove(b));
       // (the snacks were all eaten in the payoff: chomped down to nothing)
-      for (const c of b.userData.carrots) { physics.remove(c); this.root.remove(c); }
-      physics.removeStatic(b.userData.plateBody);
+      for (const c of b.userData.carrots) this.root.remove(c);
       const p = b.userData.plate;
       popOut(this.s, p, 0.18).then(() => { this.root.remove(p); disposeTree(p); });
     }
@@ -139,10 +137,9 @@ export default class ShareLesson extends Lesson {
       this.s.wait(0.05 + i * 0.07).then(() => popIn(this.s, b, sc, 0.4, { sound: i === 0 }));
       const plate = makePlate(BOWS[i], each, sp.gap, this.style);
       plate.position.set(x, 0, 1.0);
-      const plateBody = physics.container(plate.position, { r: plate.userData.rr, h: plate.userData.floorY + 0.2, floor: plate.userData.floorY });
       this.root.add(plate);
       popIn(this.s, plate, 1, 0.3, { sound: false });
-      Object.assign(b.userData, { plate, plateBody, carrots: [], n: 0, kind, col: i, enabled: true });
+      Object.assign(b.userData, { plate, carrots: [], n: 0, kind, col: i, enabled: true });
       return b;
     });
     if (pre) { const b = this.bunnies[1]; this.placeCarrot(b, true); }
@@ -194,31 +191,40 @@ export default class ShareLesson extends Lesson {
     for (const b of this.bunnies) { const u = b.userData; u.reachTo = 0; if (u.face) setFace(u.face, 'happy'); }
   }
 
+  // The snack goes onto its dotted spot on the plate: a clean tweened arc that lands exactly in the spot, lying flat
+  // (no physics, so it can never bounce off the rim or end up on the blanket).
   placeCarrot(b, instant = false, c = null) {
     const u = b.userData, i = u.n++;
     const sp = SNACKS[this.snack];
     c = c || makeSnack(this.snack);
+    if (!c.parent) this.root.add(c);
     const slot = u.plate.userData.slots[i];
     const fy = u.plate.userData.floorY;
-    const to = new T.Vector3(u.plate.position.x + (i - (this.each - 1) / 2) * sp.gap, fy + (sp.hull ? 0.32 : 0.12), u.plate.position.z + 0.05);
     const [rx, ry, rz] = sp.lay;
-    if (instant) {
-      c.position.copy(to); c.rotation.set(rx, ry, rz); c.scale.setScalar(sp.size); this.root.add(c);
-      if (slot) slot.visible = false;
-      addBody(c);
-    } else {
-      // thrown with real physics: it arcs onto the plate, bounces, tumbles and settles (piling on the others)
-      this.s.stop(c.scale);
-      c.scale.setScalar(sp.size);
-      addBody(c);
-      physics.toss(c, to.clone().setY(fy + 0.3), { arc: 0, time: 0.68, spin: 0.5 });
-      this.s.wait(0.66).then(() => {
-        if (slot) slot.visible = false;
-        // the plate bounces as the snack lands
-        this.s.anim(0.22, (_, p) => u.plate.scale.set(1 + Math.sin(p * Math.PI) * 0.1, 1 - Math.sin(p * Math.PI) * 0.2, 1 + Math.sin(p * Math.PI) * 0.1)).then(() => u.plate.scale.setScalar(1));
-      });
-    }
+    // where it rests: centred on its spot, its lowest point just on the plate
+    const from = c.position.clone(), q0 = c.quaternion.clone(), s0 = c.scale.x;
+    c.rotation.set(rx, ry, rz); c.scale.setScalar(sp.size); c.position.set(0, 0, 0); c.updateMatrixWorld(true);
+    const bb = new T.Box3().setFromObject(c), ctr = bb.getCenter(new T.Vector3());
+    const to = new T.Vector3(u.plate.position.x + (i - (this.each - 1) / 2) * sp.gap - ctr.x, fy + 0.01 - bb.min.y, u.plate.position.z + 0.05 - ctr.z);
+    const q1 = c.quaternion.clone();
     u.carrots.push(c);
+    if (instant) { c.position.copy(to); if (slot) slot.visible = false; return; }
+    c.quaternion.copy(q0); c.scale.setScalar(s0); c.position.copy(from);
+    this.s.stop(c.scale); this.s.stop(c.position);
+    const qt = new T.Quaternion();
+    this.s.anim(0.42, (e, p) => {
+      c.position.lerpVectors(from, to, e);
+      c.position.y += Math.sin(p * Math.PI) * 1.0;
+      qt.slerpQuaternions(q0, q1, e); c.quaternion.copy(qt);
+      c.scale.setScalar(s0 + (sp.size - s0) * e);
+    }, Ease.inOut).then(() => {
+      if (this.dead) return;
+      c.position.copy(to); c.quaternion.copy(q1); c.scale.setScalar(sp.size);
+      if (slot) slot.visible = false;
+      sfx.land();
+      // the plate bounces as the snack lands
+      this.s.anim(0.22, (_, p) => u.plate.scale.set(1 + Math.sin(p * Math.PI) * 0.1, 1 - Math.sin(p * Math.PI) * 0.2, 1 + Math.sin(p * Math.PI) * 0.1)).then(() => u.plate.scale.setScalar(1));
+    });
   }
 
   async drop(z) {
@@ -244,7 +250,7 @@ export default class ShareLesson extends Lesson {
       hop(this.s, wait, 0.45, 0.35);
       sfx[CALL[wu.kind]]?.();
       this.s.wait(0.9).then(() => { if (wu.face && wu.n < this.each) setFace(wu.face, 'happy'); if (bu.face) setFace(bu.face, 'happy'); wu.reachTo = 0; });
-      this.redirect(`That one has ${bu.n === 1 ? 'one' : 'some'}. This one is waiting!`);
+      this.redirect('This one is waiting!');
       return;
     }
     input.remove(c.userData.drag);
@@ -293,11 +299,11 @@ export default class ShareLesson extends Lesson {
   // everyone has the same: a quick party, a different one each round (all under 0.9 s)
   payoff(kind) {
     // munch: each snack loses a big bite, then the rest goes (two quick chomps), never just vanishing
-    const eat = (x, d) => this.s.wait(d).then(() => { for (const cc of x.userData.carrots) { physics.remove(cc); const k = cc.scale.x * 0.6; this.s.tween(cc.scale, { x: k, y: k, z: k }, 0.12, Ease.out).then(() => this.s.tween(cc.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.16, Ease.in)); } });
+    const eat = (x, d) => this.s.wait(d).then(() => { for (const cc of x.userData.carrots) { const k = cc.scale.x * 0.6; this.s.tween(cc.scale, { x: k, y: k, z: k }, 0.12, Ease.out).then(() => this.s.tween(cc.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.16, Ease.in)); } });
     if (kind === 'juggle') {
-      // the snacks jump up off the plates (physics), then get gobbled
+      // the snacks hop up off the plates and drop back, then get gobbled
       sfx.boing();
-      for (const x of this.bunnies) { for (const cc of x.userData.carrots) physics.poke(cc, 1.1); x.userData.reach = 1.5; hop(this.s, x, 0.4, 0.35); }
+      for (const x of this.bunnies) { for (const [j, cc] of x.userData.carrots.entries()) { const y0 = cc.position.y, r0 = cc.rotation.y; this.s.wait(j * 0.05).then(() => this.s.anim(0.4, (_, p) => { cc.position.y = y0 + Math.sin(p * Math.PI) * 0.9; cc.rotation.y = r0 + Math.sin(p * Math.PI) * 0.6; })); } x.userData.reach = 1.5; hop(this.s, x, 0.4, 0.35); }
       this.s.wait(0.45).then(() => sfx.chomp());
       this.bunnies.forEach((x) => eat(x, 0.5));
     } else if (kind === 'spin') {

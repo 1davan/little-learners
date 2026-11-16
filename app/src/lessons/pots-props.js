@@ -136,8 +136,6 @@ export function makeCover(kind, i) {
   return g;
 }
 export const COVER_SFX = { pot: 'thunk', hay: 'rustle', bucket: 'thunk', box: 'thunk', basket: 'rustle', barrel: 'thunk', pumpkin: 'bloop' };
-// rigid-body collider for each hiding place (a box from the ground up)
-export const COVER_SIZE = { pot: [2.5, 1.75, 2.5], hay: [2.5, 1.85, 1.9], bucket: [2.5, 1.75, 2.5], box: [2.4, 1.9, 2.0], basket: [2.3, 1.3, 2.3], barrel: [2.2, 1.8, 2.2], pumpkin: [2.4, 1.8, 2.4] };
 
 // ---------- the friends who hide ----------
 export const HIDERS = {
@@ -269,11 +267,11 @@ function ball() {
   return g;
 }
 export const GAGS = {
-  ball: { make: ball, sfx: 'boing', line: 'A bouncy ball!', phys: { shape: 'ball', r: 0.42, bounce: 0.75 } },
-  worm: { make: worm, sfx: 'squeak', line: 'A wiggly worm!' },
-  frog: { make: () => { const f = makeAnimal('frog'); f.userData.baseScale = 0.5; f.scale.setScalar(0.5); return f; }, sfx: 'ribbit', line: "That's Frog!" },
-  sock: { make: sock, sfx: 'boing', line: 'A silly sock!', phys: { shape: 'box', size: { x: 0.55, y: 1.3, z: 0.95 }, bounce: 0.4 } },
-  snail: { make: snail, sfx: 'bloop', line: 'A sleepy snail!' },
+  ball: { make: ball, sfx: 'boing', line: 'A ball!' },
+  worm: { make: worm, sfx: 'squeak', line: 'A worm!' },
+  frog: { make: () => { const f = makeAnimal('frog'); f.userData.baseScale = 0.5; f.scale.setScalar(0.5); return f; }, sfx: 'ribbit', line: 'Frog!' },
+  sock: { make: sock, sfx: 'boing', line: 'A sock!' },
+  snail: { make: snail, sfx: 'bloop', line: 'A snail!' },
 };
 export function makeGag(kind) {
   const g = GAGS[kind].make();
@@ -289,8 +287,11 @@ export function gagShow(s, g) {
     if (segs[0].isBone) s.anim(0.7, (_, p) => segs.forEach((x, i) => (x.position.y = x.userData.y0 + Math.max(0, Math.sin(p * PI * 3 - i * 0.7)) * 0.2))).then(() => segs.forEach((x) => (x.position.y = x.userData.y0)));
     else s.anim(0.7, (_, p) => segs.forEach((x, i) => (x.position.y = 0.18 + Math.max(0, Math.sin(p * PI * 3 - i * 0.7)) * 0.25 + (i === 0 ? 0.27 : 0))));
   } else if (k === 'sock') {
-    const r0 = g.rotation.y;
-    s.anim(0.6, (e) => { g.rotation.y = r0 + e * PI * 2; g.position.y = Math.sin(e * PI) * 0.8; }).then(() => { g.rotation.y = r0; g.position.y = 0; });
+    // a floppy little hop with a wiggle
+    s.anim(0.6, (_, p) => { g.position.y = Math.sin(p * PI) * 0.5; g.rotation.z = Math.sin(p * PI * 4) * 0.15 * (1 - p); }).then(() => { g.position.y = 0; g.rotation.z = 0; });
+  } else if (k === 'ball') {
+    // two bounces on the spot, each lower than the last
+    s.anim(0.7, (_, p) => { const q = p < 0.6 ? p / 0.6 : (p - 0.6) / 0.4; g.position.y = Math.sin(q * PI) * (p < 0.6 ? 0.9 : 0.35); }).then(() => (g.position.y = 0));
   } else if (k === 'snail') {
     s.anim(0.6, (_, p) => (g.rotation.z = Math.sin(p * PI * 4) * 0.12 * (1 - p))).then(() => (g.rotation.z = 0));
   }
@@ -301,15 +302,15 @@ export function makeSet(level) {
   const g = new T.Group();
   if (level === 0) {
     // a garden bed: dark soil, little sprouts and a row of stones
-    const bed = mesh(geo.box(14, 0.12, 3.8), 0x8a5a3b, { hull: 1.01, outline: 0 }); bed.position.set(0.3, 0.04, 0.8);
+    const bed = mesh(geo.box(14, 0.12, 5.9), 0x8a5a3b, { hull: 1.01, outline: 0 }); bed.position.set(0.3, 0.04, 0.75);
     g.add(bed);
     for (let i = 0; i < 18; i++) {
-      const x = -6.3 + i * 0.77, z = i % 2 ? -0.95 : 2.55;
+      const x = -6.3 + i * 0.77, z = i % 2 ? -2.3 : 3.5;
       const sp = new T.Group(); sp.position.set(x, 0.1, z);
       for (const s of [-1, 1]) { const l = mesh(geo.sphere(0.1, 8, 6), 0x5cc45a, { outline: 0.008 }); l.scale.set(1.6, 0.4, 0.8); l.position.set(s * 0.1, 0.12, 0); l.rotation.z = s * 0.5; sp.add(l); }
       g.add(sp);
     }
-    for (let i = 0; i < 20; i++) { const st = mesh(geo.sphere(0.2, 8, 6), i % 2 ? 0xb7b2a6 : 0xd8d2c4, { outline: 0.012 }); st.scale.set(1.3, 0.6, 1); st.position.set(-6.6 + i * 0.72, 0.08, 2.85); g.add(st); }
+    for (let i = 0; i < 20; i++) { const st = mesh(geo.sphere(0.2, 8, 6), i % 2 ? 0xb7b2a6 : 0xd8d2c4, { outline: 0.012 }); st.scale.set(1.3, 0.6, 1); st.position.set(-6.6 + i * 0.72, 0.08, 3.95); g.add(st); }
   } else if (level === 1) {
     // a farmyard pen: a straw floor inside a low wooden fence
     const floor = new T.Mesh(geo.circle(1, 40), toon(0xf0d27a)); floor.rotation.x = -PI / 2; floor.scale.set(7.4, 3.0, 1); floor.position.set(0.3, 0.02, 0.7);
@@ -318,9 +319,9 @@ export function makeSet(level) {
     const fence = makeFence(15, 0xc98a50); fence.position.set(0.3, 0, -2.2); fence.scale.set(1, 0.8, 1); g.add(fence);
   } else {
     // a vegetable patch with a scarecrow: striped soil rows under the hiding places, cabbages and carrots along the front
-    for (let r = 0; r < 5; r++) { const row = new T.Mesh(geo.box(15, 0.04, 0.8), toon(r % 2 ? 0x8a5a3b : 0x9a6a44)); row.position.set(0.3, 0.02 + r * 0.001, -1.0 + r * 0.8); g.add(row); }
+    for (let r = 0; r < 7; r++) { const row = new T.Mesh(geo.box(15, 0.04, 0.8), toon(r % 2 ? 0x8a5a3b : 0x9a6a44)); row.position.set(0.3, 0.02 + r * 0.001, -2.0 + r * 0.8); g.add(row); }
     for (let i = 0; i < 12; i++) {
-      const x = -6.4 + i * 1.22, z = 3.1;
+      const x = -6.4 + i * 1.22, z = 3.9;
       const cab = i % 2 && propModel('prop_farmcabbage', { size: 0.85 });
       if (cab) { stillProp(cab); cab.position.set(x, 0.02, z); cab.rotation.y = i; g.add(cab); }
       else if (i % 2) { const c = mesh(geo.sphere(0.34, 12, 10), 0x7cc95c, { outline: 0.016 }); c.scale.y = 0.75; c.position.set(x, 0.24, z); g.add(c); const c2 = mesh(geo.sphere(0.22, 10, 8), 0xa6e07a, { outline: 0.01 }); c2.position.set(x, 0.4, z + 0.05); g.add(c2); }

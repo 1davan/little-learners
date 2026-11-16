@@ -2,7 +2,8 @@
 //   meadow: spring morning · golden autumn · snowy winter
 //   beach:  sunny noon     · pink sunset   · starry night
 //   farm:   spring         · harvest       · rainy day with a rainbow
-//   dressup: hat shop street · dressing room · cosy room with a rainy window
+//   dressup (Home): sunny front garden · bedroom · rainy evening in the cosy room
+//   map:    the world map's sea: sunny · sunset · starry night
 //   build:  sunny sandpit site · brick yard at golden hour · night site with work lights
 // stage.js reads the sky/light part, scenery.js the ground/props part, home.js and ui.js the accents.
 export const THEMES = {
@@ -21,11 +22,11 @@ export const THEMES = {
     { name: 'Harvest farm', emoji: '🎃', sky: ['#7cb0e4', '#ffd092', '#ffb879'], fog: 0xf7d9ae, hemi: [0xfff0dc, 0xd9b060, 1.45], sun: [0xffcf9a, 2.6], rim: [0xffcfa8, 1.2], tint: [0xffa040, 0.14] },
     { name: 'Rainbow farm', emoji: '🌈', sky: ['#8aa6cc', '#c3d3e8', '#eef2f7'], fog: 0xdfe6ef, hemi: [0xf0f4fb, 0x9ccf7a, 1.55], sun: [0xf6f8ff, 2.1], rim: [0xd8e6ff, 1.4], tint: [0xbcd6ff, 0.08] },
   ],
-  // lights stay warm and bright: the Dress Monkey game builds its own room under these lights too
+  // Home (id 'dressup'): lights stay warm and bright, since the Home games (and Dress Monkey's own room) play under them
   dressup: [
-    { name: 'Hat shop', emoji: '👒', sky: ['#5fb6f2', '#bfe6ff', '#ffeede'], fog: 0xf7ebe4, hemi: [0xfff7ec, 0xe8cdb8, 1.45], sun: [0xfff1d6, 2.5], rim: [0xffd6e8, 1.3] },
-    { name: 'Dressing room', emoji: '👗', sky: ['#c79ae8', '#ffc9dd', '#ffeef4'], fog: 0xffe6ef, hemi: [0xfff4f0, 0xe6bccb, 1.5], sun: [0xfff0e2, 2.4], rim: [0xffc6dc, 1.3] },
-    { name: 'Rainy window', emoji: '🌧️', sky: ['#8aa6cc', '#c3d3e8', '#eef2f7'], fog: 0xeae6e0, hemi: [0xfff4e6, 0xd2bda2, 1.5], sun: [0xfff0dc, 2.3], rim: [0xd8e6ff, 1.3] },
+    { name: 'Sunny garden', emoji: '🌻', sky: ['#4fb2f2', '#b6e4ff', '#fff1cf'], fog: 0xeef4e2, hemi: [0xfff7e8, 0xb8dc8a, 1.45], sun: [0xfff1d6, 2.5], rim: [0xcfe6ff, 1.3] },
+    { name: 'Bedroom', emoji: '🧸', sky: ['#7fb6ee', '#cfe4ff', '#fff2e4'], fog: 0xf4ecf6, hemi: [0xfff6f0, 0xe0c8d8, 1.5], sun: [0xfff0e2, 2.4], rim: [0xd6dcff, 1.3] },
+    { name: 'Rainy evening', emoji: '🌧️', sky: ['#4c5a8e', '#8a90bc', '#e2c8b8'], fog: 0xeadcd0, hemi: [0xfff0dc, 0xd2b08e, 1.5], sun: [0xffe6c4, 2.3], rim: [0xc8d2ff, 1.3], tint: [0xffc890, 0.06] },
   ],
   // the building site: a sunny sandpit · a brick yard at golden hour · the site at night under big work lights
   build: [
@@ -34,6 +35,12 @@ export const THEMES = {
     { name: 'Night site', emoji: '🔦', sky: ['#121c4e', '#283d8c', '#5465b8'], fog: 0x2c3d7e, hemi: [0xe2e0ff, 0x76689a, 1.6], sun: [0xfff0d6, 2.25], rim: [0x9fb8ff, 1.8], tint: [0xa8b8ff, 0.08], night: true },
   ],
 };
+// The world map (home overview): a sunny sea · a golden sunset · a starry night.
+THEMES.map = [
+  { name: 'Sunny islands', emoji: '☀️', sky: ['#3fa8ec', '#a8dcfb', '#e8f6ff'], fog: 0xcdeefb, hemi: [0xfff7e8, 0x9fd0c0, 1.5], sun: [0xfff1d6, 2.5], rim: [0xcfe6ff, 1.3] },
+  { name: 'Sunset islands', emoji: '🌅', sky: ['#8a86dc', '#ff9fb4', '#ffd08a'], fog: 0xf6c0b8, hemi: [0xffe6d6, 0xd8a8b0, 1.5], sun: [0xffc8a0, 2.5], rim: [0xff9ec8, 1.5], tint: [0xff9fb0, 0.1] },
+  { name: 'Starry islands', emoji: '🌙', sky: ['#14205a', '#2f4597', '#6170c6'], fog: 0x2a3a80, hemi: [0xd2daff, 0x6a70b0, 1.6], sun: [0xeef0ff, 2.2], rim: [0x9fb8ff, 1.8], tint: [0xa8b8ff, 0.08], night: true },
+];
 export function theme(world = 'meadow', level = 0) {
   const w = THEMES[world] || THEMES.meadow;
   return w[Math.max(0, Math.min(2, level | 0))];

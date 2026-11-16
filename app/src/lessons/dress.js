@@ -1,18 +1,17 @@
 // Dress Monkey. Topics mt_83gRQ9OPkc "Body parts & senses" (where clothes go) and, at Level 3,
 // mt_Dj2xr8CoI0 "Dressing for the weather".
-// Monkey wants something (a picture bubble shows the bare body part glowing; the window shows the weather).
-// Tap the wardrobe: the doors creak open and clothes hop out. Drag one onto Monkey: it snaps on with a puff and
-// Monkey shows it off (every garment has its own move). Wrong body part → it bounces back with a gentle word.
-// The outfit builds up through the level (a new hat knocks the old one off, with real physics). Last round:
-// Monkey admires the outfit in the mirror and dances with its reflection.
+// A level dresses Monkey in ONE whole outfit (sunny day / party / snowy day), one garment per round.
+// Each round: Monkey points at the next bare body part (picture bubble + glow), tap the wardrobe, the doors creak
+// open and ONE garment hops out onto the rail. Drag it onto Monkey: it snaps on with a puff and Monkey shows it off
+// (every garment has its own move). Levels 1-2 take a drop anywhere on Monkey; Level 3 wants the right body part
+// (a wrong part bounces it back with a gentle word). Head to toe dressed → Monkey dances with its mirror reflection.
 import * as T from '../three.js';
-import { Lesson, shuffle } from '../engine/lesson.js';
+import { Lesson } from '../engine/lesson.js';
 import { popIn, popOut, setFace, breathe } from '../engine/actors.js';
 import { makeCreature, garmentProp, hasCreature } from '../engine/creature.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
-import { physics } from '../engine/physics.js';
 import { project, setCamera } from '../engine/stage.js';
 import { mesh, geo } from '../engine/toon.js';
 import { Ease } from '../engine/tween.js';
@@ -31,6 +30,42 @@ const showRy = (name) => SHOW_RY[name] ?? SHOW_RY[CLOTHES[name].slot] ?? 0;
 const CAM = { pos: new T.Vector3(1.6, 3.5, 13.2), look: new T.Vector3(1.6, 2.75, 0) };
 const DISC_Y = 2.75;                               // the backing discs on the rail hang at about Monkey's chest/face height
 const COLD = new Set(['snowy', 'windy', 'rainy', 'night']);
+const TOPS = ['tshirt', 'raincoat', 'dress', 'jumper', 'cape', 'pyjamas', 'hoodie'];
+
+// Dungarees worn under a top: their bib and straps would poke through the top's front, so while a top is on, only
+// the triangles below the top's hem are drawn (the covered part is simply not there). Shared, cached geometry.
+const trimCache = new Map();
+function trimmedUnder(geom, cutY) {
+  const key = geom.uuid + ':' + cutY.toFixed(3);
+  if (trimCache.has(key)) return trimCache.get(key);
+  const idx = geom.index.array, pos = geom.attributes.position;
+  const out = [];
+  for (let i = 0; i < idx.length; i += 3) {
+    const lo = Math.min(pos.getY(idx[i]), pos.getY(idx[i + 1]), pos.getY(idx[i + 2]));
+    if (lo < cutY) out.push(idx[i], idx[i + 1], idx[i + 2]);
+  }
+  const g = new T.BufferGeometry();
+  for (const [k, a] of Object.entries(geom.attributes)) g.setAttribute(k, a);
+  g.setIndex(out);
+  g.boundingSphere = geom.boundingSphere; g.boundingBox = geom.boundingBox;
+  g.userData.shared = true;
+  trimCache.set(key, g);
+  return g;
+}
+function minY(geom) {
+  const idx = geom.index.array, pos = geom.attributes.position;
+  let m = Infinity;
+  for (let i = 0; i < idx.length; i++) m = Math.min(m, pos.getY(idx[i]));
+  return m;
+}
+function fitLayers(monkey) {
+  const L = monkey.userData.layers, d = L.cloth_body_dungarees;
+  if (!d) return;
+  d.orig = d.orig || d.mesh.geometry;
+  const top = TOPS.map((n) => L['cloth_body_' + n]).find((l) => l && l.mesh.visible);
+  const g = top ? trimmedUnder(d.orig, minY(top.mesh.geometry) + 0.12) : d.orig;
+  d.mesh.geometry = g; d.outline.geometry = g;
+}
 
 
 // A garment as a free prop. Mittens come as a pair far apart (on the hands), so their two halves are pulled
@@ -200,14 +235,13 @@ function doorHeart() {
 }
 
 export default class DressLesson extends Lesson {
+  // one round per garment of the level's outfit
+  get totalRounds() { return (PLANS[this.level] || PLANS[0]).items.length; }
   build() {
-    this.plan = PLANS[this.level];
+    this.plan = PLANS[this.level] || PLANS[0];
     this.meadow.visible = false;
     this.room = makeRoom();
     this.root.add(this.room.group);
-    physics.box(new T.Vector3(0, 6, WALL_Z - 0.5), new T.Vector3(44, 12, 1));
-    physics.box(new T.Vector3(-9.5, 6, 0), new T.Vector3(1, 12, 20));
-    physics.box(new T.Vector3(9.5, 6, 0), new T.Vector3(1, 12, 20));
     // Pip watches from the front corner
     setCamera(CAM.pos, CAM.look);
     this.pip.position.set(-4.75, 0, 0.2);
@@ -222,7 +256,7 @@ export default class DressLesson extends Lesson {
     const u = m.userData;
     this.rest = { arms: (u.arms || []).map((b) => b.rotation.clone()), legs: ['legL', 'legR'].map((k) => u.bones[k]?.rotation.clone()) };
     this.P = newPose();
-    this.worn = {};
+    this.worn = [];
     this.tickle = input.addTap(m, { radius: 1.5, offset: new T.Vector3(0, 2.2, 0), onTap: () => this.tickleMonkey() });
     // the wardrobe
     const w = (this.wardrobe = makeCreature('wardrobe'));
@@ -247,51 +281,58 @@ export default class DressLesson extends Lesson {
     this.glows = [makeGlow(), makeGlow()];
     for (const g of this.glows) { g.visible = false; this.root.add(g); }
     this.choices = [];
-    this.tumbling = [];
     this.phase = 'idle';
     // the reflection (only shown in the final mirror dance)
     this.mirrorMonkey = null;
-    // Level 3 starts in a plain room; Level 1/2 too. The first weather comes with round 1.
-    this.room.setWeather(this.plan[0].weather);
+    // the outfit's weather shows in the window all level long
+    this.room.setWeather(this.plan.weather);
   }
 
   // ---------------- helpers ----------------
   at(x = 0, y = 0, z = 0) { return this.monkey.position.clone().add(new T.Vector3(x, y, z)); }
   kick(x, y, z) { this.monkey.userData.kick?.(new T.Vector3(x, y, z)); }
-  get slot() { return this.spec?.ask; }
-  get want() { return this.spec?.want; }
+  // the garment this round and the body part it goes on
+  get want() { return this.spec?.name; }
+  get slot() { return this.spec ? this.spec.part || CLOTHES[this.spec.name].slot : undefined; }
+  get parts() { return !!this.plan.parts; }    // Level 3: it must go on the right body part
   zone() { return { id: 'monkey', obj: this.monkey, pos: this.at(0, 2.1, 0.3), radius: 2.0 }; }
+  // Level 3 drop zones: one per body-part anchor (the nearest one under the finger wins)
+  partZones() {
+    const out = [];
+    for (const [part, sl] of Object.entries(SLOTS)) for (const a of sl.anchors) out.push({ id: part, pos: this.anchorWorld(a), radius: part === 'body' || part === 'head' ? 0.8 : 0.5 });
+    return out;
+  }
+  zones() { return this.parts ? this.partZones() : [this.zone()]; }
+  zoneFor(part) { return this.zones().find((z) => z.id === part || z.id === 'monkey'); }
+  // a body part that is not this garment's (test hook for a wrong drop on Level 3)
+  wrongPart() { return this.slot === 'head' ? 'feet' : 'head'; }
   anchorWorld(name) {
     const a = this.monkey.userData.anchors[name];
     if (!a) return this.at(0, 2, 0);
     return this.monkey.localToWorld(new T.Vector3(a[0], a[1], a[2] + 0.05));
   }
-  isRight(name) { const g = CLOTHES[name]; return g.slot === this.slot && (!this.want || this.want === name); }
+  isRight(name) { return name === this.want; }
 
   // ---------------- rounds ----------------
   async startRound(r) {
     this.busy = true;
-    const spec = (this.spec = this.plan[r]);
-    // tidy up: last round's leftovers hop back into the wardrobe, doors shut, fallen clothes vanish
+    const spec = (this.spec = this.plan.items[r]);
+    // tidy up: the empty card goes, the doors shut
     this.clearChoices();
-    for (const t of this.tumbling) { physics.remove(t); popOut(this.s, t, 0.2).then(() => this.root.remove(t)); }
-    this.tumbling = [];
-    if (this.doorAmt > 0) { await this.wait(0.12); await this.swingDoors(0, 0.2); sfx.thunk(); }
+    if (this.doorAmt > 0) { await this.wait(0.1); await this.swingDoors(0, 0.2); sfx.thunk(); }
     this.phase = 'closed';
-    // the weather changes outside
-    if (this.room.kind !== spec.weather) { sfx.swoosh(); this.room.setWeather(spec.weather); }
-    // what Monkey wants: picture bubble + glow on the body part + a gesture
-    const icon = this.level === 2 || spec.want ? WEATHER[spec.weather].icon : SLOTS[spec.ask].icon;
-    // a named garment: its own little 3-D picture in the bubble; otherwise the picture monkey with the part ringed
-    setBubble(this.bubble, SLOTS[spec.ask].part, icon, !!spec.want);
-    this.setBubbleGarment(spec.want);
+    // what comes next: Levels 1-2 show the bare body part ringed (and glowing on Monkey);
+    // Level 3 only shows the garment itself, finding the body part is the child's job
+    const part = this.slot;
+    if (this.parts) { setBubble(this.bubble, part, WEATHER[this.plan.weather].icon, true); this.setBubbleGarment(spec.name); }
+    else { setBubble(this.bubble, part, SLOTS[part].icon, false); this.setBubbleGarment(null); }
     popIn(this.s, this.bubble, this.bubble.userData.size, 0.4, { sound: false });
     sfx.bloop(4);
-    this.glowOn = true;
+    this.glowOn = !this.parts;
     this.gesture();
     await this.wait(0.1);
     this.busy = false;
-    if (r === 0 && !this.demoDone) this.cue(); // words + the one demo: tap the wardrobe (then the move shows itself)
+    if (r === 0 && !this.demoDone) this.cue(); // words + the one demo: tap the wardrobe
     else this.prompt();
   }
   setBubbleGarment(name) {
@@ -310,12 +351,15 @@ export default class DressLesson extends Lesson {
   gesture() {
     const spec = this.spec;
     if (!spec) return;
-    this.wanting = WANT[spec.ask](this, COLD.has(spec.weather));
+    this.wanting = WANT[this.slot](this, COLD.has(this.plan.weather));
   }
   promptText() {
     const spec = this.spec;
     if (!spec) return '';
-    return spec.say;
+    if (this.phase === 'open' || this.phase === 'opening') return spec.say;
+    if (this.round === 0) return `${this.plan.look} Tap the wardrobe!`;
+    if (this.round === this.totalRounds - 1) return 'One more! Tap the wardrobe!';
+    return 'Tap the wardrobe!';
   }
   prompt() {
     this.say(this.promptText(), { max: 1.5 });
@@ -345,21 +389,17 @@ export default class DressLesson extends Lesson {
     this.wobbleWardrobe();
     this.swingDoors(1, 0.42);
     await this.wait(0.12);
-    // the clothes for this round hop out, one after another
-    const spec = this.spec;
-    const names = shuffle([...spec.right, ...spec.wrong]);
-    // never put a right one in the same place twice running
-    const n = names.length;
-    const spots = this.spots(n);
+    // this round's ONE garment hops out onto the rail
     const from = this.wardrobe.localToWorld(new T.Vector3(0, 1.9, 0.3));
     this.showRail(true);
-    this.choices = names.map((name, i) => this.makeChoice(name, spots[i], from, i));
+    this.choices = [this.makeChoice(this.spec.name, this.spots(1)[0], from, 0)];
     this.cards = this.choices.map((c) => c.userData.card);
-    await this.wait(0.12 + n * 0.09 + 0.3);
+    await this.wait(0.12 + 0.09 + 0.3);
     if (this.dead) return;
     this.phase = 'open';
     this.busy = false;
     this.idle = 0;
+    this.say(this.spec.say, { max: 1.5 });
     if (this.errorlessOn) this.makeErrorless();
   }
   showRail(on) {
@@ -378,7 +418,7 @@ export default class DressLesson extends Lesson {
   }
   // the hooks on the rail (x positions); every choice hangs in front of its own light disc
   spots(n) {
-    const xs = { 2: [2.9, 5.5], 3: [1.6, 4.2, 6.8], 4: [1.3, 3.25, 5.2, 7.15] }[n] || [1.3, 3.25, 5.2, 7.15];
+    const xs = { 1: [3.4], 2: [2.9, 5.5], 3: [1.6, 4.2, 6.8], 4: [1.3, 3.25, 5.2, 7.15] }[n] || [1.3, 3.25, 5.2, 7.15];
     return xs.map((x) => new T.Vector3(x, DISC_Y, RAIL.z));
   }
   makeChoice(name, spot, from, i) {
@@ -389,17 +429,19 @@ export default class DressLesson extends Lesson {
     const tilt = g.slot === 'feet' ? 0.35 : g.slot === 'head' ? 0.3 : g.slot === 'legs' ? 0.3 : 0.12;
     ud.ry = showRy(name);
     p.rotation.set(tilt, ud.ry, 0);
-    // big and upright, facing us, filling its backing disc (up to twice the worn size, so glasses read too)
-    const fit = fitProp(p, 1.55, 1.45, MS * 2);
+    // big and upright, facing us, filling its backing disc (up to twice the worn size, so glasses read too).
+    // A lone garment gets a bigger disc: it is the star of the round.
+    const CK = 1.3;
+    const fit = fitProp(p, 1.55 * CK, 1.45 * CK, MS * 2.3);
     const k = fit.k;
     const c = spot.clone().add(fit.off).add(new T.Vector3(0, 0, 0.4));
     Object.assign(ud, { name, slot: g.slot, spot: c, k, idx: i, garment: layerOf(name), tilt });
     // its backing card hangs from the rail
-    const card = (ud.card = makeCard(RAIL.y - spot.y));
+    const card = (ud.card = makeCard((RAIL.y - spot.y) / CK));
     card.position.set(spot.x, RAIL.y, RAIL.z);
     card.scale.setScalar(0.01);
     this.root.add(card);
-    this.s.wait(0.05 + i * 0.09).then(() => this.s.tween(card.scale, { x: 1, y: 1, z: 1 }, 0.3, Ease.back));
+    this.s.wait(0.05 + i * 0.09).then(() => this.s.tween(card.scale, { x: CK, y: CK, z: CK }, 0.3, Ease.back));
     p.position.copy(from);
     p.scale.setScalar(0.01);
     this.root.add(p);
@@ -420,7 +462,7 @@ export default class DressLesson extends Lesson {
     });
     ud.drag = input.addDrag(p, {
       radius: 0.9, minY: 0, offset: new T.Vector3(0, s.y * k * 0.5, 0),
-      zones: () => (ud.enabled === false ? [] : [this.zone()]),
+      zones: () => (ud.enabled === false ? [] : this.zones()),
       onPick: () => this.onPick(p),
       onMove: (_t, z) => this.onHover(z),
       onDrop: (z, info) => this.drop(p, z, info),
@@ -480,7 +522,8 @@ export default class DressLesson extends Lesson {
       .then(() => { ud.busy = false; });
   }
 
-  put(choice) { return this.drop(choice, this.zone(), { tapped: false }); } // test hook: drop a choice on Monkey
+  // test hook: drop a choice on Monkey (on Level 3, on `part`; default: the right body part)
+  put(choice, part = this.slot) { return this.drop(choice, this.zoneFor(part), { tapped: false }); }
 
   async drop(p, zone, { tapped } = {}) {
     const ud = p.userData;
@@ -493,16 +536,13 @@ export default class DressLesson extends Lesson {
       return;
     }
     const name = ud.name, g = CLOTHES[name];
-    if (!this.isRight(name)) {
+    if (this.parts && zone.id !== this.slot) {
       this.goBack(p);
-      // Monkey shakes its head and giggles: "not there!"
+      // Monkey shakes its head and giggles: "not there!" and points at the right part
       msfx.chatter();
-      this.s.anim(0.55, (_, q) => { this.P.headY = Math.sin(q * Math.PI * 4) * 0.35 * (1 - q); }).then(() => { this.P.headY = 0; });
-      const spec = this.spec;
-      const find = spec.want ? `Find the ${CLOTHES[spec.want].word}!` : `Find ${SLOTS[spec.ask].kind}!`;
-      const why = g.slot !== spec.ask ? (g.go || SLOTS[g.slot].go) : (spec.why?.[name] || `That's the ${g.word}.`);
-      // one short line: the reason and the redirect together only when they fit
-      this.redirect(why.length + find.length < 31 ? `${why} ${find}` : why);
+      this.s.anim(0.55, (_, q) => { this.P.headY = Math.sin(q * Math.PI * 4) * 0.35 * (1 - q); }).then(() => { this.P.headY = 0; this.gesture(); });
+      this.glowOn = true;
+      this.redirect(`Oops! ${this.spec.where}`);
       return;
     }
     // ---- right! it snaps on ----
@@ -512,7 +552,6 @@ export default class DressLesson extends Lesson {
     this.glowOn = false;
     for (const c of this.choices) input.remove(c.userData.drag);
     this.choices = this.choices.filter((c) => c !== p);
-    const old = this.worn[g.slot];
     // fly into the worn place (the prop's origin is the garment's bottom centre in the monkey's rest pose)
     const inner = p.children[0];
     const local = new T.Vector3(-inner.position.x, -inner.position.y, -inner.position.z);
@@ -534,11 +573,15 @@ export default class DressLesson extends Lesson {
       }
       for (const c of cuffs) c.scale.setScalar(Math.max(0.01, 1 - e));
     }, Ease.inOut);
-    if (old) this.tumble(old);
     this.root.remove(p);
+    // the empty card and the rail go away at once (nothing left hanging about)
+    for (const c of this.cards || []) popOut(this.s, c, 0.18).then(() => this.root.remove(c));
+    this.cards = [];
+    this.showRail(false);
     this.monkey.userData.wear(layerOf(name), true);
-    this.worn[g.slot] = name;
-    const mid = this.anchorWorld(SLOTS[g.slot].anchors[0]);
+    fitLayers(this.monkey);
+    this.worn.push(name);
+    const mid = this.anchorWorld(SLOTS[this.slot].anchors[0]);
     puff(this.s, this.root, mid, 0.9);
     msfx.puff();
     sfx.sparkle();
@@ -550,32 +593,7 @@ export default class DressLesson extends Lesson {
     this.react = MOVES[g.move](this);
     this.s.wait(0.15).then(() => msfx.ooh());
     this.busy = false;
-    const word = g.word[0].toUpperCase() + g.word.slice(1);
-    this.success(this.at(0, 3.8, 0.5), `${word}!`);
-  }
-
-  // the garment that was on falls off with real physics (a toddler-pleasing tumble)
-  tumble(name) {
-    const L = layerOf(name);
-    this.monkey.userData.wear(L, false);
-    const p = garmentProp('monkey', L);
-    if (!p) return;
-    const inner = p.children[0];
-    const local = new T.Vector3(-inner.position.x, -inner.position.y, -inner.position.z);
-    p.position.copy(this.monkey.localToWorld(local));
-    p.rotation.y = this.monkey.rotation.y;
-    p.scale.setScalar(MS);
-    this.root.add(p);
-    this.tumbling.push(p);
-    msfx.whee();
-    if (physics.ok) {
-      physics.add(p, { shape: 'box', bounce: 0.45, friction: 0.8 });
-      physics.impulse(p, { x: -2.2 - Math.random(), y: 6.5, z: 2.2 }, { x: (Math.random() - 0.5) * 0.6, y: 0.3, z: 0.7 });
-    } else {
-      const a = p.position.clone();
-      this.s.anim(0.6, (e, q) => { p.position.set(a.x - e * 2.5, Math.max(0, a.y + q * 4 - q * q * 8), a.z + e * 1.5); p.rotation.z = e * 2; });
-    }
-    delete this.worn[CLOTHES[name].slot];
+    this.success(this.at(0, 3.8, 0.5), this.spec.done);
   }
 
   async afterSuccess() {
@@ -599,10 +617,8 @@ export default class DressLesson extends Lesson {
   // ---------------- the mirror finale ----------------
   async mirrorDance() {
     const m = this.monkey;
-    // tidy the room first: leftovers hop back into the wardrobe, fallen clothes vanish, doors shut
+    // tidy the room first: the rail goes, doors shut
     this.clearChoices();
-    for (const t of this.tumbling) { physics.remove(t); popOut(this.s, t, 0.2).then(() => this.root.remove(t)); }
-    this.tumbling = [];
     this.swingDoors(0, 0.3).then(() => sfx.thunk());
     // Pip hops out of the way so the mirror is in full view
     const pp = this.pip.position, p0 = pp.clone();
@@ -610,6 +626,7 @@ export default class DressLesson extends Lesson {
     const r = (this.mirrorMonkey = makeCreature('monkey'));
     r.scale.setScalar(MS);
     for (const k of Object.keys(m.userData.layers)) r.userData.wear(k, m.userData.layers[k].mesh.visible);
+    fitLayers(r);
     // the mirror Monkey stands just behind the glass, facing out, mirrored (a toddler-friendly mirror: you see its face)
     r.position.set(MIRROR.x, 0, WALL_Z - 1.6);
     r.scale.set(-MS, MS, MS);
@@ -666,35 +683,24 @@ export default class DressLesson extends Lesson {
   nudgeTarget() {
     if (this.phase === 'closed') return this.wardrobe;
     if (this.phase !== 'open') return null;
-    return this.choices.find((c) => this.isRight(c.userData.name) && !c.userData.busy) || null;
+    return this.choices.find((c) => !c.userData.busy) || null;
   }
   showHint(glow = true) {
     if (this.phase === 'closed') {
       fx.ghostPath([this.wardrobe.localToWorld(new T.Vector3(0, 1.75, 0.9))], { mode: 'tap' });
       return;
     }
-    const p = this.choices.find((c) => this.isRight(c.userData.name));
-    if (!p) return;
-    if (glow) this.addHalo(p, 1.1);
-    fx.ghostPath([p.position.clone().add(new T.Vector3(0, 0.6, 0)), this.zone().pos], { mode: 'drag' });
-  }
-  demoL3() {
-    if (this.phase === 'closed') return this.showHint(false);
     const p = this.choices[0];
     if (!p) return;
-    const a = p.position.clone().add(new T.Vector3(0, 0.6, 0));
-    fx.ghostPath([a, a.clone().add(new T.Vector3(-1.2, 1.6, 0))], { mode: 'drag' });
+    if (glow) this.addHalo(p, 1.1);
+    fx.ghostPath([p.position.clone().add(new T.Vector3(0, 0.6, 0)), this.zoneFor(this.slot).pos], { mode: 'drag' });
   }
+  demoL3() { this.showHint(false); }
   makeErrorless() {
     if (this.phase === 'closed') { this.open(); return; }
-    for (const c of this.choices) {
-      if (this.isRight(c.userData.name)) { this.addHalo(c, 1.1); continue; }
-      c.userData.enabled = false;
-      input.remove(c.userData.drag);
-      const k = c.userData.k * 0.6;
-      c.userData.k = k;
-      this.s.tween(c.scale, { x: k, y: k, z: k }, 0.4);
-    }
+    // the one garment glows, and so does the body part it goes on
+    this.glowOn = true;
+    for (const c of this.choices) this.addHalo(c, 1.1);
   }
 
   // ---------------- every frame ----------------
@@ -705,8 +711,11 @@ export default class DressLesson extends Lesson {
     // pose → rig
     const ra = this.rest.arms;
     if (u.arms) {
-      u.arms[0].rotation.set(ra[0].x + P.armLx, ra[0].y, ra[0].z + P.armL);
-      u.arms[1].rotation.set(ra[1].x + P.armRx, ra[1].y, ra[1].z - P.armR);
+      // in a top, arms only swing a little forward/in: further, the shoulder skin pokes out at the armpit
+      const top = this.worn.some((n) => TOPS.includes(n));
+      const fx_ = (v) => (top ? Math.max(-0.5, v) : v), inw = (v) => (top ? Math.max(-0.15, v) : v);
+      u.arms[0].rotation.set(ra[0].x + fx_(P.armLx), ra[0].y, ra[0].z + inw(P.armL));
+      u.arms[1].rotation.set(ra[1].x + fx_(P.armRx), ra[1].y, ra[1].z - inw(P.armR));
     }
     ['legL', 'legR'].forEach((k, i) => { const b = u.bones[k], r = this.rest.legs[i]; if (b && r) b.rotation.set(r.x + (i ? P.legR : P.legL), r.y, r.z); });
     // the head follows what you carry
@@ -740,13 +749,13 @@ export default class DressLesson extends Lesson {
     }
     if (this.bubbleProp) this.bubbleProp.rotation.y = this.bubbleProp.userData.ry + Math.sin(t * 1.2) * 0.4;
     // body-part glow on Monkey + bubble bob
-    const spec = this.spec;
-    const parts = spec && this.glowOn ? SLOTS[spec.ask].anchors : [];
+    const spec = this.spec, slot = this.slot;
+    const parts = spec && this.glowOn && this.phase !== 'dressed' ? SLOTS[slot].anchors : [];
     this.glows.forEach((g, i) => {
       g.visible = !!parts[i];
       if (!g.visible) return;
       g.position.copy(this.anchorWorld(parts[i]));
-      const k = (spec.ask === 'body' ? 1.5 : spec.ask === 'legs' ? 1.5 : spec.ask === 'head' ? 1.6 : 1.0) * (1 + Math.sin(t * 5) * 0.1);
+      const k = (slot === 'body' ? 1.5 : slot === 'legs' ? 1.5 : slot === 'head' ? 1.6 : 1.0) * (1 + Math.sin(t * 5) * 0.1);
       g.scale.setScalar(k);
       // soft: it marks the spot without washing out what Monkey already wears
       g.material.opacity = 0.2 + Math.sin(t * 5) * 0.08;

@@ -4,7 +4,6 @@ import { mesh, geo, toon, toonUnique, basic, blobShadow } from '../engine/toon.j
 import { makeCarrot, stillProp } from '../engine/farm.js';
 import { propModel } from '../engine/prop-models.js';
 import { makeBucket } from '../engine/beach.js';
-import { physics } from '../engine/physics.js';
 import { makeFlower } from '../engine/scenery.js';
 
 const PI = Math.PI;
@@ -101,7 +100,7 @@ export const SNACKS = {
   carrot: { make: () => makeCarrot(1), lay: [0, 0.3, 1.45], held: 0.3, size: 0.8, y: 0.3, gap: 0.5, plural: 'carrots', hull: true },
   apple: { make: () => makeApple(1.15), lay: [0, 0, 0], held: 0, size: 0.95, y: 0.4, gap: 0.62, plural: 'apples' },
   corn: { make: () => makeCorn(1.15), lay: [0, -0.3, 1.45], held: 0.3, size: 0.85, y: 0.3, gap: 0.5, plural: 'corn', hull: true },
-  fish: { make: () => makeFish(1.2), lay: [-1.3, 0, 0], held: 0.2, size: 0.85, y: 0.4, gap: 0.55, plural: 'fish', hull: true },
+  fish: { make: () => makeFish(1.2), lay: [-1.3, 0, 0], held: 0.2, size: 0.7, y: 0.4, gap: 0.55, plural: 'fish', hull: true },
   cookie: { make: () => makeCookie(1.25), lay: [-1.2, 0, 0], held: 0, size: 0.95, y: 0.42, gap: 0.62, plural: 'cookies', hull: true },
 };
 export function makeSnack(kind) {
@@ -337,18 +336,4 @@ export function makeSet(level) {
   }
   g.userData.level = level;
   return g;
-}
-
-// Put a snack under rigid-body physics, measuring its collider in its own (un-rotated) frame.
-export function addBody(obj, opts = {}) {
-  const q = obj.quaternion.clone();
-  obj.quaternion.identity(); obj.updateMatrixWorld(true);
-  const kind = obj.userData.snack;
-  // round colliders tumble predictably (long boxes catch the plate rim and fly off)
-  const R = { apple: 0.3, carrot: 0.26, corn: 0.21, fish: 0.3, cookie: 0.24 };
-  const shape = SNACKS[kind]?.hull ? { shape: 'hull' } : { shape: 'ball', r: (R[kind] || 0.24) * obj.scale.x };
-  const b = physics.add(obj, { ...shape, bounce: 0.2, friction: 1, mass: 1, ...opts });
-  obj.quaternion.copy(q); obj.updateMatrixWorld(true);
-  if (b) b.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
-  return b;
 }

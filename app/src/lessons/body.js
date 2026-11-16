@@ -105,7 +105,13 @@ export default class BodyLesson extends Lesson {
     s.wait(0.5).then(() => sfx.bloop(2));
   }
   pokeAt(x, y) {
-    if (super.pokeAt(x, y)) return true;
+    // the friend only reacts through its body parts: a generic poke (squash, arm wave, nap…) on top of a part's
+    // reaction or the self-touch left arms and head in odd poses, and a napping friend can't play
+    const all = this.chars;
+    this.chars = (all || []).filter((c) => c !== this.friend);
+    let hit;
+    try { hit = super.pokeAt(x, y); } finally { this.chars = all; }
+    if (hit) return true;
     const wp = new T.Vector3();
     for (const t of this.toys) {
       if (!physics.has(t)) continue;
@@ -175,6 +181,17 @@ export default class BodyLesson extends Lesson {
   // Every part does something fun when touched, and it gets sillier each time (tier 1 → 2 → 3).
   react(name, a, { correct = false } = {}) {
     const f = this.friend, s = this.s, ud = f.userData;
+    // Fast tapping: a reaction that starts while another still runs would capture the head / arm mid-move and
+    // "restore" it there (head left crooked, arm stuck up). While one runs, a tap just squeaks and sparkles.
+    const now = performance.now() / 1000;
+    if (now < (this.animUntil || 0)) {
+      sfx.bloop(Math.floor(Math.random() * 4));
+      fx.float(this.wp(a).add(new T.Vector3(0, 0.4, 0.3)), '✨', { color: '#ffb020', size: 4 });
+      if (!correct) return;
+      this.count[name] = (this.count[name] || 0) + 1;
+      return;
+    }
+    this.animUntil = now + 0.8;
     const tier = Math.min(3, (this.count[name] = (this.count[name] || 0) + 1));
     const head = ud.head, face = ud.face, body = ud.body;
     const eyes = face?.userData?.eyes || [];
@@ -335,6 +352,14 @@ export default class BodyLesson extends Lesson {
 
   // a stuck child: the part's spot hops (invisible) and, at the second nudge, its halo rings the part
   nudgeTarget() { return this.anchors && !this.busy ? this.targetAnchor() : null; }
+  // the anchors are invisible, so hopping one (the base nudge) showed nothing: ring the part with a halo instead
+  nudge(step) {
+    const a = this.nudgeTarget();
+    if (!a) return super.nudge(step);
+    sfx.boing && sfx.boing();
+    const stop = fx.halo(a, PARTS[this.part].r * this.fs * 0.5 + 0.3);
+    this.s.wait(step >= 2 ? 3 : 1.6).then(stop);
+  }
   targetAnchor() { return this.anchors[PARTS[this.part].anchors[0]]; }
   showHint(glow = true) {
     if (!this.anchors) return;

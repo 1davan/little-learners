@@ -160,6 +160,7 @@ export default class ShapesLesson extends Lesson {
       zones: () => this.zones(),
       onPick: () => {
         this.unphys(p);
+        this.s.stop(p.position); // a regrab mid-way home must not fight the homeward tween
         p.quaternion.identity();
         pieceFace(p, 'oh');
         sfx.pick();
@@ -302,7 +303,7 @@ export default class ShapesLesson extends Lesson {
 
   promptText() {
     const k = this.plan[this.round]?.kind;
-    return k ? `${Cap(k)}! Where does the ${NAME[k]} go?` : '';
+    return k ? `${Cap(k)}! Where does it go?` : '';
   }
 
   // where the piece (at its own depth) must be on screen to sit over the window
@@ -350,6 +351,8 @@ export default class ShapesLesson extends Lesson {
     this.magnet = null;
     if (!p || !p.userData.ready || p.userData.done || this.busy) return; // ignore drops before the piece has arrived
     this.unphys(p);
+    // the lift-up shrink (onPick) may still be tweening: stop it, or a quick tap leaves the piece window-sized
+    this.s.stop(p.scale); this.s.stop(p.position);
     p.quaternion.identity();
     if (!zone) {
       pieceFace(p, 'happy');

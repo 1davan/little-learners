@@ -22,10 +22,10 @@ const L = -3.4, R = 3.2;
 
 // Who can be placed or can watch. size = scale; call = their sound.
 const CAST = {
-  crab: { name: 'Crab', make: () => makeCrab(), size: 1, call: 'squeak' },
-  baby: { name: 'Baby Crab', make: () => makeCrab(0xff9f3f), size: 0.7, call: 'cheep' },
-  duck: { name: 'Duck', make: () => makeDuck(1.6), size: 1.6, call: 'quack' },
-  gull: { name: 'Gull', make: () => makeGull(), size: 1, call: 'gull' },
+  crab: { name: 'Crab', say: 'the crab', make: () => makeCrab(), size: 1, call: 'squeak' },
+  baby: { name: 'Baby Crab', say: 'the baby crab', make: () => makeCrab(0xff9f3f), size: 0.7, call: 'cheep' },
+  duck: { name: 'Duck', say: 'the duck', make: () => makeDuck(1.6), size: 1.6, call: 'quack' },
+  gull: { name: 'Gull', say: 'the gull', make: () => makeGull(), size: 1, call: 'gull' },
 };
 
 // The little story of each round: the caption line ({who} = the friend), and the gag that plays after a right answer.
@@ -196,7 +196,7 @@ export default class WhereLesson extends Lesson {
     // the pal watches from the back of the beach
     if (this.pal) { this.root.remove(this.pal); this.pal = null; }
     if (spec.pal) {
-      const pal = this.spawnChar(spec.pal, new T.Vector3(7.0, 0, -1.0));   // clear of the right-hand prop
+      const pal = this.spawnChar(spec.pal, new T.Vector3(5.7, 0, -1.4));   // clear of the right-hand prop, fully on screen
       pal.rotation.y = -0.4;
       this.pal = pal;
       popIn(this.s, pal, pal.userData.baseScale, 0.4, { sound: false });
@@ -204,11 +204,16 @@ export default class WhereLesson extends Lesson {
     }
     // the one to place walks (crabs scuttle) in along the sand from the right while the props land
     const who = spec.who || 'crab';
+    // home spot: in front, on the open side of a lone prop (never covering it), centred between two
+    this.home = SPAWN.clone();
+    this.home.x = spec.props.length === 1 ? -Math.sign(spec.props[0][2]) * 0.9 : 0;
     const ch = this.spawnChar(who, new T.Vector3(8.5, 0, SPAWN.z));
     ch.rotation.y = who === 'crab' || who === 'baby' ? 0 : -0.9;
     this.char = this.crab = ch;
     sfx.patter();
-    await this.s.anim(0.8, (e) => { ch.position.x = 8.5 + (SPAWN.x - 8.5) * e; }, Ease.out);
+    const hx = this.home.x;
+    this.showThought(spec);
+    await this.s.anim(0.8, (e) => { ch.position.x = 8.5 + (hx - 8.5) * e; }, Ease.out);
     this.s.tween(ch.rotation, { y: 0 }, 0.2);
     sfx[CAST[who].call]();
     await this.wait(0.05);
@@ -255,6 +260,8 @@ export default class WhereLesson extends Lesson {
 
   onPick() {
     const ch = this.char, base = ch.userData.baseScale;
+    if (this.homeTok) this.homeTok.dead = true;   // grabbed again while hopping home: the finger wins
+    ch.rotation.set(0, 0, 0);
     this.carrying = true;
     sfx[CAST[ch.userData.who].call]();
     this.s.tween(ch.scale, { x: base * 1.12, y: base * 1.12, z: base * 1.12 }, 0.15, Ease.back);
@@ -275,30 +282,31 @@ export default class WhereLesson extends Lesson {
     const spec = this.plan[this.round];
     if (!spec) return '';
     const p = spec.props.find(([k, m]) => zoneIds(k, m).includes(spec.want));
-    const who = CAST[spec.who || 'crab'].name;
-    const thing = PROP_NAME[p[0]];   // short words keep one line
-    const line = (STORY[spec.story]?.line || `${WORD[spec.want]}!`).replace('{who}', who);
-    // one short line (two-line bubbles covered heads): the story bit only when it fits
-    const core = `${who} ${spec.want.toUpperCase()} the ${thing}!`;
-    return line.length + core.length < 29 ? `${line} ${core}` : core;
+    // one plain spoken-style instruction (it will be read aloud later): "Put the crab ON the bucket!"
+    return `Put ${CAST[spec.who || 'crab'].say} ${spec.want.toUpperCase()} the ${PROP_NAME[p[0]]}!`;
   }
 
   goHome() {
     const ch = this.char, base = ch.userData.baseScale;
     this.carrying = false;
-    this.arc(ch, SPAWN, 0.8, 0.4).then(() => sfx.land());
+    const tok = (this.homeTok = {});
+    this.arc(ch, this.home || SPAWN, 0.8, 0.4, tok).then((done) => { if (done) sfx.land(); });
     this.s.tween(ch.scale, { x: base, y: base, z: base }, 0.3);
   }
 
   // A ballistic hop (constant gravity: straight-line ground speed plus a parabola), then a squashy landing.
-  async arc(obj, to, apex = 1, dur = 0.4) {
+  // tok: picking the friend up again mid-hop cancels it (tok.dead), so the hop never fights the finger
+  async arc(obj, to, apex = 1, dur = 0.4, tok = null) {
     const from = obj.position.clone();
     const top = Math.max(0, Math.max(from.y, to.y) + apex - (from.y + to.y) / 2);
     await this.s.anim(dur, (_, t) => {
+      if (tok?.dead) return;
       obj.position.lerpVectors(from, to, t);
       obj.position.y += 4 * top * t * (1 - t);
     });
+    if (tok?.dead) return false;
     obj.position.copy(to);
+    return true;
   }
   async squash(obj, amt = 0.25, dur = 0.16) {
     const base = obj.userData.baseScale ?? 1;
@@ -312,18 +320,21 @@ export default class WhereLesson extends Lesson {
     if (!zone) { this.goHome(); if (tapped) { sfx[CAST[ch.userData.who].call](); wiggle(this.s, ch, 0.3); } return; }
     const want = this.target();
     const wz = this.wantZone();
-    // Level 2: dropping anywhere on the right thing counts; Level 3 needs the exact place
-    const ok = zone.id === want || (this.level === 1 && zone.prop === wz.prop);
-    if (!ok) {
+    // the exact place at every level (praising ON when we asked for UNDER would teach the wrong word)
+    if (zone.id !== want) {
       this.goHome();
       const w = zone.obj.userData.wobble;
       if (w) wiggle(this.s, w, 0.12, 0.4);
-      this.redirect(`That's ${zone.id}. Find ${want}!`);
+      this.pulseThought();
+      this.redirect(this.promptText());   // same words as the cue; the boop, wobble and replayed picture say 'not that one'
       return;
     }
     input.remove(this.drag);
+    this.drag = null;
     this.busy = true;
     this.carrying = false;
+    if (this.homeTok) this.homeTok.dead = true;
+    this.hideThought();
     const rest = wz.rest();
     const fit = wz.def.fit ?? 1;   // a container's friend shrinks a little to sit inside cleanly
     const base = ch.userData.baseScale;
@@ -440,7 +451,7 @@ export default class WhereLesson extends Lesson {
       // a grumpy little cloud drizzles over the beach until everyone is under cover
       const cloud = makeRainCloud();
       if (cloud.userData.model?.userData.face) setFace(cloud.userData.model.userData.face, 'angry');
-      cloud.position.set(0, 5.0, -0.5);
+      cloud.position.set(0, 4.9, -3.0);
       this.root.add(cloud);
       popIn(this.s, cloud, 1.2, 0.4, { sound: false });
       sfx.thunder?.();
@@ -591,7 +602,7 @@ export default class WhereLesson extends Lesson {
   }
 
   // tapping a loose shell / ball / coin makes it jump
-  pokeAt(x, y) {
+  pokeAtBits(x, y) {
     if (super.pokeAt(x, y)) return true;
     let best = null, bd = Infinity;
     const wp = new T.Vector3();
@@ -614,12 +625,12 @@ export default class WhereLesson extends Lesson {
     // rain from the story cloud
     if (this.rain) {
       const c = this.rain.cloud;
-      c.position.x = Math.sin(t * 0.6) * 2.5;
+      c.position.x = Math.sin(t * 0.5) * 4.5;
       this.rain.acc += dt;
       while (this.rain.acc > 0.06) {
         this.rain.acc -= 0.06;
         const d = makeWaterDrop(0.075, 0x7fb8ff);
-        d.position.set(c.position.x + (Math.random() - 0.5) * 2.6, c.position.y - 0.5, c.position.z + Math.random() * 2);
+        d.position.set(c.position.x + (Math.random() - 0.5) * 2.6, c.position.y - 0.5, c.position.z + 1 + Math.random() * 2.5);
         this.root.add(d);
         this.drops.push(d);
       }
@@ -659,8 +670,123 @@ export default class WhereLesson extends Lesson {
       const yaw = look ? Math.atan2(look.x - ch.position.x, 3) : 0;
       ud.head.rotation.y += (yaw - ud.head.rotation.y) * k;
     }
-    // the boat rocks on its puddle
-    for (const p of this.props) if (p.userData.rock) p.userData.rock.rotation.z = Math.sin(t * 1.8) * 0.04;
+    this.animThought(dt);
+  }
+
+  // ---- the picture instruction: a thought bubble over the friend with a tiny looping demo of the goal ----
+  // (a mini friend hops IN the mini bucket / onto it / scoots UNDER it), so the goal reads without words.
+  showThought(spec) {
+    this.hideThought(true);
+    const want = spec.want;
+    const pk = spec.props.find(([k, m]) => zoneIds(k, m).includes(want));
+    const who = spec.who || 'crab';
+    const g = new T.Group();
+    // the bubble: a white cloud-pill with a dark edge, and two little puffs trailing down to the friend
+    const W = 1.5, H = 1.08;
+    const edge = new T.Mesh(geo.circle(1, 40), basic(0x3a2838));
+    edge.scale.set(W + 0.07, H + 0.07, 1);
+    edge.position.z = -1.0;
+    const fill = new T.Mesh(geo.circle(1, 40), basic(0xffffff));
+    fill.scale.set(W, H, 1);
+    fill.position.z = -0.98;
+    g.add(edge, fill);
+    for (const [x, y, r] of [[-0.55, -1.32, 0.2], [-0.85, -1.68, 0.12]]) {
+      const e2 = new T.Mesh(geo.circle(r + 0.05, 20), basic(0x3a2838));
+      const f2 = new T.Mesh(geo.circle(r, 20), basic(0xffffff));
+      e2.position.set(x, y, -1.0); f2.position.set(x, y, -0.98);
+      g.add(e2, f2);
+    }
+    // the mini scene, tipped toward the camera so you can see into containers
+    const scene = new T.Group();
+    scene.rotation.x = 0.28;
+    g.add(scene);
+    const prop = makeProp(pk[0], pk[1]);
+    const z = prop.userData.zones[want];
+    const fr = CAST[who].make();
+    fr.userData.noLook = true; fr.userData.noWalk = true; fr.userData.mini = true;
+    // size everything to fit the bubble (tall umbrella vs. a flat towel)
+    const pb = new T.Box3().setFromObject(prop), fb = new T.Box3().setFromObject(fr);
+    const cover = prop.userData.cover;
+    const hides = want === 'under' && cover?.hides;
+    const fh = (fb.max.y - fb.min.y) * (z.fit ?? 1);   // the friend's height as it sits there
+    const lift0 = hides ? fh * 0.92 : 0;               // a covering prop hovers so the friend shows beneath it
+    const tall = want === 'on' ? Math.max(pb.max.y, z.rest.y + fh) : Math.max(pb.max.y + lift0, z.rest.y + fh);
+    const fw = fb.max.x - fb.min.x;
+    const k = Math.min(0.5, 1.6 / Math.max(1.2, tall), 2.5 / Math.max(1, pb.max.x - pb.min.x + 0.5 + fw * 0.8));
+    prop.scale.setScalar(k);
+    scene.add(prop, fr);
+    const lift = lift0 * k;
+    const sz = fr.scale.x * k * (z.fit ?? 1);
+    fr.scale.setScalar(0.001);
+    const rest = z.rest.clone().multiplyScalar(k);
+    if (hides) rest.z += 0.18;   // nudged forward a touch so it peeks out
+    const start = new T.Vector3(pb.min.x * k - 0.12 - fw * k * 0.35, 0, 0.5 * k);
+    const midY = tall * k / 2;
+    scene.position.set(-(start.x - fw * k * 0.45 + pb.max.x * k) / 2, -midY - 0.05, 0);   // centred: friend's left edge to the prop's right
+    g.userData = { t: 0, prop, fr, sz, rest, start, lift, want, k, rim: (z.rim ?? 1) * k, topY: Math.max(pb.max.y * k, rest.y) };
+    const at = this.home || SPAWN;
+    g.position.set(Math.max(-2.2, Math.min(2.2, at.x + 0.9)), 3.9, 2.6);
+    g.scale.setScalar(0.001);
+    this.root.add(g);
+    this.thought = g;
+    this.s.tween(g.scale, { x: 1, y: 1, z: 1 }, 0.3, Ease.back);
+  }
+
+  animThought(dt) {
+    const g = this.thought;
+    if (!g) return;
+    const u = g.userData, P = 3.0;
+    u.t += dt;
+    const t = u.t % P;
+    const fr = u.fr;
+    // 0-0.3 pop in beside the thing, 0.5-1.0 hop / scoot to the spot, hold with a happy bounce, 2.65-3.0 shrink away
+    if (t < 0.3) fr.scale.setScalar(u.sz * Ease.back(t / 0.3));
+    else if (t < 2.65) fr.scale.setScalar(u.sz);
+    else fr.scale.setScalar(u.sz * Math.max(0.001, 1 - (t - 2.65) / 0.35));
+    if (u.lift) u.prop.position.y = u.lift * Math.min(1, Math.max(0, (t - 0.25) / 0.25));
+    const e = Math.min(1, Math.max(0, (t - 0.5) / 0.5));
+    const ee = Ease.inOut ? Ease.inOut(e) : e;
+    fr.position.lerpVectors(u.start, u.rest, ee);
+    if (u.want !== 'under') {
+      const top = (u.want === 'on' ? u.rest.y : u.rim) + 0.25;
+      fr.position.y += 4 * Math.max(0, top - (u.start.y + u.rest.y) / 2) * e * (1 - e);
+    }
+    if (t > 1.1 && t < 2.6) fr.position.y = u.rest.y + Math.abs(Math.sin((t - 1.1) * Math.PI * 2)) * 0.06;
+    if (u.pulse > 0) { u.pulse = Math.max(0, u.pulse - dt * 2.5); const s2 = 1 + Math.sin(u.pulse * Math.PI) * 0.18; g.scale.setScalar(s2); }
+  }
+
+  pulseThought() {
+    if (!this.thought) return;
+    this.thought.userData.pulse = 1;
+    this.thought.userData.t = 0;   // replay the little demo from the start
+  }
+
+  hideThought(now = false) {
+    const g = this.thought;
+    if (!g) return;
+    this.thought = null;
+    if (now) { this.root.remove(g); return; }
+    this.s.tween(g.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.18, Ease.in).then(() => this.root.remove(g));
+  }
+
+  // the friend to place (it's the drag target; a tap on it already wiggles), the pal while it hops, and the tiny friend
+  // in the bubble never take a poke: a poke's squash restores the height and scale captured mid-hop, which left the
+  // crab floating in mid-air (tap during its hop home) or full size under a hat (tap during the gag)
+  pokeAt(x, y) {
+    const all = this.chars;
+    this.chars = (all || []).filter((c) => !c.userData.mini && c !== this.char && !(this.busy && c === this.pal));
+    try { return this.pokeAtBits(x, y); } finally { this.chars = all; }
+  }
+
+  // the idle nudge hops the friend, but never while a finger has it (the hop would yank it back down)
+  nudge(step) {
+    const o = this.nudgeTarget();
+    if (!o || this.carrying || input.dragging()) { super.nudge(step); return; }
+    sfx.boing && sfx.boing();
+    const y0 = o.position.y;
+    this.s.anim(0.5, (_, p) => { if (!this.carrying) o.position.y = y0 + Math.sin(p * Math.PI) * 0.45; }).then(() => { if (!this.carrying) o.position.y = y0; });
+    this.pulseThought();
+    if (step >= 2) { const stop = fx.halo(o, 1.3); this.s.wait(3).then(stop); }
   }
 
   showHint(glow = true) {

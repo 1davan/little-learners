@@ -51,7 +51,7 @@ const POS = { B: new T.Vector3(-0.5, 0, 1.3), s: new T.Vector3(3.4, 0, 1.8) };
 const PIP_INST = new T.Vector3(-4.2, 0, 0.1);
 const DOTS_AT = new T.Vector3(1.4, 4.1, -0.8); // the beat board, above and behind the drums
 // the audience: three seats; one new friend takes a seat each round
-const SEATS = [[5.5, -3.0], [6.2, -0.7], [-2.6, -3.6]];
+const SEATS = [[5.0, -3.4], [7.2, -2.2], [-2.6, -3.6]]; // (back from the quiet instrument, so no friend stands behind it)
 // the audience for each level (the first three take their seats, the rest come in one by one)
 const POOLS = [['cow', 'hen', 'pig', 'sheep', 'horse'], ['horse', 'sheep', 'chick', 'cow', 'pig'], ['pig', 'chick', 'hen', 'horse', 'sheep', 'cow']];
 const FAN_SIZE = { cow: 0.8, hen: 0.7, pig: 0.7, sheep: 0.72, horse: 0.72, chick: 0.95 };
@@ -359,11 +359,11 @@ export default class BandLesson extends Lesson {
       drums.forEach((d) => { for (let i = 0; i < 4; i++) this.s.wait(i * 0.1).then(() => fx.float(d.position.clone().add(new T.Vector3((i - 1.5) * 0.5, d.userData.h + 0.8, 0.4)), syms[i], { color: ['#ff5a5a', '#4a90ff', '#ffb020', '#5fd068'][i], size: 6 })); });
       for (const d of drums) this.jumpBits(d, false, 2);
     } else {
-      // the big instrument does a jump and a twirl
+      // the big instrument does a happy twirl on the spot (it stays on the ground, so the bits land back on it)
       sfx.whoosh();
-      const d = this.drums.B, y0 = d.position.y, r0 = d.rotation.y;
+      const d = this.drums.B, r0 = d.rotation.y;
       this.jumpBits(d, true, 1.25);
-      this.s.anim(0.55, (e, p) => { d.rotation.y = r0 + e * Math.PI * 2; d.position.y = y0 + Math.sin(p * Math.PI) * 0.7; }, Ease.inOut).then(() => { d.rotation.y = r0; d.position.y = y0; sfx.thunk(); this.jumpBits(d, true, 0.9); });
+      this.s.anim(0.55, (e) => { d.rotation.y = r0 + e * Math.PI * 2; }, Ease.inOut).then(() => { d.rotation.y = r0; sfx.thunk(); });
     }
   }
 

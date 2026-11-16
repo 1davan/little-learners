@@ -101,6 +101,7 @@ export function wave(s, pip) {
 // Idle life for any character: breathing, head sway, blinking and the odd ear / wing twitch.
 export function breathe(g, t, phase = 0) {
   const u = g.userData;
+  if (u.still || (typeof u.kind === 'string' && u.kind.startsWith('prop_'))) return;
   const b = u.body;
   if (b) { const k = 1 + Math.sin(t * 2.2 + phase) * 0.025; b.scale.y = (b.userData.sy ?? (b.userData.sy = b.scale.y)) * k; }
   const h = u.head;

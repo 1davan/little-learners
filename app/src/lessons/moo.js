@@ -24,7 +24,8 @@ const WORD = { cow: 'moo', pig: 'oink', sheep: 'baa', duck: 'quack', hen: 'cluck
 const SHOUT = { cow: 'Moo!', pig: 'Oink!', sheep: 'Baa!', duck: 'Quack!', hen: 'Cluck!', horse: 'Neigh!' };
 const NAME = { cow: 'Cow', pig: 'Pig', sheep: 'Sheep', duck: 'Duck', hen: 'Hen', horse: 'Horse' };
 const COL = { cow: '#7a6cff', pig: '#ff6f9a', sheep: '#8b7a85', duck: '#ffb020', hen: '#ff4b4b', horse: '#a0623a' };
-const XS = { 2: [-2.7, 2.7], 3: [-3.7, 0, 3.7], 4: [-4.6, -1.55, 1.55, 4.6] };
+// (shifted right a little, so the leftmost animal never stands in front of Pip's hay bale)
+const XS = { 2: [-2.1, 3.1], 3: [-3.1, 0.6, 4.3], 4: [-3.8, -1.05, 1.7, 4.45] };
 const BUBBLE_AT = new T.Vector3(-4.0, 5.0, -3.4);
 
 // [target, ...others]
@@ -65,6 +66,9 @@ export default class MooLesson extends Lesson {
     this.bubble = makeSoundBubble();
     this.bubble.position.copy(BUBBLE_AT);
     this.root.add(this.bubble);
+    // tapping the sound bubble plays the call again
+    this.offs.push(() => input.remove(this.bubbleTap));
+    this.bubbleTap = input.addTap(this.bubble, { radius: 1.2, onTap: () => this.playCall() });
     this.pool = SPOT_POOLS[this.level];
     this.backdrop = makeBackdrop(this.level);
     this.root.add(this.backdrop);
@@ -162,7 +166,10 @@ export default class MooLesson extends Lesson {
     if (k !== this.target) {
       hop(this.s, a, 0.45, 0.4, { sound: true });
       this.voice(a);
-      this.redirect(`That's ${NAME[k]}. ${WORD[k]}! Who says ${WORD[this.target]}?`);
+      this.redirect(`${NAME[k]} says ${WORD[k]}!`);
+      // then the call to find plays again, so the child can compare
+      const t = this.target, r = this.round;
+      this.s.wait(1.0).then(() => { if (t === this.target && r === this.round) this.playCall(); });
       return;
     }
     this.busy = true;

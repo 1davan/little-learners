@@ -2,16 +2,16 @@
 //   meadow: spring · autumn (falling leaves, pumpkins) · winter (snow, snowman, snowflakes)
 //   beach:  noon · sunset (sailboat, lanterns) · starry night (smiling moon, fireflies, jellyfish, bonfire)
 //   farm:   spring · harvest (pumpkins, scarecrow, apple tree) · rainy day (rainbow, rain, puddles)
-//   dressup: hat shop street (awning, hat windows, bunting) · dressing room (curtains, bulb mirror, clothes rail)
-//            · cosy room with a rainy window (coat pegs, wellies, armchair)
+//   dressup (Home): sunny front garden (the house, picket fence, washing line) · bedroom (bed, star lights, toy shelf)
+//            · cosy room on a rainy evening (coat pegs, wellies, armchair, lamp)
 //   build:  sunny sandpit site (crane, digger, sand heaps) · brick yard at golden hour (pallets, cement mixer)
 //            · night site (stars, moon, tall work lights, blinking lamps)
 // Play areas (x -6..6, z -2..4) are kept clear; animated extras are instanced / Points so they stay cheap.
 import * as T from '../three.js';
 import { mesh, geo, toon, toonUnique, blobShadow, basic, INK } from './toon.js';
 import { C } from './actors.js';
-import { makeDuck } from './beach.js';
-import { garmentProp, hasCreature } from './creature.js';
+import { makeDuck, makeBeachBall } from './beach.js';
+import { garmentProp, hasCreature, makeCreature } from './creature.js';
 import { propModel } from './prop-models.js';
 
 let seed = 7;
@@ -698,11 +698,12 @@ function addRain(g, n = 150) {
   addFalling(g, { n, geom: new T.CylinderGeometry(0.018, 0.018, 0.55, 4), mat: glowMat(0xeaf4ff, { transparent: true, opacity: 0.55, depthWrite: false }), y: [0, 12], z: [-16, 5], x: [-18, 18], fall: 11, sway: 0, size: [0.8, 1.3], tilt: [0, 0.18] });
 }
 // Twinkling stars: three Points groups that pulse out of step.
-function addStars(g, n = 90) {
+export function addStars(g, n = 90, { x = 75, y = [9, 42], z = [-62, -50] } = {}) {
   const groups = [];
+  g.userData.anim ||= [];
   for (let k = 0; k < 3; k++) {
     const pos = [];
-    for (let i = 0; i < n / 3; i++) pos.push(rr(-75, 75), rr(9, 42), rr(-62, -50));
+    for (let i = 0; i < n / 3; i++) pos.push(rr(-x, x), rr(y[0], y[1]), rr(z[0], z[1]));
     const geom = new T.BufferGeometry(); geom.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
     const p = new T.Points(geom, new T.PointsMaterial({ map: starTex(), size: 3.2 + k * 0.8, transparent: true, depthWrite: false, fog: false, blending: T.AdditiveBlending }));
     p.frustumCulled = false;
@@ -1349,148 +1350,10 @@ function farmRain() {
   return g;
 }
 
-// ---------- World 4: dress up ----------
-// The single Dress Monkey icon stands big in the middle (x -3..3); props stay at the sides and against the back.
-const stripes = (g, cols, n, w, h, d, x0, y, z, rx = 0) => {
-  for (let i = 0; i < n; i++) { const b = mesh(geo.box(w, h, d), cols[i % cols.length], { hull: 0, outline: 0 }); b.position.set(x0 + i * w, y, z); b.rotation.x = rx; g.add(b); }
-};
-function hatStand(hat, x, y, z) {
-  const g = new T.Group();
-  const pole = mesh(geo.cyl(0.04, 0.04, 0.7, 6), 0x9a7a5a, { outline: 0.01 }); pole.position.y = 0.35;
-  const base = mesh(geo.cyl(0.25, 0.28, 0.08, 12), 0x9a7a5a, { outline: 0.01 });
-  const head = mesh(geo.sphere(0.24, 12, 10), 0xfff1e6, { outline: 0.012 }); head.position.y = 0.85;
-  hat.position.y = 1.0; g.add(pole, base, head, hat);
-  g.position.set(x, y, z);
-  return g;
-}
-function miniHat(kind, col) {
-  const g = new T.Group();
-  if (kind === 'top') {
-    const brim = mesh(geo.cyl(0.4, 0.4, 0.05, 16), col, { outline: 0.012 });
-    const crown = mesh(geo.cyl(0.25, 0.27, 0.5, 16), col, { outline: 0.012 }); crown.position.y = 0.25;
-    const band = mesh(geo.cyl(0.275, 0.275, 0.1, 16), 0xff6fa8, { outline: 0 }); band.position.y = 0.08;
-    g.add(brim, crown, band);
-  } else if (kind === 'party') {
-    const c = mesh(geo.cone(0.26, 0.6, 14), col, { outline: 0.012 }); c.position.y = 0.28;
-    const p = mesh(geo.sphere(0.08, 8, 6), 0xffffff, { outline: 0.008 }); p.position.y = 0.6;
-    g.add(c, p);
-  } else { // sun hat
-    const brim = mesh(geo.cyl(0.55, 0.58, 0.04, 18), col, { outline: 0.012 });
-    const crown = mesh(dome(0.28, 14, 6), col, { outline: 0.012 });
-    const fl = mesh(geo.sphere(0.08, 8, 6), 0xff5a8a, { outline: 0.008 }); fl.position.set(0.24, 0.1, 0.12);
-    g.add(brim, crown, fl);
-  }
-  return g;
-}
-function hatBox(col, lid, r = 0.6, h = 0.55) {
-  const g = new T.Group();
-  const b = mesh(geo.cyl(r, r, h, 20), col, { outline: 0.02 }); b.position.y = h / 2;
-  const l = mesh(geo.cyl(r + 0.05, r + 0.05, 0.14, 20), lid, { outline: 0.02 }); l.position.y = h + 0.02;
-  const rib = mesh(geo.box(0.12, h + 0.02, r * 2 + 0.06), lid, { hull: 0, outline: 0 }); rib.position.y = h / 2;
-  g.add(b, l, rib);
-  return g;
-}
-function bunting(g, x0, x1, y, z, sag = 0.6, cols = [0xff6fa8, 0xffd23f, 0x74c0fc, 0x8ce99a, 0xb197fc]) {
-  const n = Math.round((x1 - x0) / 0.8);
-  const line = [];
-  for (let i = 0; i <= n; i++) { const k = i / n; line.push(new T.Vector3(x0 + (x1 - x0) * k, y - Math.sin(k * Math.PI) * sag, z)); }
-  const str = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(line), 32, 0.025, 4), new T.MeshBasicMaterial({ color: 0x6a5a7a }));
-  g.add(str);
-  for (let i = 0; i < n; i++) {
-    const k = (i + 0.5) / n;
-    const f = mesh(geo.cone(0.28, 0.55, 3), cols[i % cols.length], { outline: 0.012 });
-    f.rotation.z = Math.PI; f.scale.z = 0.25;
-    f.position.set(x0 + (x1 - x0) * k, y - Math.sin(k * Math.PI) * sag - 0.3, z);
-    f.userData.flower = true; f.userData.ph = i * 0.7; g.add(f);
-  }
-}
-function shopFront(g, x, z, w, h, wall, awn, sign = null) {
-  const body = mesh(geo.box(w, h, 1), wall, { hull: 1.01 }); body.position.set(x, h / 2, z); g.add(body);
-  const top = mesh(geo.box(w + 0.6, 0.45, 1.4), 0xffffff, { hull: 1.02 }); top.position.set(x, h + 0.2, z); g.add(top);
-  // striped awning, tilted out over the pavement, with a scalloped edge
-  const n = Math.round(w / 0.9), sw = w / n;
-  const aw = new T.Group();
-  stripes(aw, [awn, 0xffffff], n, sw, 0.1, 1.8, -w / 2 + sw / 2, 0, 0);
-  for (let i = 0; i < n; i++) { const sc = mesh(dome(sw / 2, 12, 4), i % 2 ? 0xffffff : awn, { outline: 0.01 }); sc.rotation.x = Math.PI; sc.scale.y = 0.6; sc.position.set(-w / 2 + sw / 2 + i * sw, -0.05, 0.9); aw.add(sc); }
-  aw.position.set(x, h * 0.66, z + 1.3); aw.rotation.x = 0.38; g.add(aw);
-  if (sign) { sign.position.set(x, h + 0.42, z); g.add(sign); }
-  return body;
-}
-function shopWindow(g, x, y, z, w, h) {
-  const glass = new T.Mesh(geo.box(w, h, 0.06), toon(0xd6f0ff)); glass.position.set(x, y, z); g.add(glass);
-  for (const [dx, dy, ww, hh] of [[0, h / 2, w + 0.2, 0.18], [0, -h / 2, w + 0.4, 0.22], [-w / 2, 0, 0.18, h], [w / 2, 0, 0.18, h]]) {
-    const f = mesh(geo.box(ww, hh, 0.2), 0xffffff, { hull: 1.04 }); f.position.set(x + dx, y + dy, z + 0.05); g.add(f);
-  }
-  const shine = new T.Mesh(geo.box(w * 0.12, h * 0.9, 0.01), glowMat(0xffffff, { transparent: true, opacity: 0.5 })); shine.position.set(x - w * 0.25, y, z + 0.04); shine.rotation.z = -0.35; g.add(shine);
-}
-
-function dressShopCode() {
-  const g = new T.Group();
-  g.userData.anim = [];
-  const floor = new T.Mesh(geo.cyl(40, 40, 1, 48), toon(0xf1d9c0)); floor.position.y = -0.5; g.add(floor);
-  // a round paved square in front of the shop
-  const sq = new T.Mesh(geo.circle(6.5, 40), toon(0xe9cbb0)); sq.rotation.x = -Math.PI / 2; sq.scale.set(1.5, 0.75, 1); sq.position.set(0, 0.01, 0.2); g.add(sq);
-  const sqIn = new T.Mesh(geo.circle(5.6, 40), toon(0xf6e2cf)); sqIn.rotation.x = -Math.PI / 2; sqIn.scale.set(1.5, 0.75, 1); sqIn.position.set(0, 0.015, 0.2); g.add(sqIn);
-  // pavement in front of the shops
-  const pave = new T.Mesh(geo.box(60, 0.04, 3.2), toon(0xe2c4a8)); pave.position.set(0, 0.02, -6.2); g.add(pave);
-  // distant hills and trees peek over the rooftops
-  for (const [x, z, r, col] of [[-16, -26, 9, 0x8fd06c], [6, -30, 12, 0x7cc95c], [24, -24, 8, 0x8fd06c], [-30, -22, 7, 0x7cc95c]]) {
-    const h = mesh(geo.sphere(1, 24, 12), col, { outline: 0.02 }); h.scale.set(r * 1.6, r * 0.55, r); h.position.set(x, -0.5, z); g.add(h);
-  }
-  // the hat shop
-  const sign = new T.Group();
-  const board = mesh(geo.box(4.2, 1.3, 0.3), 0x8a5ad0, { hull: 1.03 }); board.position.y = 0.65; sign.add(board);
-  const bigHat = miniHat('top', 0xffffff); bigHat.scale.setScalar(1.5); bigHat.position.set(0, 0.35, 0.3); sign.add(bigHat);
-  shopFront(g, 0, -8.6, 12, 6.2, 0xffc6da, 0xff6fa8, sign);
-  // door with a round top and a heart window
-  const door = mesh(geo.box(2.2, 3.4, 0.2), 0x8a5ad0, { hull: 1.03 }); door.position.set(0, 1.7, -8.05); g.add(door);
-  const arch = mesh(geo.cyl(1.1, 1.1, 0.2, 20), 0x8a5ad0, { outline: 0.02 }); arch.rotation.x = Math.PI / 2; arch.position.set(0, 3.4, -8.05); g.add(arch);
-  const knob = mesh(geo.sphere(0.12, 10, 8), 0xffd23f, { outline: 0.01 }); knob.position.set(0.75, 1.7, -7.9); g.add(knob);
-  // two display windows full of hats
-  for (const sx of [-1, 1]) {
-    shopWindow(g, sx * 3.9, 2.4, -8.05, 3.4, 2.7);
-    const hats = sx < 0 ? [['sun', 0xffe08a], ['top', 0x5a4a80], ['party', 0xff6fa8]] : [['party', 0x74c0fc], ['sun', 0xffb3d1], ['top', 0xd94f3d]];
-    hats.forEach(([k, c], i) => g.add(hatStand(miniHat(k, c), sx * 3.9 + (i - 1) * 1.05, 1.15, -7.85)));
-  }
-  // flower boxes under the windows
-  for (const sx of [-1, 1]) {
-    const bx = mesh(geo.box(3.4, 0.4, 0.5), 0xffffff, { hull: 1.04 }); bx.position.set(sx * 3.9, 0.95, -7.65); g.add(bx);
-    for (let i = 0; i < 6; i++) { const f = mesh(geo.sphere(0.16, 8, 6), [0xff6fa8, 0xffd23f, 0xb197fc][i % 3], { outline: 0.01 }); f.position.set(sx * 3.9 - 1.4 + i * 0.56, 1.25, -7.6); g.add(f); }
-  }
-  // neighbours: a mint shoe shop and a lemon scarf shop
-  shopFront(g, -13.2, -9.4, 10, 5.4, 0xbfeedd, 0x3fae8a);
-  shopFront(g, 13.2, -9.4, 10, 5.4, 0xfff0b0, 0xffb020);
-  shopWindow(g, -12, 2.2, -8.85, 4, 2.4); shopWindow(g, 12, 2.2, -8.85, 4, 2.4);
-  // shoes in the mint window, scarves in the lemon one
-  for (let i = 0; i < 3; i++) {
-    const shoe = mesh(geo.sphere(0.3, 12, 8), [0xff4b4b, 0x4a90ff, 0x3fae4a][i], { outline: 0.012 }); shoe.scale.set(1.4, 0.6, 0.8); shoe.position.set(-13.2 + i * 1.2, 1.4, -8.7); g.add(shoe);
-    const sc = mesh(geo.box(0.35, 1.6, 0.08), [0xff6fa8, 0x8a5ad0, 0x74c0fc][i], { hull: 1.06 }); sc.position.set(10.8 + i * 1.2, 2.4, -8.7); sc.rotation.z = 0.1 * (i - 1); g.add(sc);
-  }
-  bunting(g, -6.3, 6.3, 6.9, -7.2, 0.5);
-  // street lamps and stacks of hat boxes at the sides
-  for (const sx of [-1, 1]) {
-    const post = mesh(geo.cyl(0.08, 0.1, 4.2, 8), 0x5a4a80, { outline: 0.015 }); post.position.set(sx * 7.3, 2.1, -6.3); g.add(post);
-    const lamp = new T.Mesh(geo.sphere(0.32, 14, 10), glowMat(0xfff4c4)); lamp.position.set(sx * 7.3, 4.4, -6.3); g.add(lamp);
-    const cap = mesh(geo.cone(0.4, 0.35, 12), 0x5a4a80, { outline: 0.015 }); cap.position.set(sx * 7.3, 4.85, -6.3); g.add(cap);
-  }
-  const stackL = [[0xff8fc0, 0xffffff, 0.75, 0.6], [0xb197fc, 0xffd23f, 0.6, 0.5], [0x74c0fc, 0xffffff, 0.45, 0.4]];
-  let y = 0;
-  for (const [c, l, r, h] of stackL) { const b = hatBox(c, l, r, h); b.position.set(-8.6, y, -3.4); b.rotation.y = y; g.add(b); y += h + 0.14; }
-  y = 0;
-  for (const [c, l, r, h] of [[0xffd23f, 0xff6fa8, 0.7, 0.55], [0x8ce99a, 0xffffff, 0.5, 0.45]]) { const b = hatBox(c, l, r, h); b.position.set(8.8, y, -2.8); g.add(b); y += h + 0.14; }
-  const loose = hatBox(0xff6fa8, 0xffffff, 0.55, 0.45); loose.position.set(9.9, 0, -1.7); loose.rotation.y = 0.6; g.add(loose);
-  // sky
-  g.add(makeSun(-23, 10.5, -44));
-  for (let i = 0; i < 4; i++) g.add(makeCloud(-18 + i * 11, 10 + (i % 2), -24 - (i % 2) * 4, 0.9 + (i % 3) * 0.2));
-  g.add(makeButterfly(0xff8fc0, -5, 3.2, -3), makeButterfly(0xffd23f, 5.5, 3.6, -2.5));
-  g.userData.clouds = g.children.filter((c) => c.userData.cloud);
-  g.userData.sway = g.children.filter((c) => c.userData.flower);
-  g.userData.flies = g.children.filter((c) => c.userData.wl);
-  return g;
-}
-
-// ---- dress-up set dressing from Blender props (each placed clear of the walls and of each other) ----
-// a mini hat (from the hat stand model) as its own group, brim at y 0
+// ---------- World 4: Home (id 'dressup') ----------
+// L1 the sunny front garden of a cosy house · L2 a child's bedroom · L3 the cosy room on a rainy evening.
+// Home games stand at x -6..6, z -2..4 (three of them across, or Dress Monkey's own room over the top), so the
+// house, fences, beds and shelves keep to the back (z < -4) and the far sides (|x| > 7).
 function propHat(kind, col, s = 1) {
   const trim = { top: 'topband', party: 'partypom', sun: 'sunflower' }[kind];
   const g = new T.Group();
@@ -1498,122 +1361,118 @@ function propHat(kind, col, s = 1) {
   g.scale.setScalar(s);
   return g;
 }
-function propHatStand(kind, col, s = 1) {
-  const g = scProp('prop_hatstand', {}, { ink: 0.018 });
-  const hat = propHat(kind, col, s); hat.position.y = 1.02; g.add(hat);
-  return g;
-}
-// a round hat box of radius r and height h (bow only when it's the top of a stack); returns [group, top y]
-function propHatBox(col, lid, r, h, bow = true) {
-  const g = scProp('prop_hatbox', { prop_hatbox: { tint: col }, lid: { tint: lid }, bow: bow ? { tint: lid } : false }, { ink: 0.022 });
-  g.scale.set(r / 0.6, h / 0.55, r / 0.6);
-  return [g, h * (0.568 / 0.55) + 0.004];
-}
-function hatStack(g, x, z, boxes, ry = 0) {
-  let y = 0;
-  boxes.forEach(([c, l, r, h], i) => { const [b, top] = propHatBox(c, l, r, h, i === boxes.length - 1); b.position.set(x, y, z); b.rotation.y = ry + i * 0.7; g.add(b); y += top; });
-}
 const curtainProp = (col, tie = 0xffc93a) => scProp('prop_curtain', { prop_curtain: { tint: col }, tie: { tint: tie, ink: 0.016 } }, { ink: 0.022 });
 
-function dressShop() {
-  if (!hasCreature('prop_shop') || !hasCreature('prop_hatstand')) return dressShopCode();
+// L1: the front garden. The house (prop_house) at the back with a stone path to its door, a white picket fence with a
+// gap for the path, flower beds, an apple tree, a washing line with little clothes on hangers, the cat on the lawn.
+function homeGarden() {
   const g = new T.Group();
   g.userData.anim = [];
-  const floor = new T.Mesh(geo.cyl(40, 40, 1, 48), toon(0xf1d9c0)); floor.position.y = -0.5; g.add(floor);
-  const sq = new T.Mesh(geo.circle(6.5, 40), toon(0xe9cbb0)); sq.rotation.x = -Math.PI / 2; sq.scale.set(1.5, 0.75, 1); sq.position.set(0, 0.01, 0.2); g.add(sq);
-  const sqIn = new T.Mesh(geo.circle(5.6, 40), toon(0xf6e2cf)); sqIn.rotation.x = -Math.PI / 2; sqIn.scale.set(1.5, 0.75, 1); sqIn.position.set(0, 0.015, 0.2); g.add(sqIn);
-  const pave = new T.Mesh(geo.box(60, 0.04, 3.2), toon(0xe2c4a8)); pave.position.set(0, 0.02, -6.2); g.add(pave);
-  for (const [x, z, r, col] of [[-16, -26, 9, 0x8fd06c], [6, -30, 12, 0x7cc95c], [24, -24, 8, 0x8fd06c], [-30, -22, 7, 0x7cc95c]]) {
+  const floor = new T.Mesh(geo.cyl(40, 40, 1, 48), toon(0x9fd86e)); floor.position.y = -0.5; g.add(floor);
+  addPatches(g, 0x8fcf5e, 10);
+  addGrass(g, 0x7cc95c, 110, 26, -1.5);
+  for (const [x, z, r, col] of [[-18, -30, 10, 0x8fd06c], [8, -34, 13, 0x7cc95c], [26, -28, 9, 0x8fd06c], [-34, -26, 8, 0x7cc95c]]) {
     const h = mesh(geo.sphere(1, 24, 12), col, { outline: 0.02 }); h.scale.set(r * 1.6, r * 0.55, r); h.position.set(x, -0.5, z); g.add(h);
   }
-  // the hat shop (front at z -8.1) and its neighbours, a mint shoe shop and a lemon scarf shop (front at z -8.9)
-  const shop = (x, z, sx, sy, wall, awn, door) => {
-    const sp = scProp('prop_shop', { prop_shop: { tint: wall }, trim: {}, glass: { ink: 0.012 }, door: { tint: door }, awning: { tint: awn } }, { ink: 0.026 });
-    sp.scale.set(sx, sy, 1); sp.position.set(x, 0, z); g.add(sp);
-    return sp;
-  };
-  shop(0, -8.6, 1, 1, 0xffc6da, 0xff6fa8, 0x8a5ad0);
-  shop(-13.2, -9.4, 10 / 12, 5.4 / 6.2, 0xbfeedd, 0x3fae8a, 0x3fae8a);
-  shop(13.2, -9.4, 10 / 12, 5.4 / 6.2, 0xfff0b0, 0xffb020, 0xffb020);
-  // the sign sits on the cornice, a big white top hat on top of the sign
-  const board = mesh(geo.box(4.2, 1.3, 0.3), 0x8a5ad0, { hull: 1.03 }); board.position.set(0, 6.52 + 0.65, -8.6); g.add(board);
-  const bigHat = propHat('top', 0xffffff, 1.5); bigHat.position.set(0, 7.82, -8.6); g.add(bigHat);
-  // hats on stands in the windows, standing on the deep sills (top 1.27, z -8.14 .. -7.34) clear of the glass and bars
-  [[-1, [['top', 0x5a4a80, 1], ['party', 0xff6fa8, 1]]], [1, [['sun', 0xffb3d1, 0.62], ['top', 0xd94f3d, 1]]]].forEach(([sx, hats]) =>
-    hats.forEach(([k, c, sc], i) => { const st = propHatStand(k, c, sc); st.position.set(sx * 3.9 + (i ? 0.75 : -0.75), 1.27, -7.62); st.rotation.y = 0.3 - i * 0.6; g.add(st); }));
-  // planters on the pavement under the windows (clear of the plinth)
-  for (const sx of [-1, 1]) { const fb = scProp('prop_flowerbox', { flowers: { ink: 0.014 } }, { ink: 0.02 }); fb.position.set(sx * 3.9, 0.2, -7.68); g.add(fb); }
-  // shoes in the mint shop's inner window, scarves in the lemon one's (sills top 1.106, glass front z -8.865)
-  for (let i = 0; i < 3; i++) {
-    const shoe = mesh(geo.sphere(0.3, 12, 8), [0xff4b4b, 0x4a90ff, 0x3fae4a][i], { outline: 0.012 }); shoe.scale.set(1.12, 0.48, 0.64); shoe.position.set(-9.95 + (i - 1) * 0.8, 1.25, -8.5); g.add(shoe);
-    const sc = mesh(geo.box(0.35, 1.5, 0.08), [0xff6fa8, 0x8a5ad0, 0x74c0fc][i], { hull: 1.06 }); sc.position.set(9.95 + (i - 1) * 0.62, 2.3, -8.7); sc.rotation.z = 0.08 * (i - 1); g.add(sc);
+  const house = scProp('prop_house', { trim: {}, glass: { ink: 0.012 }, roof: {}, flowers: { ink: 0.016 } }, { ink: 0.026 });
+  if (house) { house.scale.setScalar(2.0); house.position.set(0, 0, -11.2); g.add(house); }
+  // stepping stones from the doorstep down the lawn
+  for (let i = 0; i < 6; i++) {
+    const st = mesh(geo.cyl(0.55, 0.6, 0.08, 18), 0xe6dccb, { outline: 0.016 }); st.scale.z = 0.7;
+    st.position.set(i % 2 ? 0.35 : -0.35, 0.04, -7.4 + i * 1.05); g.add(st);
   }
-  bunting(g, -6.3, 6.3, 6.9, -7.2, 0.5);
-  // street lamps with glowing globes
-  for (const sx of [-1, 1]) {
-    const lamp = scProp('prop_streetlamp', { glass: { glow: true, ink: 0.016 }, cap: {} }, { ink: 0.022 }); lamp.position.set(sx * 7.3, 0, -6.3); g.add(lamp);
-    const gl = glow(0xfff1b0, 1.6, 0.35); gl.position.set(sx * 7.3, 4.4, -6.3); g.add(gl);
+  // the picket fence along the front of the garden, open where the path goes through
+  for (const sx of [-1, 1]) { const fn = makeFence(12.6, 0xfffaf0); fn.position.set(sx * 8.6, 0, -5.8); g.add(fn); }
+  // flower beds in front of the fence
+  const cols = [0xff6fa8, 0xffd23f, 0xffffff, 0xb197fc, 0xff8a5c, 0xff5a5a];
+  for (const sx of [-1, 1]) for (let i = 0; i < 9; i++) {
+    const fl = makeFlower(cols[(i + (sx > 0 ? 3 : 0)) % cols.length]); fl.position.set(sx * (7.2 + i * 0.85), 0, -5.0 + (i % 2) * 0.35); fl.rotation.y = i; g.add(fl);
   }
-  // stacks of hat boxes at the sides
-  hatStack(g, -8.6, -3.4, [[0xff8fc0, 0xffffff, 0.75, 0.6], [0xb197fc, 0xffd23f, 0.6, 0.5], [0x74c0fc, 0xffffff, 0.45, 0.4]]);
-  hatStack(g, 8.8, -2.8, [[0xffd23f, 0xff6fa8, 0.7, 0.55], [0x8ce99a, 0xffffff, 0.5, 0.45]], 0.4);
-  hatStack(g, 9.9, -1.7, [[0xff6fa8, 0xffffff, 0.55, 0.45]], 0.6);
+  const tree = makeTree(1.0, C.leaf, { apples: 5 }); tree.position.set(12.6, 0, -9.0); g.add(tree);
+  const tree2 = makeTree(0.75, 0x63c25a); tree2.position.set(-14.5, 0, -9.5); g.add(tree2);
+  // washing line on the left: two posts, a sagging line, clothes on wooden hangers swaying a little
+  const L0 = -11.2, L1 = -6.6, LY = 3.8, LZ = -4.6;
+  for (const x of [L0, L1]) {
+    const post = mesh(geo.cyl(0.08, 0.1, LY + 0.1, 8), 0xb98353, { outline: 0.014 }); post.position.set(x, (LY + 0.1) / 2, LZ); g.add(post);
+    const cap = mesh(geo.sphere(0.13, 10, 8), 0xb98353, { outline: 0.012 }); cap.position.set(x, LY + 0.12, LZ); g.add(cap);
+  }
+  const line = [];
+  for (let i = 0; i <= 12; i++) { const k = i / 12; line.push(new T.Vector3(L0 + (L1 - L0) * k, LY - Math.sin(k * Math.PI) * 0.25, LZ)); }
+  g.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(line), 24, 0.025, 4), new T.MeshBasicMaterial({ color: 0x6a5a7a })));
+  const clothes = [];
+  if (hasCreature('prop_clothesrail')) {
+    [['top', 0x74c0fc], ['dress', 0xffd23f], ['top', 0xff8fc0]].forEach(([k, c], i) => {
+      const x = L0 + 1.1 + i * 1.2, k2 = (x - L0) / (L1 - L0);
+      const h = new T.Group();
+      h.add(scMesh('prop_clothesrail', 'hanger', { ink: 0.014 }), scMesh('prop_clothesrail', k, { tint: c, ink: 0.02 }));
+      h.scale.setScalar(0.62); h.position.set(x, LY - Math.sin(k2 * Math.PI) * 0.25, LZ); g.add(h); clothes.push(h);
+    });
+  }
+  g.userData.anim.push((dt, t) => clothes.forEach((h, i) => { h.rotation.z = Math.sin(t * 1.3 + i * 1.7) * 0.06; }));
+  // the cat, snoozing in the sun beside the path
+  if (hasCreature('cat')) {
+    const cat = makeCreature('cat'); cat.scale.setScalar(0.55); cat.position.set(-2.9, 0, -4.9); cat.rotation.y = 0.4; g.add(cat);
+  }
+  const ball = makeBeachBall(0.42); ball.position.set(9.6, 0.42, 1.8); ball.rotation.set(0.3, 0.8, 0.2); g.add(ball);
   g.add(makeSun(-23, 10.5, -44));
   for (let i = 0; i < 4; i++) g.add(makeCloud(-18 + i * 11, 10 + (i % 2), -24 - (i % 2) * 4, 0.9 + (i % 3) * 0.2));
   g.add(makeButterfly(0xff8fc0, -5, 3.2, -3), makeButterfly(0xffd23f, 5.5, 3.6, -2.5));
   g.userData.clouds = g.children.filter((c) => c.userData.cloud);
-  g.userData.sway = g.children.filter((c) => c.userData.flower);
   g.userData.flies = g.children.filter((c) => c.userData.wl);
   return g;
 }
 
-function dressRoom() {
-  if (!hasCreature('prop_vanity') || !hasCreature('prop_curtain')) return dressRoomCode();
+// L2: the bedroom. A sky-blue striped wall with a window (sunny sky, curtains), a garland of glowing star lights,
+// the bed against the wall on the right (a teddy on the duvet, a picture above), a shelf of toys and a toy box on the
+// left, a round rug in the middle where the games stand.
+function homeBedroom() {
+  if (!hasCreature('prop_bed') || !hasCreature('prop_window')) return dressRainy();
   const g = new T.Group();
-  makeRoomShell(g, { wall: 0xffd6e4, stripe: 0xffe6ee, floor: 0xe3ae7a, plank: 0xcd935e });
-  const rug = new T.Mesh(geo.circle(5, 40), toon(0xc58bff)); rug.rotation.x = -Math.PI / 2; rug.scale.set(1.35, 0.7, 1); rug.position.set(0, 0.02, 0); g.add(rug);
-  const rugIn = new T.Mesh(geo.ring(3.9, 4.2, 40), toon(0xffffff)); rugIn.rotation.x = -Math.PI / 2; rugIn.scale.set(1.35, 0.7, 1); rugIn.position.set(0, 0.025, 0); g.add(rugIn);
-  // the changing curtains behind Monkey: velvet panels tied back with gold, hung from a gold rail, a scalloped pelmet
-  for (const sx of [-1, 1]) { const c = curtainProp(0xd9366a); c.scale.set(-sx * 2.0, 7.2, 1); c.position.set(sx * 3.7, 0.05, -6.6); g.add(c); }
-  const rail = mesh(geo.cyl(0.08, 0.08, 9.8, 10), 0xffc93a, { outline: 0.014 }); rail.rotation.z = Math.PI / 2; rail.position.set(0, 7.3, -6.6); g.add(rail);
-  for (const sx of [-1, 1]) { const ball = mesh(geo.sphere(0.18, 12, 10), 0xffc93a, { outline: 0.012 }); ball.position.set(sx * 4.95, 7.3, -6.6); g.add(ball); }
-  for (let i = 0; i < 9; i++) { const sc = mesh(dome(0.48, 12, 4), 0xd9366a, { outline: 0.014 }); sc.rotation.x = Math.PI; sc.scale.set(1, 0.7, 0.4); sc.position.set(-3.8 + i * 0.95, 7.05, -6.2); g.add(sc); }
-  // fairy lights across the wall
+  makeRoomShell(g, { wall: 0xcfe6ff, stripe: 0xe2f0ff, floor: 0xe3ae7a, plank: 0xcd935e });
+  const rug = new T.Mesh(geo.circle(5, 40), toon(0xffd76a)); rug.rotation.x = -Math.PI / 2; rug.scale.set(1.45, 0.72, 1); rug.position.set(0, 0.02, 0.4); g.add(rug);
+  for (const [r1, r2, c] of [[4.1, 4.4, 0xffffff], [2.6, 2.9, 0xff9ab8]]) { const rg = new T.Mesh(geo.ring(r1, r2, 40), toon(c)); rg.rotation.x = -Math.PI / 2; rg.scale.set(1.45, 0.72, 1); rg.position.set(0, 0.025, 0.4); g.add(rg); }
+  // the window: a painted sunny view (sky, a hill, a tree), the white frame, curtains on a rail
+  const WX = 0, WY = 5.0, WW = 3.0, WH = 2.1;
+  const view = roomTex('bedroomview', 256, 180, (x, w, h) => {
+    const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5fb6f2'); gr.addColorStop(1, '#cfeeff'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+    const ell = (cx, cy, rx, ry, c) => { x.fillStyle = c; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); };
+    ell(60, 40, 22, 22, '#fff1a0');
+    ell(170, 46, 30, 12, '#ffffff'); ell(190, 40, 20, 12, '#ffffff');
+    ell(80, h + 30, 160, 80, '#8cc96a'); ell(220, h + 40, 140, 80, '#7ab85a');
+    ell(200, h - 70, 26, 26, '#4fa84a'); x.fillStyle = '#8a5a3a'; x.fillRect(196, h - 50, 8, 26);
+  }, 1, 1);
+  const sky = new T.Mesh(new T.PlaneGeometry(WW, WH), new T.MeshBasicMaterial({ map: view, fog: false }));
+  sky.position.set(WX, WY, -6.76); g.add(sky);
+  const win = scMesh('prop_window', 'prop_window', { ink: 0.022 }); win.position.set(WX, WY, -6.75); g.add(win);
+  for (const sx of [-1, 1]) { const c = curtainProp(0xffb6c9, 0xffffff); c.scale.set(-sx * 1.25, 3.1, 1); c.position.set(WX + sx * (WW / 2 + 0.75), 3.35, -6.3); g.add(c); }
+  const crail = mesh(geo.cyl(0.06, 0.06, WW + 3.4, 8), 0xffffff, { outline: 0.01 }); crail.rotation.z = Math.PI / 2; crail.position.set(WX, 6.5, -6.15); g.add(crail);
+  // a garland of star lights across the wall, twinkling
   const bulbs = [];
-  for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) {
-    const k = i / 6, x = sx * (5.4 + k * 6.0), y = 8.2 - Math.sin(k * Math.PI) * 0.6;
-    const b = new T.Mesh(geo.sphere(0.13, 8, 6), glowMat([0xffe27a, 0xff9ad8, 0x9fd8ff][i % 3])); b.position.set(x, y, -6.8); g.add(b); bulbs.push(b);
-    const gl = glow([0xffe27a, 0xff9ad8, 0x9fd8ff][i % 3], 0.9, 0.5); gl.position.copy(b.position); g.add(gl); b.userData.gl = gl;
+  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) {
+    const k = i / 5, x = sx * (3.2 + k * 5.6), y = 7.6 - Math.sin(k * Math.PI) * 0.5, col = [0xffe27a, 0xff9ad8, 0x9fd8ff][i % 3];
+    const b = new T.Mesh(geo.sphere(0.12, 8, 6), glowMat(col)); b.position.set(x, y, -6.8); g.add(b);
+    const gl = glow(col, 0.9, 0.5); gl.position.copy(b.position); g.add(gl); bulbs.push(gl);
   }
-  g.userData.anim.push((dt, t) => bulbs.forEach((b, i) => { b.userData.gl.material.opacity = 0.35 + 0.3 * Math.sin(t * 2.4 + i * 1.3); }));
-  // left: the dressing table with its bulb mirror (against the wall at z -7), stool and perfume bottles; a sun hat
-  const mx = -9.2;
-  const van = scProp('prop_vanity', { bulbs: { glow: true, ink: 0.014 }, stool: {}, bits: { ink: 0.016 } }, { ink: 0.024 });
-  van.position.set(mx, 0, -7.0); g.add(van);
-  const glass = new T.Mesh(new T.PlaneGeometry(3.0, 3.4), new T.MeshBasicMaterial({ fog: false, map: canvasTex(64, (x, n) => { const gr = x.createLinearGradient(0, 0, n, n); gr.addColorStop(0, '#d9f2ff'); gr.addColorStop(1, '#9fcff0'); x.fillStyle = gr; x.fillRect(0, 0, n, n); }) }));
-  glass.position.set(mx, 4.3, -6.72); g.add(glass);
-  for (const [dx, w] of [[-0.6, 0.35], [-0.05, 0.18]]) { const sh = new T.Mesh(geo.box(w, 3.0, 0.01), glowMat(0xffffff, { transparent: true, opacity: 0.6 })); sh.position.set(mx + dx, 4.3, -6.71); sh.rotation.z = -0.4; g.add(sh); }
-  const tHat = propHat('sun', 0xffe08a); tHat.position.set(mx + 0.35, 2.15, -5.95); g.add(tHat);
-  // right: a gold clothes rail with four garments on wooden hangers (spaced so they never touch), hat boxes on a shelf
-  const rx = 9.2, rz = -5.0;
-  const rl = scProp('prop_clothesrail', { wheels: { ink: 0.016 } }, { ink: 0.02 }); rl.position.set(rx, 0, rz); g.add(rl);
-  const clothes = [];
-  [['dress', 0xff6fa8], ['top', 0x74c0fc], ['dress', 0xffd23f], ['top', 0x8ce99a]].forEach(([k, c], i) => {
-    const h = new T.Group();
-    h.add(scMesh('prop_clothesrail', 'hanger', { ink: 0.014 }), scMesh('prop_clothesrail', k, { tint: c, ink: 0.02 }));
-    h.scale.setScalar(0.85); h.position.set(rx + (i - 1.5) * 1.12, 4.45, rz); g.add(h); clothes.push(h);
-  });
-  g.userData.anim.push((dt, t) => clothes.forEach((h, i) => { h.rotation.z = Math.sin(t * 1.2 + i) * 0.035; }));
-  const shelf = scMesh('prop_shelf', 'prop_shelf', { ink: 0.022 }); shelf.scale.set(1.77, 1, 1.5); shelf.position.set(rx, 6.6, -6.625); g.add(shelf);
-  [[0xff8fc0, 0xffffff], [0xffd23f, 0xff6fa8], [0x74c0fc, 0xffffff]].forEach(([c, l], i) => { const [b] = propHatBox(c, l, 0.35, 0.42); b.position.set(rx + (i - 1) * 1.25, 6.66, -6.6); b.rotation.y = i; g.add(b); });
-  const plant = scProp('prop_plant', { leaves: { ink: 0.016 } }, { ink: 0.02 }); plant.position.set(-13.2, 0, -4.4); g.add(plant);
+  g.userData.anim.push((dt, t) => bulbs.forEach((gl, i) => { gl.material.opacity = 0.35 + 0.3 * Math.sin(t * 2.2 + i * 1.3); }));
+  // right: the bed along the wall, a teddy by the pillow, a picture above, a little bedside table with a lamp
+  const bx = 9.3, bz = -5.75;
+  const bed = scProp('prop_bed', { mattress: {}, duvet: { tint: 0x8fc0ff }, pillow: {} }, { ink: 0.024 });
+  bed.scale.setScalar(1.15); bed.position.set(bx, 0, bz); g.add(bed);
+  if (hasCreature('bear')) { const ted = makeCreature('bear'); ted.scale.setScalar(0.42); ted.position.set(bx - 1.15, 1.18, bz + 0.2); ted.rotation.y = 0.35; g.add(ted); }
+  const pic = scProp('prop_frame', { canvas: { tint: 0xffe6a8, ink: 0 }, art: { ink: 0.012 } }, { ink: 0.02 }); pic.scale.setScalar(1.2); pic.position.set(bx + 0.4, 4.4, -7.0); g.add(pic);
+  // left: a shelf of toys on the wall, a toy box with a ball on top, a plant
+  const shelf = scProp('prop_shelf', { toys: { ink: 0.016 } }, { ink: 0.022 }); shelf.scale.setScalar(1.25); shelf.position.set(-9.4, 4.6, -6.7); g.add(shelf);
+  const box = scProp('prop_box', { deco: {} }, { ink: 0.022 });
+  if (box) { box.scale.setScalar(0.72); box.position.set(-9.6, 0, -5.4); box.rotation.y = 0.12; g.add(box); }
+  const ball = makeBeachBall(0.42); ball.position.set(-9.4, 0.98 + 0.42, -5.3); g.add(ball);
+  const plant = scProp('prop_plant', { leaves: { ink: 0.016 } }, { ink: 0.02 }); plant.position.set(-13.4, 0, -5.2); g.add(plant);
   return g;
 }
 
 function dressRainy() {
   if (!hasCreature('prop_window') || !hasCreature('prop_armchair')) return dressRainyCode();
   const g = new T.Group();
-  makeRoomShell(g, { wall: 0xfff0d6, stripe: null, floor: 0xcf9a66, plank: 0xb98353 });
+  makeRoomShell(g, { wall: 0xffe4c2, stripe: null, floor: 0xcf9a66, plank: 0xb98353 }); // lamp-warm evening walls
   // wood panelling on the lower wall
   const pan = mesh(geo.box(80, 2.6, 0.2), 0x9fcbe6, { hull: 0, outline: 0 }); pan.position.set(0, 1.3, -6.95); g.add(pan);
   const railW = mesh(geo.box(80, 0.18, 0.35), 0xffffff, { hull: 0, outline: 0 }); railW.position.set(0, 2.65, -6.85); g.add(railW);
@@ -1622,26 +1481,26 @@ function dressRainy() {
   g.add(lines);
   const rug = new T.Mesh(geo.circle(5, 40), toon(0x74c0fc)); rug.rotation.x = -Math.PI / 2; rug.scale.set(1.35, 0.7, 1); rug.position.set(0, 0.02, 0); g.add(rug);
   for (const [r1, r2, c] of [[3.4, 3.8, 0xffffff], [2.2, 2.6, 0xffd23f]]) { const rg = new T.Mesh(geo.ring(r1, r2, 40), toon(c)); rg.rotation.x = -Math.PI / 2; rg.scale.set(1.35, 0.7, 1); rg.position.set(0, 0.025, 0); g.add(rg); }
-  // the big window: grey sky, green hills, houses, drifting clouds and rain outside (inside the frame at z -6.75)
+  // the big window: an evening sky, dark hills, the neighbours' lit windows, drifting clouds and rain outside
   const WX = 0, WY = 5.3, WW = 7.0, WH = 3.6, WZ = -6.95;
   // the view outside is painted into the sky texture, so hills and houses never spill past the window frame
-  const view = roomTex('rainyview', 512, 264, (x, w, h) => {
-    const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#8fa3c4'); gr.addColorStop(1, '#d6e0ee'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+  const view = roomTex('rainyevening', 512, 264, (x, w, h) => {
+    const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#3e4a80'); gr.addColorStop(0.7, '#8a86b4'); gr.addColorStop(1, '#d8b0a8'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
     const ell = (cx, cy, rx, ry, c) => { x.fillStyle = c; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); };
     for (const [hx, c] of [[110, '#ff8a8a'], [440, '#ffd27a']]) {
       x.fillStyle = c; x.fillRect(hx - 26, h - 120, 52, 40);
       x.fillStyle = '#8a5a5a'; x.beginPath(); x.moveTo(hx - 34, h - 118); x.lineTo(hx, h - 148); x.lineTo(hx + 34, h - 118); x.fill();
-      x.fillStyle = '#fff6d8'; x.fillRect(hx - 8, h - 108, 14, 14);
+      x.fillStyle = '#ffd86a'; x.fillRect(hx - 8, h - 108, 14, 14);
     }
-    ell(140, h + 20, 230, 95, '#7ab85a');
-    ell(390, h + 30, 260, 100, '#8cc96a');
+    ell(140, h + 20, 230, 95, '#4f7a5a');
+    ell(390, h + 30, 260, 100, '#5f8a62');
   }, 1, 1);
   const sky = new T.Mesh(new T.PlaneGeometry(WW, WH), new T.MeshBasicMaterial({ map: view, fog: false }));
   sky.position.set(WX, WY, WZ + 0.2); g.add(sky);
   const outClouds = [];
   for (const [cx, cy, s] of [[-2.2, 1.25, 0.55], [1.2, 1.15, 0.7], [2.8, 0.75, 0.45]]) {
     const c = new T.Group();
-    for (const [dx, dy, r] of [[0, 0, 0.6], [0.6, -0.1, 0.45], [-0.6, -0.12, 0.42]]) { const q = new T.Mesh(geo.circle(r, 16), glowMat(0xeef2f8)); q.position.set(dx, dy, 0); c.add(q); }
+    for (const [dx, dy, r] of [[0, 0, 0.6], [0.6, -0.1, 0.45], [-0.6, -0.12, 0.42]]) { const q = new T.Mesh(geo.circle(r, 16), glowMat(0xa8acd0)); q.position.set(dx, dy, 0); c.add(q); }
     c.scale.setScalar(s); c.position.set(WX + cx, WY + cy, WZ + 0.25); g.add(c); outClouds.push(c);
   }
   const drops = new T.InstancedMesh(new T.PlaneGeometry(0.035, 0.32), glowMat(0x4a7ab8, { transparent: true, opacity: 0.7, side: T.DoubleSide }), 46);
@@ -1722,73 +1581,6 @@ function makeRoomShellCode(g, { wall, stripe, floor, plank, skirting = 0xffffff 
   const w = new T.Mesh(geo.box(80, 30, 0.4), toon(wall)); w.position.set(0, 15, -7.2); g.add(w);
   if (stripe) for (let i = 0; i < 40; i++) { const st = new T.Mesh(geo.box(0.7, 30, 0.02), toon(stripe)); st.position.set(-39 + i * 2, 15, -6.99); g.add(st); }
   const sk = mesh(geo.box(80, 0.45, 0.25), skirting, { hull: 0, outline: 0 }); sk.position.set(0, 0.22, -6.9); g.add(sk);
-}
-
-function dressRoomCode() {
-  const g = new T.Group();
-  makeRoomShell(g, { wall: 0xffd6e4, stripe: 0xffe6ee, floor: 0xe3ae7a, plank: 0xcd935e });
-  // a round rug for Monkey's catwalk
-  const rug = new T.Mesh(geo.circle(5, 40), toon(0xc58bff)); rug.rotation.x = -Math.PI / 2; rug.scale.set(1.35, 0.7, 1); rug.position.set(0, 0.02, 0); g.add(rug);
-  const rugIn = new T.Mesh(geo.ring(3.9, 4.2, 40), toon(0xffffff)); rugIn.rotation.x = -Math.PI / 2; rugIn.scale.set(1.35, 0.7, 1); rugIn.position.set(0, 0.025, 0); g.add(rugIn);
-  // the changing curtains behind Monkey: a gold rail, velvet curtains tied back, a scalloped pelmet
-  const rail = mesh(geo.cyl(0.08, 0.08, 8.4, 8), 0xffc93a, { outline: 0.012 }); rail.rotation.z = Math.PI / 2; rail.position.set(0, 7.3, -6.6); g.add(rail);
-  for (const sx of [-1, 1]) {
-    const c = mesh(geo.cyl(0.7, 1.15, 7.2, 14), 0xd9366a, { outline: 0.025 }); c.position.set(sx * 3.7, 3.65, -6.4); c.scale.z = 0.45; g.add(c);
-    for (let k = -1; k <= 1; k++) { const fold = mesh(geo.box(0.1, 7, 0.1), 0xb52a58, { hull: 0, outline: 0 }); fold.position.set(sx * 3.7 + k * 0.4, 3.7, -5.85); g.add(fold); }
-    const tie = mesh(geo.torus(0.75, 0.1, Math.PI * 2, 6, 18), 0xffc93a, { outline: 0.01 }); tie.rotation.x = Math.PI / 2; tie.scale.set(1, 0.5, 1); tie.position.set(sx * 3.7, 2.6, -6.4); g.add(tie);
-    const ball = mesh(geo.sphere(0.18, 10, 8), 0xffc93a, { outline: 0.01 }); ball.position.set(sx * 4.2, 7.3, -6.6); g.add(ball);
-  }
-  for (let i = 0; i < 9; i++) { const sc = mesh(dome(0.48, 12, 4), 0xd9366a, { outline: 0.012 }); sc.rotation.x = Math.PI; sc.scale.set(1, 0.7, 0.4); sc.position.set(-3.8 + i * 0.95, 7.05, -6.3); g.add(sc); }
-  // fairy lights across the wall
-  const bulbs = [];
-  for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) {
-    const k = i / 6, x = sx * (4.8 + k * 6.5), y = 8.2 - Math.sin(k * Math.PI) * 0.7;
-    const b = new T.Mesh(geo.sphere(0.13, 8, 6), glowMat([0xffe27a, 0xff9ad8, 0x9fd8ff][i % 3])); b.position.set(x, y, -6.8); g.add(b); bulbs.push(b);
-    const gl = glow([0xffe27a, 0xff9ad8, 0x9fd8ff][i % 3], 0.9, 0.5); gl.position.copy(b.position); g.add(gl); b.userData.gl = gl;
-  }
-  g.userData.anim.push((dt, t) => bulbs.forEach((b, i) => { b.userData.gl.material.opacity = 0.35 + 0.3 * Math.sin(t * 2.4 + i * 1.3); }));
-  // left: a dressing table with a bulb mirror
-  const mx = -9.2;
-  const frame = mesh(geo.box(3.6, 4.0, 0.25), 0xffffff, { hull: 1.03 }); frame.position.set(mx, 4.3, -6.85); g.add(frame);
-  const glass = new T.Mesh(new T.PlaneGeometry(3.0, 3.4), new T.MeshBasicMaterial({ fog: false, map: canvasTex(64, (x, n) => { const gr = x.createLinearGradient(0, 0, n, n); gr.addColorStop(0, '#d9f2ff'); gr.addColorStop(1, '#9fcff0'); x.fillStyle = gr; x.fillRect(0, 0, n, n); }) }));
-  glass.position.set(mx, 4.3, -6.69); g.add(glass);
-  for (const [dx, w] of [[-0.6, 0.35], [-0.05, 0.18]]) { const sh = new T.Mesh(geo.box(w, 3.2, 0.01), glowMat(0xffffff, { transparent: true, opacity: 0.6 })); sh.position.set(mx + dx, 4.3, -6.66); sh.rotation.z = -0.4; g.add(sh); }
-  for (let i = 0; i < 12; i++) {
-    const side = i < 4 ? -1 : i < 8 ? 1 : 0, k = (i % 4) / 3;
-    const p = side ? [mx + side * 1.8, 2.7 + k * 3.2] : [mx - 1.2 + (i - 8) * 0.8, 6.3];
-    const b = new T.Mesh(geo.sphere(0.15, 8, 6), glowMat(0xfff4c4)); b.position.set(p[0], p[1], -6.65); g.add(b);
-  }
-  const table = mesh(geo.box(4.4, 0.3, 1.6), 0xffffff, { hull: 1.03 }); table.position.set(mx, 2.0, -6.0); g.add(table);
-  for (const sx of [-1, 1]) { const leg = mesh(geo.cyl(0.08, 0.08, 2, 8), 0xffffff, { outline: 0.012 }); leg.position.set(mx + sx * 1.9, 1.0, -5.5); g.add(leg); }
-  for (const [dx, c] of [[-1.4, 0xff8fc0], [-0.9, 0xb197fc], [1.4, 0x74c0fc]]) { const bt = mesh(geo.cyl(0.18, 0.2, 0.45, 10), c, { outline: 0.012 }); bt.position.set(mx + dx, 2.38, -5.8); g.add(bt); }
-  const tHat = miniHat('sun', 0xffe08a); tHat.position.set(mx + 0.4, 2.17, -5.7); g.add(tHat);
-  const stool = mesh(geo.cyl(0.55, 0.55, 0.35, 16), 0xff8fc0, { outline: 0.02 }); stool.position.set(mx + 0.3, 1.1, -4.4); g.add(stool);
-  const stLeg = mesh(geo.cyl(0.08, 0.12, 1.0, 8), 0xffc93a, { outline: 0.012 }); stLeg.position.set(mx + 0.3, 0.5, -4.4); g.add(stLeg);
-  // right: a clothes rail of tops and dresses
-  const rx = 9.2, rz = -5.0;
-  for (const sx of [-1, 1]) { const post = mesh(geo.cyl(0.08, 0.08, 4.6, 8), 0xffc93a, { outline: 0.012 }); post.position.set(rx + sx * 2.3, 2.3, rz); g.add(post); }
-  const bar = mesh(geo.cyl(0.07, 0.07, 4.8, 8), 0xffc93a, { outline: 0.012 }); bar.rotation.z = Math.PI / 2; bar.position.set(rx, 4.5, rz); g.add(bar);
-  for (const sx of [-1, 1]) { const ft = mesh(geo.box(0.2, 0.1, 1.4), 0xffc93a, { hull: 1.05 }); ft.position.set(rx + sx * 2.3, 0.05, rz); g.add(ft); }
-  const clothes = [];
-  [['dress', 0xff6fa8], ['top', 0x74c0fc], ['dress', 0xffd23f], ['top', 0x8ce99a], ['dress', 0xb197fc]].forEach(([k, c], i) => {
-    const h = new T.Group();
-    const hook = new T.Mesh(geo.torus(0.1, 0.02, Math.PI * 1.3, 4, 10), basic(0x6a5a7a)); hook.position.y = 0.05; h.add(hook);
-    const hanger = mesh(geo.box(0.8, 0.05, 0.05), 0x9a7a5a, { hull: 0, outline: 0 }); hanger.position.y = -0.15; h.add(hanger);
-    if (k === 'dress') { const d = mesh(geo.cone(0.6, 1.6, 14), c, { outline: 0.015 }); d.scale.z = 0.35; d.position.y = -1.0; h.add(d); }
-    else {
-      const b = mesh(geo.box(0.75, 0.9, 0.2), c, { hull: 1.04 }); b.position.y = -0.62; h.add(b);
-      for (const s2 of [-1, 1]) { const sl = mesh(geo.box(0.3, 0.45, 0.18), c, { hull: 1.05 }); sl.position.set(s2 * 0.48, -0.35, 0); sl.rotation.z = s2 * 0.5; h.add(sl); }
-    }
-    h.position.set(rx - 1.8 + i * 0.9, 4.45, rz); h.rotation.y = 0.25; g.add(h); clothes.push(h);
-  });
-  g.userData.anim.push((dt, t) => clothes.forEach((h, i) => { h.rotation.z = Math.sin(t * 1.2 + i) * 0.04; }));
-  // a shelf of hat boxes above the rail
-  const shelf = mesh(geo.box(4.6, 0.2, 0.9), 0xffffff, { hull: 1.03 }); shelf.position.set(rx, 6.6, -6.6); g.add(shelf);
-  [[0xff8fc0, 0xffffff], [0xffd23f, 0xff6fa8], [0x74c0fc, 0xffffff]].forEach(([c, l], i) => { const b = hatBox(c, l, 0.55, 0.5); b.position.set(rx - 1.5 + i * 1.5, 6.7, -6.5); g.add(b); });
-  // a plant at the far left and a full-length bow on the wall
-  const pot = mesh(geo.cyl(0.55, 0.42, 0.8, 14), 0xffffff, { outline: 0.02 }); pot.position.set(-13.2, 0.4, -4.4); g.add(pot);
-  for (let i = 0; i < 6; i++) { const lf = mesh(geo.sphere(0.32, 10, 8), 0x58c45e, { outline: 0.012 }); lf.scale.set(0.6, 1.6, 0.4); const a = (i / 6) * Math.PI * 2; lf.position.set(-13.2 + Math.cos(a) * 0.3, 1.4, -4.4 + Math.sin(a) * 0.2); lf.rotation.z = Math.cos(a) * 0.5; g.add(lf); }
-  return g;
 }
 
 function dressRainyCode() {
@@ -1939,7 +1731,7 @@ export function makeScenery(theme = 'meadow', level = 0) {
   seed = 7 + level * 101 + (theme === 'beach' ? 13 : theme === 'farm' ? 29 : theme === 'dressup' ? 41 : theme === 'build' ? 53 : 0);
   let g;
   if (theme === 'build') g = buildSite(level);
-  else if (theme === 'dressup') g = level === 2 ? dressRainy() : level === 1 ? dressRoom() : dressShop();
+  else if (theme === 'dressup') g = level === 2 ? dressRainy() : level === 1 ? homeBedroom() : homeGarden();
   else if (theme === 'beach') g = level === 2 ? beachNight() : level === 1 ? beachSunset() : makeBeach();
   else if (theme === 'farm') g = level === 2 ? farmRain() : level === 1 ? farmHarvest() : makeFarm();
   else g = level === 2 ? meadowWinter() : level === 1 ? meadowAutumn() : makeMeadow();

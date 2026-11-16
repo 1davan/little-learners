@@ -1,5 +1,5 @@
 // Dress Monkey: the clothes catalogue (every garment is a layer on the Blender monkey: cloth_<slot>_<name>),
-// the body part each slot goes on, and the level plans.
+// the body part each slot goes on, and the level plans (one whole outfit per level).
 
 // slot -> where it goes (words + the anchor on the monkey model + the picture-bubble emoji)
 export const SLOTS = {
@@ -57,35 +57,43 @@ export const WEATHER = {
   party: { sky: ['#ff9ecb', '#ffe0f0'], fx: 'balloons', icon: '🎉' },
 };
 
-// Each round: ask (slot), want (a specific garment, Level 3 / late Level 2), right (correct choices offered),
-// wrong (other choices), weather (window + reason), say (the caption), mood (the monkey's wanting gesture).
-// Any garment of the asked slot is right unless `want` names one.
+// A level = ONE whole outfit, put on one garment at a time (one round per garment, so the rounds per level are
+// items.length). Each item: name (a CLOTHES key), part (where it goes on Monkey, if not its own slot: the dungarees
+// are bottoms here), say (the caption when it comes out of the wardrobe), done (the praise line once it is on),
+// where (Level 3's gentle redirect when it lands on the wrong body part). Captions will be spoken later: short,
+// natural, kid-friendly.
 export const PLANS = [
-  // Level 1: hats. 3 choices: two hats + one thing that goes somewhere else. Free choice of hat.
-  [
-    { ask: 'head', right: ['beanie', 'party'], wrong: ['sneakers'], weather: 'snowy', say: 'Brr! Chilly head! Find a hat!' },
-    { ask: 'head', right: ['crown', 'cap'], wrong: ['mittens'], weather: 'sunny', say: 'Monkey wants a hat!' },
-    { ask: 'head', right: ['sunhat', 'chef'], wrong: ['tshirt'], weather: 'sunny', say: 'So sunny! Find a hat!' },
-    { ask: 'head', right: ['pirate', 'bunny'], wrong: ['wellies'], weather: 'windy', say: 'Hat time! Put a hat on Monkey!' },
-    { ask: 'head', right: ['flowers', 'beanie'], wrong: ['sunglasses'], weather: 'rainy', say: 'Find a hat for Monkey\'s head!' },
-    { ask: 'head', right: ['party', 'crown'], wrong: ['scarf'], weather: 'party', say: 'Party time! Find a hat!' },
-  ],
-  // Level 2: tops. 4 choices: two tops + two others. Free choice, then two named ones.
-  [
-    { ask: 'body', right: ['tshirt', 'jumper'], wrong: ['beanie', 'sneakers'], weather: 'snowy', say: 'Brr! Cold tummy! Find a top!' },
-    { ask: 'body', right: ['hoodie', 'dungarees'], wrong: ['crown', 'mittens'], weather: 'windy', say: 'Find a top for Monkey\'s body!' },
-    { ask: 'body', right: ['dress', 'raincoat'], wrong: ['sunhat', 'wellies'], weather: 'sunny', say: 'A new top for Monkey!' },
-    { ask: 'body', right: ['jumper', 'tshirt'], wrong: ['pirate', 'shorts'], weather: 'rainy', say: 'Monkey wants a top!' },
-    { ask: 'body', want: 'pyjamas', right: ['pyjamas'], wrong: ['hoodie', 'cap', 'sneakers'], weather: 'night', say: 'Sleepy time! Find the pyjamas!' },
-    { ask: 'body', want: 'cape', right: ['cape'], wrong: ['dress', 'chef', 'mittens'], weather: 'sunny', say: 'Superhero time! Find the cape!' },
-  ],
-  // Level 3: feet, legs, eyes, neck, hands — dressing for the weather. 4 choices, the outfit builds up.
-  [
-    { ask: 'feet', want: 'wellies', right: ['wellies'], wrong: ['sneakers', 'sunglasses', 'mittens'], weather: 'rainy', say: 'Raining! Find the wellies!', why: { sneakers: 'Sneakers get soggy!' } },
-    { ask: 'eyes', want: 'sunglasses', right: ['sunglasses'], wrong: ['hearts', 'scarf', 'shorts'], weather: 'sunny', say: 'So sunny! Find the sunglasses!', why: { hearts: 'Those are party glasses!' } },
-    { ask: 'hands', want: 'mittens', right: ['mittens'], wrong: ['tutu', 'bowtie', 'sneakers'], weather: 'snowy', say: 'Snow! Find the mittens!' },
-    { ask: 'neck', want: 'scarf', right: ['scarf'], wrong: ['bowtie', 'hearts', 'tutu'], weather: 'windy', say: 'So windy! Find the scarf!', why: { bowtie: 'A bow tie is not cosy!', lei: 'Flowers are not cosy!' } },
-    { ask: 'legs', want: 'shorts', right: ['shorts'], wrong: ['tutu', 'mittens', 'lei'], weather: 'sunny', say: "Hot hot sun! Find the shorts!", why: { tutu: 'A tutu is for dancing!' } },
-    { ask: 'legs', want: 'tutu', right: ['tutu'], wrong: ['sneakers', 'lei', 'hearts'], weather: 'party', say: 'Party time! Find the tutu!' },
-  ],
+  // Level 1: a sunny day. 4 items; drop anywhere on Monkey.
+  {
+    weather: 'sunny', look: 'Sunny day!',
+    items: [
+      { name: 'tshirt', say: 'A T-shirt! Put it on Monkey!', done: 'T-shirt on!' },
+      { name: 'shorts', say: 'Shorts! Put them on Monkey!', done: 'Shorts on!' },
+      { name: 'sneakers', say: 'Sneakers! Put them on Monkey!', done: 'Sneakers on!' },
+      { name: 'sunhat', say: 'A sun hat! Put it on Monkey!', done: 'Hat on!' },
+    ],
+  },
+  // Level 2: a party. 5 items; drop anywhere on Monkey.
+  {
+    weather: 'party', look: 'Party time!',
+    items: [
+      { name: 'dress', say: 'A party dress! Put it on Monkey!', done: 'So pretty!' },
+      { name: 'tutu', say: 'A tutu! Put it on Monkey!', done: 'Twirl twirl!' },
+      { name: 'bowtie', say: 'A bow tie! Put it on Monkey!', done: 'Bow tie on!' },
+      { name: 'hearts', say: 'Heart glasses! Put them on Monkey!', done: 'Glasses on!' },
+      { name: 'party', say: 'A party hat! Put it on Monkey!', done: 'Party hat on!' },
+    ],
+  },
+  // Level 3: a snowy day. 6 items, and each one must go on the right body part.
+  {
+    weather: 'snowy', look: 'Snowy day!', parts: true,
+    items: [
+      { name: 'dungarees', part: 'legs', say: "Dungarees! Put them on Monkey's legs!", done: 'Dungarees on!', where: "On Monkey's legs!" },
+      { name: 'jumper', say: "A cosy jumper! Put it on Monkey's tummy!", done: 'Nice and cosy!', where: "On Monkey's tummy!" },
+      { name: 'wellies', say: "Wellies! Put them on Monkey's feet!", done: 'Stomp stomp!', where: "On Monkey's feet!" },
+      { name: 'scarf', say: "A scarf! Put it round Monkey's neck!", done: 'Scarf on!', where: "Round Monkey's neck!" },
+      { name: 'beanie', say: "A woolly hat! Put it on Monkey's head!", done: 'Warm head!', where: "On Monkey's head!" },
+      { name: 'mittens', say: "Mittens! Put them on Monkey's hands!", done: 'Warm hands!', where: "On Monkey's hands!" },
+    ],
+  },
 ];

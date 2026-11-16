@@ -1,10 +1,13 @@
 // Brick letters (World 5: the building site). Topics mt_frDIaXzWbx "Knowing all letters", mt_WcfaSfVT33 "One-to-one
 // counting" and mt_yqAL6O5i_v "Counting objects to 20".
-// A heap of chunky toy bricks on the left, a letter board on the right with the faint outline of a capital letter.
-// Every tap on ANY brick in the heap sends that brick hopping over on an arc to click into the next slot of the
-// letter, with a big counting number (1, 2, 3 …) and a plastic click that climbs the scale. When the last slot is
-// filled the letter wiggles and glows, "A is for Apple!" shows and the picture pops out beside it; then the bricks
-// tumble back onto the heap (real physics) and Bear the builder throws in any extra bricks the next letter needs.
+// Chunky toy bricks stand in two tidy rows on a low, wide two-step stand at the front (a long baseplate in front, a
+// row of giant grey bricks behind it), so every brick is always fully in view and in reach. Bear the builder and Pip
+// stand at the far left, clear of the stand; the letter board is behind it with the faint outline of a capital letter.
+// Every tap on ANY brick on the stand (or on the letter's empty outline) sends a brick hopping over on an arc to click
+// into the next slot of the letter, with a big counting number (1, 2, 3 …) and a plastic click that climbs the
+// scale. When the last slot is filled the letter wiggles and glows, "A is for Apple!" shows and the picture pops out
+// beside it; then the bricks hop back to free spots on the stand and Bear throws in any extra bricks the next letter
+// needs. Every brick has its own spot on the stand (no physics heap), so none can ever end up hidden or out of reach.
 // Levels: A–G (5, 5, 5, 5, 5, 6, 7 bricks), H–N (8 … 14), O–T (15 … 20). One round per letter.
 //
 // Test hooks: bricks (bricks on the heap, tappable), tapBrick(b), need (bricks this letter takes), placed (clicked in).
@@ -26,17 +29,20 @@ import { bsfx } from './bricks-sound.js';
 
 // Level 1: A–G, Level 2: H–N, Level 3: O–T. Later letters take more, smaller bricks: the board letter grows a
 // little and the bricks shrink a little so even T's 20 bricks stay chunky.
+// pl = a brick's length while it waits on the stand (shorter at Level 3 so 10 fit in a row).
 const LEVELS = [
-  { letters: 'ABCDEFG', H: 4.5, k: 1.0 },
-  { letters: 'HIJKLMN', H: 4.75, k: 0.9 },
-  { letters: 'OPQRST', H: 5.0, k: 0.8 },
+  { letters: 'ABCDEFG', H: 4.5, k: 1.0, pl: 1.3 },
+  { letters: 'HIJKLMN', H: 4.75, k: 0.9, pl: 1.15 },
+  { letters: 'OPQRST', H: 5.0, k: 0.8, pl: 0.8 },
 ];
 const CAM = { pos: new T.Vector3(0.5, 3.9, 16.6), look: new T.Vector3(0.5, 3.0, 0) };
 const BX = 2.75, BZ = -1.0;                                // the letter board (its face is at BZ + BOARD.faceZ)
-const PILE = { x0: -5.2, x1: -2.0, planes: [0.35, 1.05, 1.75] }; // the heap: three depth planes, bricks never hide
-const PILE_LEN = 1.3;                                     // bricks rest on the heap as 2-stud bricks
-const PIC = new T.Vector3(7.05, 0, 1.3);                  // where the picture pops out
-const BEAR = new T.Vector3(-6.35, 0, -1.0);
+// The stand: a low baseplate in front (z FRONT) and a step of giant bricks behind it (z BACK), between x0 and x1.
+// The back row stands high enough that it shows fully above the front row, and low enough to stay under the letter.
+const STAND = { x0: -3.85, x1: 5.45, front: 3.2, back: 2.15, plateK: 0.62, stepK: 1.5 };
+const GREY = 0xb9bdc8;
+const PIC = new T.Vector3(7.55, 0, 0.3);                  // where the picture pops out (right of the board, clear of the stand)
+const BEAR = new T.Vector3(-7.3, 0, -1.7);                // Bear and Pip: far left, never in front of the stand
 const FLY = 0.35;                                         // one hop, pile → letter
 
 export default class BricksLesson extends Lesson {
@@ -45,24 +51,15 @@ export default class BricksLesson extends Lesson {
   build() {
     this.cfg = LEVELS[this.level] || LEVELS[0];
     setCamera(CAM.pos, CAM.look);
-    // Pip watches from the front-left corner, left of the heap's kerb: no brick ever flies there
-    this.pip.position.set(-7.25, 0, 2.3);
-    this.pip.rotation.y = 0.5;
+    // Pip watches from the far left, beside the stand: never in front of a brick
+    this.pip.position.set(-7.0, 0, 1.7);
+    this.pip.rotation.y = 0.55;
     // the board
     const board = (this.board = makeBoard());
     board.position.set(BX, 0, BZ);
     this.root.add(board);
     physics.box(new T.Vector3(BX, 3.6, BZ - 0.05), new T.Vector3(6.9, 7.2, 0.4));
-    // the heap sits between two big grey kerb bricks (studs up) that stop a bouncing brick skidding away;
-    // their colliders are exactly their size (studs included), so nothing rests in or on thin air
-    for (const x of [PILE.x0 - 0.75, PILE.x1 + 0.75]) {
-      const kb = makeBrick(0xb9bdc8, 2.3, 1.3);
-      kb.rotation.order = 'YXZ';
-      kb.rotation.set(-Math.PI / 2, Math.PI / 2, 0);
-      kb.position.set(x, (BD / 2) * 1.3, 1.05);
-      this.root.add(kb);
-      physics.box(new T.Vector3(x, ((BD + 0.12) * 1.3) / 2, 1.05), new T.Vector3(BW * 1.3, (BD + 0.12) * 1.3, 2.3));
-    }
+    this.buildStand();
     this.faceZ = BZ + BOARD.faceZ;
     // Bear the builder, in a hard hat
     const bear = (this.bear = makeAnimal('bear'));
@@ -82,9 +79,7 @@ export default class BricksLesson extends Lesson {
     this.halo = glow(0xffe27a, 1, 0);
     this.halo.position.set(BX, 3.6, this.faceZ + 0.05);
     this.root.add(this.halo);
-    this.pile = [];         // bricks on the heap (tappable)
-    this.flying = 0;
-    this.returning = 0;     // bricks on their way back to the heap
+    this.pile = [];         // bricks standing on the stand (tappable)
     this.placedBricks = [];
     this.slots = [];
     this.ghosts = [];
@@ -98,10 +93,62 @@ export default class BricksLesson extends Lesson {
   // ---------------- helpers ----------------
   get bricks() { return this.pile.slice(); }
   get letter() { return this.cfg.letters[this.round] || ''; }
-  pileSpot(i) {
-    const plane = i % 3, j = Math.floor(i / 3);
-    const f = (j * 0.381966 + plane * 0.23 + 0.08) % 1;
-    return new T.Vector3(PILE.x0 + 0.35 + f * (PILE.x1 - PILE.x0 - 0.7), 0.4, PILE.planes[plane]);
+
+  // The two-step stand, sized for this level's longest letter: one spot per brick, front row first.
+  buildStand() {
+    const cfg = this.cfg, maxN = Math.max(...[...cfg.letters].map(bricksFor));
+    const cols = Math.ceil(maxN / 2);
+    const sp = Math.min((STAND.x1 - STAND.x0) / cols, cfg.pl + 0.8);
+    const len = cols * sp + 0.3, cx = (STAND.x0 + STAND.x1) / 2;
+    // front: two long, low baseplates side by side (studs up)
+    const studsUp = (b) => { b.rotation.x = -Math.PI / 2; b.userData.noSquash = true; this.root.add(b); return b; };
+    const pk = STAND.plateK, pd = BW * pk;
+    for (const dz of [-pd / 2, pd / 2]) studsUp(makeBrick(GREY, len, pk)).position.set(cx, (BD / 2) * pk, STAND.front + dz);
+    // back: a step of giant bricks, alternating two greys so it reads as toy bricks, not a wall
+    const gk = STAND.stepK, n = Math.max(2, Math.round(len / 3.2)), gl = len / n;
+    for (let i = 0; i < n; i++) studsUp(makeBrick(i % 2 ? 0xa9afbd : GREY, gl - 0.04, gk)).position.set(cx - len / 2 + gl * (i + 0.5), (BD / 2) * gk, STAND.back);
+    // bricks stand on the stud tops (top of the stud = BD/2 + the stud's height, ~0.12 model units)
+    this.root.updateMatrixWorld(true);
+    const top = (k) => (BD + 0.12) * k;
+    const h = BW * cfg.k;   // a standing brick's height
+    this.spots = [];
+    for (const [z, y] of [[STAND.front, top(pk)], [STAND.back, top(gk)]]) {
+      for (let c = 0; c < cols; c++) {
+        const x = cx - (cols * sp) / 2 + sp * (c + 0.5) + (Math.random() - 0.5) * 0.03;
+        this.spots.push({ p: new T.Vector3(x, y + h / 2 + 0.01, z), rz: (Math.random() - 0.5) * 0.08, b: null });
+      }
+    }
+  }
+  claimSpot(b) {
+    const s = this.spots.find((q) => !q.b);
+    if (!s) return null;
+    s.b = b;
+    b.userData.spot = s;
+    return s;
+  }
+  freeSpot(b) { const s = b.userData.spot; if (s && s.b === b) s.b = null; b.userData.spot = null; }
+  setState(b, st) { b.userData.state = st; b.userData.tap.enabled = st !== 'move'; }
+  // hop a brick on an arc onto its spot on the stand; it becomes tappable the moment it lands
+  async hopTo(b, sp, { dur = 0.42, arc = 1.1, spin = 0 } = {}) {
+    const id = (b.userData.mv = (b.userData.mv || 0) + 1);
+    this.setState(b, 'move');
+    const a = b.position.clone(), r0 = b.rotation.z, k = this.cfg.k;
+    const r1 = sp.rz + Math.round((r0 - sp.rz) / (Math.PI * 2)) * Math.PI * 2 + spin * Math.PI * 2;
+    b.rotation.x = b.rotation.y = 0;
+    await this.s.anim(dur, (_, q) => {
+      if (b.userData.mv !== id) return;
+      b.position.lerpVectors(a, sp.p, q);
+      b.position.y += Math.sin(q * Math.PI) * arc;
+      b.rotation.z = r0 + (r1 - r0) * Ease.out(q);
+    });
+    if (this.dead || b.userData.mv !== id) return;
+    b.position.copy(sp.p);
+    b.rotation.z = sp.rz;
+    this.pile.push(b);
+    this.setState(b, 'pile');
+    bsfx.clack();
+    // a little landing squash (it only gets shorter and a touch wider: never into a neighbour)
+    this.s.anim(0.18, (_, q) => { if (b.userData.mv !== id) return; const w = Math.sin(q * Math.PI) * (1 - q * 0.5); b.scale.set(k * (1 + 0.04 * w), k * (1 - 0.16 * w), k); }).then(() => { if (b.userData.mv === id) b.scale.setScalar(k); });
   }
   slotWorld(s, i) {
     // every brick lies flush on the board face (the letter layout never lets two bricks overlap)
@@ -109,10 +156,11 @@ export default class BricksLesson extends Lesson {
   }
   newBrick() {
     const col = BRICK_COLS[this.colI++ % BRICK_COLS.length];
-    const b = makeBrick(col, PILE_LEN, this.cfg.k);
-    b.userData.noSquash = true;   // no landing squash: a squashed brick would bulge into its neighbours
+    const b = makeBrick(col, this.cfg.pl, this.cfg.k);
+    b.userData.noSquash = true;
     this.root.add(b);
-    b.userData.tap = input.addTap(b, { radius: 0.62, onTap: () => this.tapBrick(b) });
+    b.userData.tap = input.addTap(b, { radius: Math.max(0.45, this.cfg.pl / 2), onTap: () => this.tapBrick(b) });
+    this.setState(b, 'move');
     return b;
   }
 
@@ -139,12 +187,14 @@ export default class BricksLesson extends Lesson {
       g.rotation.z = s.ang;
       g.scale.setScalar(0.01);
       this.root.add(g);
+      // tapping the letter's empty outline sends a brick too (a toddler often taps where the brick should go)
+      g.userData.tap = input.addTap(g, { radius: Math.max(0.4, s.len / 2), onTap: () => this.tapBoard() });
       this.s.wait(0.02 * i).then(() => this.s.tween(g.scale, { x: 1, y: 1, z: 1 }, 0.25, Ease.back));
       return g;
     });
     sfx.swoosh();
-    // Bear throws in the bricks the heap is missing (the first letter: all of them)
-    const missing = N - this.pile.length - this.returning;
+    // Bear throws in the bricks the stand is missing (the first letter: all of them)
+    const missing = N - this.spots.filter((q) => q.b).length;
     if (missing > 0) this.throwIn(missing);
     this.phase = 'build';
     await this.wait(0.15);
@@ -157,28 +207,29 @@ export default class BricksLesson extends Lesson {
   promptText() {
     const ch = this.letter;
     if (!ch) return '';
-    return this.round === 0 ? `Let's build ${ch}! Tap the bricks!` : `Now ${ch}! ${this.need} bricks!`;
+    return this.round === 0 ? `Let's make ${ch}! Tap the bricks!` : `Now ${ch}! ${this.need} bricks!`;
   }
   prompt() { const t = this.promptText(); if (t) this.say(t, { max: 1.5 }); }
 
   clearGhosts() {
-    for (const g of this.ghosts) { const gg = g; popOut(this.s, gg, 0.15).then(() => { this.root.remove(gg); gg.userData.fill.geometry.dispose(); gg.userData.fill.material.dispose(); gg.userData.dash.dispose(); gg.userData.dg.dispose(); }); }
+    for (const g of this.ghosts) { const gg = g; input.remove(gg.userData.tap); popOut(this.s, gg, 0.15).then(() => { this.root.remove(gg); gg.userData.fill.geometry.dispose(); gg.userData.fill.material.dispose(); gg.userData.dash.dispose(); gg.userData.dg.dispose(); }); }
     this.ghosts = [];
   }
 
-  // Bear tosses n new bricks onto the heap, one after another.
+  // Bear tosses n new bricks onto the stand, one after another (each gets its spot right away, so the count is
+  // always right even while they are still in the air).
   throwIn(n) {
     const arms = this.bear.userData.arms;
     for (let i = 0; i < n; i++) {
-      this.s.wait(0.05 + i * 0.09).then(() => {
+      const b = this.newBrick(), sp = this.claimSpot(b);
+      b.visible = false;
+      this.s.wait(0.05 + i * 0.07).then(() => {
         if (this.dead) return;
-        const b = this.newBrick();
-        const spot = this.pileSpot(this.pile.length + this.flying);
-        b.position.set(BEAR.x + 0.75, 2.5, spot.z);
+        b.position.set(BEAR.x + 0.9, 2.3, BEAR.z + 0.6);
         b.rotation.z = Math.random() * 3;
-        this.pile.push(b);
+        b.visible = true;
         bsfx.hop();
-        physics.toss(b, spot, { arc: 0.9 + Math.random() * 0.6, planar: true, bounce: 0.3, friction: 0.8, angvel: { x: 0, y: 0, z: (Math.random() - 0.5) * 9 } });
+        this.hopTo(b, sp, { dur: 0.5, arc: 1.4 + Math.random() * 0.6, spin: Math.random() < 0.5 ? -1 : 1 });
         // the arm swing
         if (arms) {
           const a = arms[1], r0 = this.bearArms[1];
@@ -198,6 +249,7 @@ export default class BricksLesson extends Lesson {
     const k = this.pile.indexOf(b);
     if (k < 0) return;
     this.pile.splice(k, 1);
+    this.freeSpot(b);
     this.idle = 0;
     this.demoDone = true;   // already tapping: no need to show how
     this.clearHints();
@@ -206,9 +258,17 @@ export default class BricksLesson extends Lesson {
     this.fly(b, this.slots[i], i);
   }
 
+  // a tap on the letter's empty outline: the stand brick nearest the board goes
+  tapBoard() {
+    if (this.dead || this.phase !== 'build' || !this.pile.length) return;
+    let best = null;
+    for (const b of this.pile) if (!best || b.position.x > best.position.x + 0.01 || (Math.abs(b.position.x - best.position.x) < 0.01 && b.position.z > best.position.z)) best = b;
+    this.tapBrick(best);
+  }
+
   async fly(b, slot, i) {
-    physics.remove(b);
-    this.flying++;
+    const id = (b.userData.mv = (b.userData.mv || 0) + 1);
+    this.setState(b, 'move');
     bsfx.hop();
     const a = b.position.clone(), r0 = b.rotation.z;
     const p1 = this.slotWorld(slot, i);
@@ -240,8 +300,7 @@ export default class BricksLesson extends Lesson {
         b.scale.setScalar(k);
       }
     });
-    if (this.dead) return;
-    this.flying--;
+    if (this.dead || b.userData.mv !== id) return;
     b.position.copy(p1);
     b.rotation.set(0, 0, slot.ang);
     setBrickLength(b, L1);
@@ -251,6 +310,7 @@ export default class BricksLesson extends Lesson {
 
   click(b, slot, i) {
     this.placedBricks[i] = b;
+    this.setState(b, 'board');
     b.userData.rest = { p: b.position.clone(), r: b.rotation.z };
     this.placed++;
     const n = this.placed;
@@ -296,6 +356,7 @@ export default class BricksLesson extends Lesson {
       const th = Math.sin(p * Math.PI * 4) * 0.07 * (1 - p), sc = 1 + Math.sin(Math.min(1, p * 2.5) * Math.PI) * 0.07;
       const c = Math.cos(th), s = Math.sin(th);
       for (const b of list) {
+        if (b.userData.state !== 'board') continue;   // already hopping back to the stand
         const r = b.userData.rest;
         const dx = (r.p.x - cx) * sc, dy = (r.p.y - cy) * sc;
         b.position.set(cx + dx * c - dy * s, cy + dx * s + dy * c, r.p.z);
@@ -303,7 +364,7 @@ export default class BricksLesson extends Lesson {
       }
       this.halo.material.opacity = Math.sin(Math.min(1, p * 1.6) * Math.PI) * 0.6;
     }).then(() => {
-      for (const b of list) { const r = b.userData.rest; b.position.copy(r.p); b.rotation.z = r.r; }
+      for (const b of list) { if (b.userData.state !== 'board') continue; const r = b.userData.rest; b.position.copy(r.p); b.rotation.z = r.r; }
       this.halo.material.opacity = 0;
     });
     for (let j = 0; j < 4; j++) this.s.wait(0.1 + j * 0.12).then(() => { const b = list[(j * 5) % list.length]; if (!b) return; const sc = project(b.position); fx.sparkle(sc.x, sc.y); });
@@ -345,34 +406,32 @@ export default class BricksLesson extends Lesson {
     this.tumble();
     await this.wait(0.42);
   }
-  // all the bricks pop off the board and tumble back onto the heap
+  // all the bricks pop off the board and hop back to free spots on the stand (spots are claimed right away)
   tumble() {
     const list = this.placedBricks.filter(Boolean);
     this.placedBricks = [];
     bsfx.rattle(list.length);
-    this.returning += list.length;
+    const PL = this.cfg.pl, k = this.cfg.k;
     list.forEach((b, j) => {
-      this.s.wait(j * 0.025).then(() => {
-        if (this.dead) return;
-        const spot = this.pileSpot(this.pile.length + j);
-        const z0 = b.position.z;
-        // pop straight off the board toward us; only once clear of the letter does it go back to a 2-stud brick
-        const L0 = brickLength(b), k = this.cfg.k;
-        this.s.anim(0.14, (e) => { b.position.z = z0 + (spot.z - z0) * e; setBrickLength(b, L0 + (PILE_LEN - L0) * Math.max(0, (e - 0.72) / 0.28)); }).then(() => {
-          if (this.dead) return;
-          b.position.z = spot.z;
-          setBrickLength(b, PILE_LEN);
+      const sp = this.claimSpot(b);
+      const id = (b.userData.mv = (b.userData.mv || 0) + 1);
+      this.setState(b, 'move');
+      this.s.wait(j * 0.03).then(() => {
+        if (this.dead || b.userData.mv !== id) return;
+        const z0 = b.position.z, L0 = brickLength(b), z1 = z0 + 0.9;
+        // pop straight off the board toward us; only once clear of the letter does it go back to a stand brick
+        this.s.anim(0.12, (e) => { if (b.userData.mv !== id) return; b.position.z = z0 + (z1 - z0) * e; setBrickLength(b, L0 + (PL - L0) * Math.max(0, (e - 0.6) / 0.4)); }).then(() => {
+          if (this.dead || b.userData.mv !== id) return;
+          setBrickLength(b, PL);
           b.scale.setScalar(k);
-          this.returning--;
-          this.pile.push(b);
-          physics.toss(b, spot, { arc: 0.5 + Math.random() * 0.8, planar: true, bounce: 0.3, friction: 0.8, angvel: { x: 0, y: 0, z: (Math.random() - 0.5) * 12 } });
+          if (sp) this.hopTo(b, sp, { dur: 0.4, arc: 0.8 + Math.random() * 0.5 });
         });
       });
     });
   }
 
   // ---------------- every tap counts ----------------
-  // Taps that hit no target (and every tap while the engine rests after fast tapping) still pick the nearest heap
+  // Taps that hit no target (and every tap while the engine rests after fast tapping) still pick the nearest stand
   // brick, so a toddler tapping quickly is never ignored mid-letter.
   pokeAt(x, y) {
     if (!this.dead && this.phase === 'build' && !this.demoing && this.next < this.need) {
@@ -389,18 +448,29 @@ export default class BricksLesson extends Lesson {
   }
 
   // ---------------- hints ----------------
+  // the front-row brick nearest the middle of the stand
   nudgeTarget() {
     if (this.phase !== 'build') return null;
-    let best = null;
-    for (const b of this.pile) if (!best || b.position.y > best.position.y) best = b;
+    let best = null, bd = Infinity;
+    const cx = (STAND.x0 + STAND.x1) / 2;
+    for (const b of this.pile) { const d = Math.abs(b.position.x - cx) + (b.position.z < STAND.front - 0.5 ? 50 : 0); if (d < bd) { bd = d; best = b; } }
     return best;
   }
   nudge(step) {
     const b = this.nudgeTarget();
     if (!b) return super.nudge(step);
     sfx.boing && sfx.boing();
-    if (physics.has(b)) physics.poke(b, 0.6);
+    // it hops up and lands back on its spot (it stays tappable all the way)
+    const sp = b.userData.spot, id = b.userData.mv;
+    if (sp) this.s.anim(0.45, (_, q) => { if (b.userData.mv !== id) return; b.position.y = sp.p.y + Math.sin(q * Math.PI) * 0.5; b.rotation.z = sp.rz + Math.sin(q * Math.PI * 2) * 0.25; }).then(() => { if (b.userData.mv === id) { b.position.copy(sp.p); b.rotation.z = sp.rz; } });
     if (step >= 2) { const stop = fx.halo(b, 0.9); this.s.wait(3).then(stop); }
+  }
+  // fast tapping is how this game is played: Pip giggles along instead of looking scared
+  mash() {
+    sfx.giggle();
+    const pf = this.pip.userData.face;
+    if (pf) { setFace(pf, 'joy'); this.s.wait(0.7).then(() => { if (pf.userData.emotion === 'joy') setFace(pf, 'happy'); }); }
+    hop(this.s, this.pip, 0.35, 0.3);
   }
   showHint(glowOn = true) {
     const b = this.nudgeTarget();

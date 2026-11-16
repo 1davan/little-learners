@@ -94,6 +94,7 @@ export function makeCreature(kind) {
   const u = g.userData;
   u.kind = kind;
   u.creature = true;
+  if (!faceNode && !u.kind.startsWith('prop_')) u.still = true; // faceless models (wardrobe...) are furniture
   u.bones = bones;
   u.skin = skin;
   u.layers = layers; // garments / accessories modelled on the same skeleton

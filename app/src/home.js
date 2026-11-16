@@ -1,4 +1,5 @@
-// Home: one page per world (meadow, beach…) with five big, bouncy game objects. Tap one to play; swipe for the next world.
+// Home: one page per world (meadow, beach…) with its 3–5 big, bouncy game objects. Tap one to play; swipe for the next
+// world, or tap 🗺️ for the world map (worldmap.js), which the app opens on.
 // Every icon, pedestal, level hat and sticker crown is a Blender model (tools/blender/creatures/prop_icon_*.py, plus the
 // shared creatures and props); the old code-built shapes stay only as fallbacks for when a model isn't built.
 import * as T from './three.js';
@@ -14,15 +15,20 @@ import { C, makePip, makeAnimal, makeFace, hop, dance, breathe, popIn } from './
 import { makeScenery, makeTree, animateScenery, makeStarfish, makePumpkin, makeLantern, glow } from './engine/scenery.js';
 import { theme } from './engine/theme.js';
 import { physics } from './engine/physics.js';
-import { renderShelf, checkSleepy, setPageHandler, renderPages, setLevelHandler, setUiWorld } from './engine/ui.js';
+import { renderShelf, checkSleepy, setPageHandler, renderPages, setLevelHandler, setUiWorld, setJumpHandler } from './engine/ui.js';
 import { WORLDS } from './lessons/meta.js';
 import { makeCreature, hasCreature, garmentProp } from './engine/creature.js';
 import { propModel, propAnchor } from './engine/prop-models.js';
 import { makeFarmAnimal, makeCarrot, makeDrum, makePot, makeChick } from './engine/farm.js';
-import { makeSunflower } from './engine/scenery.js';
-import { makeCrab, makeBucket, makeBeachBall, makeShell, makeSponge, makeDuck, makeBubble } from './engine/beach.js';
+import { makeCrab, makeBucket, makeBeachBall, makeShell } from './engine/beach.js';
 import { makeBrick } from './lessons/bricks-pieces.js';
 import { layoutLetter } from './lessons/bricks-letters.js';
+import { makeBlock as toyBlock, COL as BLOCK_COL } from './lessons/blocks-pieces.js';
+import { makeCard as storyCard } from './lessons/story-props.js';
+import { TALES as STORY_TALES } from './lessons/story-tales.js';
+import { makeTank as sinkTank, makeItem as sinkItem, TANK as SINK_TANK } from './lessons/sink-items.js';
+import { makeBalanceIcon } from './lessons/balance-props.js';
+import { makeFood as snackFood } from './lessons/snack-foods.js';
 
 let greeted = false;
 
@@ -180,26 +186,10 @@ function iconBody() {
   b.scale.setScalar(0.85);
   return b;
 }
-function iconWash() {
-  const g = new T.Group();
-  const bath = propModel('prop_icon_bath'); // a clawfoot tub heaped with foam, sponge on the rim
-  if (bath) {
-    bath.scale.setScalar(0.95);
-    g.add(bath);
-    const duck = makeDuck(0.62); duck.position.set(-0.3, 1.05, 0.28); duck.rotation.y = 0.35; g.add(duck);
-    return g;
-  }
-  const tub = makeBucket(0xffffff, 1.05, 0.7);
-  g.add(tub);
-  const duck = makeDuck(0.6); duck.position.set(0.1, 0.75, 0.3); g.add(duck);
-  for (let i = 0; i < 6; i++) { const b = makeBubble(0.2 + (i % 3) * 0.06); b.position.set(-0.6 + (i % 3) * 0.6, 0.85 + Math.floor(i / 3) * 0.3, (i % 2) * 0.2); g.add(b); }
-  const sp = makeSponge(); sp.scale.setScalar(0.55); sp.position.set(1.0, 1.55, 0.2); sp.rotation.z = -0.4; g.add(sp);
-  return g;
-}
 
 // ---- farm world icons ----
-// Monkey dressed for the level's look: a sun hat from the hat shop (L1), a party dress in the dressing room (L2),
-// raincoat and wellies by the rainy window (L3). Falls back to any garment of the same slot.
+// Monkey dressed for the Home world's level look: a sun hat in the sunny garden (L1), a party dress in the bedroom (L2),
+// raincoat and wellies on the rainy evening (L3). Falls back to any garment of the same slot.
 const DRESS_OUTFIT = [['cloth_head_sunhat'], ['cloth_body_dress', 'cloth_neck_bowtie'], ['cloth_body_raincoat', 'cloth_feet_wellies']];
 function iconDress(world, level = 0) {
   if (!hasCreature('monkey')) return makeAnimal('bear');
@@ -214,21 +204,6 @@ function iconDress(world, level = 0) {
   return m;
 }
 function iconMoo() { const c = makeFarmAnimal('cow'); c.scale.setScalar(0.8); return c; }
-function iconGrow() {
-  const g = new T.Group();
-  const pot = propModel('prop_pot', { tint: 0xd9774a, size: [0.7, 0.86 / 1.3, 0.7] });
-  const flower = propModel('prop_icon_sunflower');
-  if (pot && flower) {
-    flower.position.y = 0.76; // the soil mound fills the pot just under its rim
-    g.add(pot, flower);
-    return g;
-  }
-  const p = mesh(geo.cyl(0.7, 0.5, 0.8, 18), 0xd9774a, { outline: 0.03 }); p.position.y = 0.4;
-  const stem = mesh(geo.cyl(0.06, 0.08, 1.2, 8), 0x4f9e3a, { outline: 0.012 }); stem.position.y = 1.3;
-  const sf = makeSunflower(0.01); sf.position.y = 1.85; sf.scale.setScalar(1.3);
-  g.add(p, stem, sf);
-  return g;
-}
 function iconShare() {
   const g = new T.Group();
   const b = makeAnimal('bunny'); b.scale.setScalar(0.7); g.add(b);
@@ -252,6 +227,15 @@ function iconFallback() {
   const o = new T.Group(); o.add(mesh(g, C.yellow, { outline: 0.03 }));
   return o;
 }
+// What happens next?: a story card with its little scene inside (the chick just hatched, wearing its shell as a hat).
+function iconStory() {
+  const g = new T.Group();
+  const c = storyCard(STORY_TALES.chick.tint);
+  STORY_TALES.chick.steps.chick.build(c.userData.dio, {});
+  c.scale.setScalar(0.95);
+  g.add(c);
+  return g;
+}
 function iconPots() {
   const g = new T.Group();
   // the flowerpot tipped up on one edge, the chick peeking out from underneath
@@ -273,13 +257,84 @@ function iconBricks() {
   [[1.0, 0.75, 0.15, cols[5]], [-1.05, 0.62, -0.1, cols[6]]].forEach(([x, z, r, c]) => { const b = makeBrick(c, 0.55, k); b.position.set(x, 0.25 * k, z); b.rotation.set(-Math.PI / 2, 0, r); g.add(b); });
   return g;
 }
+// Block builder: a little house of painted wooden blocks (arch, long block, roof) with a cylinder and cone tree.
+function iconBlocks() {
+  const g = new T.Group(), k = 0.6;
+  for (const [shape, x, y, col] of [['arch', -0.45, 0, BLOCK_COL.sky], ['cuboid', -0.45, 1, BLOCK_COL.yellow], ['roof', -0.45, 2, BLOCK_COL.red], ['cyl', 0.95, 0, BLOCK_COL.brown], ['cone', 0.95, 1, BLOCK_COL.green]]) {
+    const b = toyBlock(shape, col, k);
+    b.position.set(x * k, (y + 0.5) * k, 0);
+    g.add(b);
+  }
+  return g;
+}
+// Sink or float lab: a little water tank with a duck bobbing on top and a key on the sandy floor.
+function iconSink() {
+  const g = new T.Group(), k = 0.42;
+  const tank = sinkTank();
+  tank.scale.setScalar(k);
+  g.add(tank);
+  const duck = sinkItem('duck'), key = sinkItem('key');
+  if (duck) { duck.scale.setScalar(k * 1.5); duck.position.set(-0.2, (SINK_TANK.WATER - 0.12) * k, 0); duck.rotation.y = -0.6; g.add(duck); }
+  if (key) { key.scale.setScalar(k * 1.2); key.position.set(0.45, SINK_TANK.FLOOR * k + 0.08, 0.1); key.rotation.set(-1.2, 0.3, 0); g.add(key); }
+  return g;
+}
+// My day: Bunny brushing its teeth (a blob of toothpaste on the brush), its tooth mug beside it
+function iconMyday() {
+  if (!hasCreature('bunny') || !hasCreature('prop_md_brush')) return iconFallback();
+  const g = new T.Group();
+  const b = makeCreature('bunny');
+  b.scale.setScalar(0.74);
+  b.rotation.y = -0.15;
+  g.add(b);
+  const u = b.userData;
+  if (u.arms) { u.arms[1].rotation.x -= 1.25; u.arms[1].rotation.z += 1.05; }   // right paw up at the mouth
+  const brush = propModel('prop_md_brush', { tint: 0x7ad16b, size: 0.95 });
+  b.updateMatrixWorld(true);
+  const m = u.anchors.mouth ? b.localToWorld(new T.Vector3(...u.anchors.mouth)) : new T.Vector3(0, 1.2, 0.4);
+  brush.position.set(m.x + 0.08, m.y - 0.06, m.z + 0.18);
+  brush.rotation.set(0.25, 0.35, 0.2);
+  g.add(brush);
+  const cup = propModel('prop_md_cup', { tint: 0xffb020, size: 1.05 });
+  cup.position.set(0.92, 0, 0.4); cup.rotation.y = -0.6;
+  g.add(cup);
+  return g;
+}
+// Snack chef: a blue china plate heaped with a snack (a big strawberry, a banana, a carrot and a wedge of cheese)
+function iconSnack() {
+  const g = new T.Group();
+  const plate = propModel('prop_chinaplate', { tint: 0x7fd0ff, size: 0.95 });
+  if (plate) g.add(plate);
+  const top = 0.118 * 0.95;
+  for (const [kind, x, z, ry, k] of [['banana', -0.42, -0.2, 0.3, 1.0], ['cheese', 0.45, -0.15, -0.5, 1.0], ['carrot', 0.05, 0.45, 0.2, 0.95], ['strawberry', 0.0, -0.05, 0.3, 1.45]]) {
+    const f = snackFood(kind);
+    if (!f) continue;
+    f.scale.setScalar(k);
+    f.position.set(x, top + f.userData.h * k / 2, z);
+    f.rotation.y = ry;
+    g.add(f);
+  }
+  return g;
+}
 const ICONS = { colours: iconColours, counting: iconCounting, shapes: iconShapes, feelings: iconFeelings, sizes: iconSizes,
-  patterns: iconPatterns, where: iconWhere, more: iconMore, body: iconBody, wash: iconWash,
-  moo: iconMoo, grow: iconGrow, share: iconShare, band: iconBand, pots: iconPots, dress: iconDress, bricks: iconBricks };
-const SPOTS = [[-6, 0.4], [-3, -0.6], [0, -1], [3, -0.6], [6, 0.4]];
+  patterns: iconPatterns, where: iconWhere, more: iconMore, body: iconBody,
+  moo: iconMoo, share: iconShare, band: iconBand, pots: iconPots, story: iconStory, dress: iconDress, myday: iconMyday, snack: iconSnack, bricks: iconBricks, blocks: iconBlocks, sink: iconSink, balance: makeBalanceIcon };
+// Where the games stand, by how many a world has: spread across the stage in a gentle arc (the middle one a little
+// further back); a world with fewer games shows them a little bigger. More than five squeeze into the same width.
+const LAYOUTS = {
+  1: [[0, -0.4]],
+  2: [[-3.4, -0.4], [3.4, -0.4]],
+  3: [[-4.8, 0.1], [0, -0.8], [4.8, 0.1]],
+  4: [[-5.6, 0.4], [-1.9, -0.7], [1.9, -0.7], [5.6, 0.4]],
+  5: [[-6, 0.4], [-3, -0.6], [0, -1], [3, -0.6], [6, 0.4]],
+};
+const LAYOUT_BIG = { 1: 1.75, 2: 1.3, 3: 1.15, 4: 1.05, 5: 1 };
+function layoutFor(n) {
+  if (LAYOUTS[n]) return { spots: LAYOUTS[n], big: LAYOUT_BIG[n] };
+  return { spots: Array.from({ length: n }, (_, i) => [(i - (n - 1) / 2) * (12.6 / (n - 1)), i % 2 ? -0.7 : 0.3]), big: 0.9 };
+}
 const PED_TOP = 0.22; // icons stand on top of their pedestal
-const GREETING = { meadow: 'The meadow! Tap a game!', beach: 'The beach! Tap a game!', farm: 'The farm! Tap a game!', dressup: 'Dress up time! Tap Monkey!', build: 'The building site! Tap the bricks!' };
-const CENTER_Y = { colours: 1, counting: 1.8, shapes: 1.1, feelings: 1.7, sizes: 1.1, patterns: 0.8, where: 1.0, more: 0.5, body: 1.2, wash: 0.9, moo: 1.4, grow: 1.1, share: 1.0, band: 0.6, pots: 0.8, dress: 1.3, bricks: 1.2 };
+const GREETING = { meadow: 'The meadow! Tap a game!', beach: 'The beach! Tap a game!', farm: 'The farm! Tap a game!', dressup: 'Home sweet home! Tap a game!', build: 'The building site! Tap a game!' };
+const CENTER_Y = { colours: 1, counting: 1.8, shapes: 1.1, feelings: 1.7, sizes: 1.1, patterns: 0.8, where: 1.0, more: 0.5, body: 1.2, moo: 1.4, share: 1.0, band: 0.6, pots: 0.8, story: 1.0, dress: 1.3, myday: 1.0, snack: 0.5, bricks: 1.2, blocks: 0.9, sink: 0.7, balance: 0.9 };
 
 // Gold sticker crown (3+ stickers): band radius ~0.42, base at y 0.
 function makeCrown() {
@@ -409,7 +464,7 @@ function makeHat(kind, col) {
   g.userData.top = new T.Box3().setFromObject(h).max.y;
   return g;
 }
-const HAT_SIZE = { feelings: 1.25, pots: 0.7, where: 0.7, wash: 0.6, patterns: 0.8 };
+const HAT_SIZE = { feelings: 1.25, pots: 0.7, where: 0.7, patterns: 0.8 };
 // Long ears or horns stick up past the head: drop the hat this share of the wearer's height so it sits on the head.
 const HAT_DROP = {};
 // Hats go on characters only (never on drums, pots or flowers). Returns the part of the icon that wears it.
@@ -419,7 +474,7 @@ const HAT_ON = {
   share: (o) => o.children[0], // the bunny
   pots: (o) => o.children[1], // the chick
   where: (o) => o.children[1], // the crab
-  wash: (o) => o.children[1], // the rubber duck
+  myday: (o) => o.children[0], // Bunny
   patterns: (o) => o.children[0], // the caterpillar
 };
 // Top of a character's head (world): the highest skin point in a thin column straight over the head bone, so ears,
@@ -491,9 +546,10 @@ function makePedestal(col) {
 }
 
 // Seasonal trim around a pedestal. Returns the objects (added to parent) and an optional animator.
-function decoratePedestal(parent, world, level, col, x, z, i) {
+function decoratePedestal(parent, world, level, col, x, z, i, k = 1) {
   const out = [];
-  const add = (o, dx, dy, dz) => { o.position.set(x + dx, dy, z + dz); parent.add(o); out.push(o); return o; };
+  // k: the pedestal's size (bigger when a world has fewer games), so the trim stays round its edge
+  const add = (o, dx, dy, dz) => { o.position.set(x + dx * k, dy, z + dz * k); o.scale.multiplyScalar(k); parent.add(o); out.push(o); return o; };
   const key = world + level;
   const lantern = (lcol, night) => {
     const post = staticProp('prop_icon_lanternpost', { layerTint: { lantern: lcol }, unlit: night ? ['lantern'] : [] });
@@ -571,14 +627,14 @@ export class Home {
     setAmbience(this.world.id);
     this.meadow = makeScenery(this.world.id, this.level);
     this.root.add(this.meadow);
-    // a world with a single game shows it big in the middle
-    const solo = this.world.lessons.length === 1;
-    const big = solo ? 1.75 : 1;
+    // fewer games stand bigger (a single game big in the middle)
+    const { spots, big } = layoutFor(this.world.lessons.length);
+    const pedK = 1 + (big - 1) * 0.6;
     this.objects = this.world.lessons.map((l, i) => {
       const o = (ICONS[l.id] || iconFallback)(this.world.id, this.level);
-      const [x, z] = SPOTS[i + Math.floor((SPOTS.length - this.world.lessons.length) / 2)];
+      const [x, z] = spots[i];
       o.position.set(x, PED_TOP, z);
-      if (solo) { o.scale.multiplyScalar(big); o.userData.baseScale = o.scale.y; }
+      if (big !== 1) { o.scale.multiplyScalar(big); o.userData.baseScale = o.scale.y; }
       o.userData.big = big;
       o.rotation.y = -x * 0.04;
       o.userData.lesson = l;
@@ -595,9 +651,9 @@ export class Home {
       const ped = makePedestal(pedCol);
       ped.position.set(x, 0, z);
       ped.rotation.y = i * 0.7;
-      if (solo) ped.scale.set(1.45, 1, 1.45);
+      if (pedK !== 1) ped.scale.set(pedK, 1, pedK);
       this.root.add(ped);
-      const deco = decoratePedestal(this.root, this.world.id, this.level, new T.Color(l.color).getHex(), x, z, i);
+      const deco = decoratePedestal(this.root, this.world.id, this.level, new T.Color(l.color).getHex(), x, z, i, pedK);
       if (deco.anim) this.decoAnims.push(deco.anim);
       if (store.stickers(l.id) >= 3) addCrown(o, hat, wearer || o, l.id);
       input.addTap(o, { radius: 1.45 * big, offset: new T.Vector3(0, (CENTER_Y[l.id] ?? 1) * big, 0), onTap: () => this.pick(o), onRelease: true });
@@ -616,6 +672,8 @@ export class Home {
     this.offs.push(onFrame((dt, t) => this.tick(dt, t)));
     this.offs.push(input.onSwipe((dir) => this.swipe(dir)));
     setPageHandler((dir) => this.swipe(dir));
+    // the dots: 🗺️ back to the world map, or jump straight to another world
+    setJumpHandler((to) => (to === 'map' ? this.toMap() : this.jump(to)));
     // tapping Level 1/2/3 rebuilds this page straight away in the new look
     setUiWorld(this.world.id);
     setLevelHandler(() => { if (!this.dead && !this.picking) this.router.go('home', { page: this.page, relevel: true }); });
@@ -626,12 +684,18 @@ export class Home {
       this.root.position.x = this.opts.from === 'left' ? 24 : -24;
       this.s.tween(this.root.position, { x: 0 }, 0.55, Ease.out);
     }
+    // arriving from the world map: the camera finishes its flight down into the world
+    if (this.opts.fromMap) {
+      camera.position.set(0, 10.5, 25); getLook().set(0, 1.2, -2);
+      this.picking = true;
+      this.s.tween(getLook(), { x: CAM_HOME.look.x, y: CAM_HOME.look.y, z: CAM_HOME.look.z }, 0.9, Ease.out);
+      this.s.tween(camera.position, { x: CAM_HOME.pos.x, y: CAM_HOME.pos.y, z: CAM_HOME.pos.z }, 0.9, Ease.out).then(() => { this.picking = false; });
+    }
 
     await this.s.wait(0.4);
     if (this.opts.relevel) { sfx.sparkle(); dance(this.s, this.pip); speech.say(`Level ${this.level + 1}! ${theme(this.world.id, this.level).name}!`); }
     else if (this.opts.newSticker) { sfx.sparkle(); speech.say('Look! A new sticker! Tap another game!'); }
-    else if (this.opts.from) { sfx.sparkle(); speech.say(GREETING[this.world.id] || 'Tap a game!'); }
-    else if (!greeted) { greeted = true; dance(this.s, this.pip); speech.say("Hi! I'm Pip! Tap a game! Swipe for more games!"); }
+    else if (this.opts.from || this.opts.fromMap || !greeted) { greeted = true; sfx.sparkle(); speech.say(GREETING[this.world.id] || 'Tap a game!'); }
     else speech.say('Tap one!');
   }
 
@@ -652,12 +716,28 @@ export class Home {
     }
   }
 
-  async swipe(dir) {
+  // back up to the world map: the camera lifts off, then the map pulls back from this world's island
+  async toMap() {
+    if (this.picking || this.dead) return;
+    this.picking = true;
+    sfx.whoosh();
+    this.s.tween(getLook(), { y: 1.2, z: -2 }, 0.45, Ease.in);
+    await this.s.tween(camera.position, { y: 10.5, z: 25 }, 0.45, Ease.in);
+    this.router.go('map', { from: this.world.id });
+  }
+
+  // a world dot: slide straight to that world
+  jump(to) {
+    if (to === this.page) { hop(this.s, this.pip, 0.5, 0.4); return; }
+    this.swipe(to > this.page ? 'left' : 'right', to);
+  }
+
+  async swipe(dir, to = null) {
     if (this.picking || this.dead) return;
     this.picking = true;
     // swiping left (or tapping ▶) goes to the next world; right goes back. Wraps around.
     const n = WORLDS.length;
-    const next = dir === 'left' ? (this.page + 1) % n : (this.page - 1 + n) % n;
+    const next = to ?? (dir === 'left' ? (this.page + 1) % n : (this.page - 1 + n) % n);
     sfx.whoosh();
     await this.s.tween(this.root.position, { x: dir === 'left' ? -24 : 24 }, 0.35, Ease.in);
     this.router.go('home', { page: next, from: dir });

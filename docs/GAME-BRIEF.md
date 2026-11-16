@@ -39,7 +39,7 @@ Make each of your games noticeably better and more fun, while keeping the same l
 | where | `drag`, `zones()` (z.id, z.prop), `target()`, `drop(zone, {tapped})` |
 | more | `pick(side)`, `rightSide()` |
 | body | `part`, `touch(partName, anchorName)` with anchors nose/eyeL/earL/mouth/tummy/handL/footL |
-| wash | `level`, `wet`, `setWet(b)`, `dirty()`, `scrub(spot, 1)` |
+| myday | `phase` ('step' when waiting), `want()` (key of the thing this step needs), `act(key)` (right key plays the step, wrong key redirects), `items` |
 | moo | `animals` (a.userData.kind), `target`, `tapAnimal(a)` |
 | grow | `step`, `use(k)` |
 | share | `carrot.userData.drag`, `bunnies` (b.userData.n), `min()`, `valid()`, `drop({bunny})` |

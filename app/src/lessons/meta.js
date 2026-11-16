@@ -58,10 +58,10 @@ export const LESSON_LIST = [
     goal: 'Touches the named body part: nose, eyes, ears, mouth, tummy, hands, feet.',
   },
   {
-    id: 'wash', world: 'beach', title: 'Splash wash', name: 'Wash time!', icon: '🧽', color: '#5fd068',
-    intro: 'Oh no! Everyone is sandy!',
-    topics: [{ id: 'mt_vbbxnY7ZDT', name: 'Keeping clean and healthy' }],
-    goal: 'Scrubs the dirty spots clean with a sponge, then rinses.',
+    id: 'sink', world: 'beach', title: 'Sink or float lab', name: 'Sink or float?', icon: '🧪', color: '#3fb6e0',
+    intro: "Let's see what floats!",
+    topics: [{ id: 'mt_auVZZEuXjs', name: 'Describing material properties' }, { id: 'mt_Wa44s-f8Ws', name: 'Simple tests and experiments' }, { id: 'mt_MRQcEvyPJv', name: 'Did it happen as predicted?' }],
+    goal: 'Drops things into a water tank to see if they float or sink, then sorts them into the float tub or the sink tub; later guesses first and checks the guess, and tests which things roll and bounce.',
   },
   // ---- World 3: the farm ----
   {
@@ -69,12 +69,6 @@ export const LESSON_LIST = [
     intro: 'Listen! Farm animals!',
     topics: [{ id: 'mt_ppENoD8vf1', name: 'Local plants & animals' }],
     goal: 'Hears an animal sound and taps the animal that makes it.',
-  },
-  {
-    id: 'grow', world: 'farm', title: 'Grow a flower', name: 'Grow a flower!', icon: '🌱', color: '#5fd068',
-    intro: "Let's grow flowers!",
-    topics: [{ id: 'mt_0B64gfJf7j', name: 'Seeds & plant growth' }, { id: 'mt_L1469gt34A', name: 'What living things need' }],
-    goal: 'Plants a seed, waters it and lets the sun shine, in order; later picks what a plant needs.',
   },
   {
     id: 'share', world: 'farm', title: 'Share the snacks', name: 'Sharing!', icon: '🥕', color: '#ff9f3f',
@@ -90,15 +84,33 @@ export const LESSON_LIST = [
   },
   {
     id: 'pots', world: 'farm', title: 'Peekaboo pots', name: 'Peekaboo!', icon: '🐥', color: '#ffd23f',
-    intro: "Chick wants to hide!",
+    intro: "Peekaboo! Who is hiding?",
     topics: [{ id: 'mt_AzNSWFgtxC', name: 'Remembering visual forms' }],
     goal: 'Remembers which pot the chick hid under, even after the pots move.',
+  },
+  {
+    id: 'story', world: 'farm', title: 'What happens next?', name: 'What happens next?', icon: '📖', color: '#a98cff',
+    intro: "Let's tell a story!",
+    topics: [{ id: 'mt_VEwM7ClYYE', name: 'Story sequence and central message' }, { id: 'mt_-vvVxpOHG2', name: 'Ordering events in time' }, { id: 'mt_8-POYyg7GJ', name: 'Predicting what happens next' }],
+    goal: 'Picks what happens next in a little picture story (egg, crack, chick); later puts 3–4 story cards in order and predicts the ending.',
   },
   {
     id: 'dress', world: 'dressup', title: 'Dress Monkey', name: 'Dress up!', icon: '🐒', color: '#ff8fc0',
     intro: "Monkey wants to get dressed!",
     topics: [{ id: 'mt_83gRQ9OPkc', name: 'Body parts & senses' }, { id: 'mt_Dj2xr8CoI0', name: 'Dressing for the weather' }],
     goal: 'Puts each piece of clothing on the right body part (hat on head, top on body, shoes on feet); later picks clothes for the weather.',
+  },
+  {
+    id: 'myday', world: 'dressup', title: 'My day', name: 'My day!', icon: '🌞', color: '#ffb020',
+    intro: "Let's help Bunny!",
+    topics: [{ id: 'mt_vbbxnY7ZDT', name: 'Keeping clean and healthy' }, { id: 'mt_2eVg4Tt5r0', name: 'Keeping up a healthy routine' }, { id: 'mt_-vvVxpOHG2', name: 'Ordering events in time' }],
+    goal: "Does Bunny's routines step by step, in order: tap on, soap and rub, rinse, towel; toothpaste, brush, rinse; a tissue for a sneeze, then the bin; a bubble bath. Later a whole morning (wake up, make the bed), then picks the next step without help, through to bedtime and lights off.",
+  },
+  {
+    id: 'snack', world: 'dressup', title: 'Snack chef', name: 'Snack time!', icon: '🍓', color: '#ff5a7a',
+    intro: 'Who is hungry? Snack time!',
+    topics: [{ id: 'mt_F62VTeHB4-', name: 'Preparing simple healthy snacks' }, { id: 'mt_QhLAeAlHI0', name: 'Balanced diet and food groups' }, { id: 'mt_EWiY8-opdd', name: 'Keeping food safe and clean' }, { id: 'mt_WcfaSfVT33', name: 'One-to-one counting' }],
+    goal: 'Washes hands before food (soap, rub, rinse, dry), then builds a snack plate, counting each piece onto it: three of one fruit, then a fruit and a veg, then one food from each group with the fruit washed first.',
   },
   // ---- World 5: the building site ----
   {
@@ -107,6 +119,18 @@ export const LESSON_LIST = [
     topics: [{ id: 'mt_frDIaXzWbx', name: 'Knowing all letters' }, { id: 'mt_WcfaSfVT33', name: 'One-to-one counting' }, { id: 'mt_yqAL6O5i_v', name: 'Counting objects to 20' }],
     goal: 'Taps bricks one at a time, counting each one as it clicks into a capital letter (A–T, 5 to 20 bricks); hears what the letter is for (A is for Apple).',
   },
+  {
+    id: 'blocks', world: 'build', title: 'Block builder', name: 'Blocks!', icon: '🧊', color: '#3f8cff',
+    intro: "Let's build with blocks!",
+    topics: [{ id: 'mt_Qcp2d_kuta', name: '3-D shapes' }, { id: 'mt_XjwUlmxdCT', name: 'Combining simple shapes' }],
+    goal: 'Copies a little model by putting cubes, cylinders, cones, roofs and arches on their matching shapes; finds which shape rolls and which one stacks.',
+  },
+  {
+    id: 'balance', world: 'build', title: 'Fill & balance', name: 'Fill it up!', icon: '⚖️', color: '#ffb020',
+    intro: "Let's fill the buckets!",
+    topics: [{ id: 'mt_zkFbMLpu3U', name: 'Comparing capacity' }, { id: 'mt_-P1kdZhHbL', name: 'Measuring mass and weight' }, { id: 'mt_lMz9nAs7VO', name: 'Early maths vocabulary' }],
+    goal: 'Pours sand or water to make a bucket full, half full or empty; sees the heavy end of a see-saw go down; pours just enough to make it balance; finds which one holds more.',
+  },
 ];
 export const META = Object.fromEntries(LESSON_LIST.map((l) => [l.id, l]));
 
@@ -114,7 +138,7 @@ export const WORLDS = [
   { id: 'meadow', icon: '🌼', name: 'Meadow', lessons: LESSON_LIST.filter((l) => l.world === 'meadow') },
   { id: 'beach', icon: '🏖️', name: 'Beach', lessons: LESSON_LIST.filter((l) => l.world === 'beach') },
   { id: 'farm', icon: '🚜', name: 'Farm', lessons: LESSON_LIST.filter((l) => l.world === 'farm') },
-  { id: 'dressup', icon: '👗', name: 'Dress up', lessons: LESSON_LIST.filter((l) => l.world === 'dressup') },
+  { id: 'dressup', icon: '🏠', name: 'Home', lessons: LESSON_LIST.filter((l) => l.world === 'dressup') },
   { id: 'build', icon: '🏗️', name: 'Building site', lessons: LESSON_LIST.filter((l) => l.world === 'build') },
 ];
 export const worldIndex = (id) => Math.max(0, WORLDS.findIndex((w) => w.id === (META[id]?.world || id)));

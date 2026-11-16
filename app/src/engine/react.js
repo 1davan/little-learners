@@ -193,7 +193,12 @@ async function nap(s, g) {
 }
 
 // ---------- public ----------
-export function canPoke(g) { const u = g && g.userData; return !!(u && (u.creature || (u.kind && CALL[u.kind]))); }
+export function canPoke(g) {
+  const u = g && g.userData;
+  // only living characters: props (tables, rugs, platforms, buckets...) never breathe, sway or react
+  if (!u || u.still || (typeof u.kind === 'string' && u.kind.startsWith('prop_'))) return false;
+  return !!(u.creature || (u.kind && CALL[u.kind]));
+}
 
 export async function poke(s, g) {
   const u = g.userData;

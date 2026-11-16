@@ -1,6 +1,6 @@
 # Little Learners
 
-Seventeen touchscreen learning games for a 2-year-old, in five worlds (meadow, beach, farm, dress up, building site), each with Levels 1–3 that also change how every world looks. Built with Three.js; every character and prop is sculpted and rigged in Blender (tools/blender). Everything runs offline; the app makes no network requests.
+Twenty-one touchscreen learning games for a 2-year-old, in five worlds (meadow, beach, farm, home, building site), each with Levels 1–3 that also change how every world looks. The app opens on a world map: five toy islands, one per world. The plan for the worlds is in docs/WORLDS.md. Built with Three.js; every character and prop is sculpted and rigged in Blender (tools/blender). Everything runs offline; the app makes no network requests.
 
 ## Running it
 
@@ -14,11 +14,12 @@ Seventeen touchscreen learning games for a 2-year-old, in five worlds (meadow, b
 
 | What | How |
 |---|---|
-| **Pick a level** | The **Level 1 · 2 · 3** buttons, bottom-left of the home screen. The level applies to every game. |
-| **More games** | **Swipe** left or right on the home screen, or tap the ◀ ▶ arrows. World 1 is the meadow, World 2 the beach and World 3 the farm. |
+| **Pick a level** | The **Level 1 · 2 · 3** buttons, bottom-left of the map and of each world's page. The level applies to every game. |
+| **Pick a world** | The app opens on the **world map**. Tap an island (or its label) to fly into that world. Each label shows the world's games. |
+| **More games** | On a world's page, **swipe** left or right or tap the ◀ ▶ arrows for the next world, or tap a world's dot (bottom right) to jump to it. The **🗺️** button next to the dots goes back to the map. |
 | Open the parent panel (and **Quit**) | Hold the **⚙️ gear button** in the top-right corner for 1.5 seconds. The panel has the quit button, sound and music volume, sticker reset and recent results. |
 | Quit from the keyboard | Ctrl+Shift+Q (⌘⇧Q on a Mac) |
-| Go back home (the child can do this) | Hold the 🏠 button for about 1 second |
+| Go back to the world's page (the child can do this) | Hold the 🏠 button for about 1 second |
 
 **How each round starts.** A speech bubble at the top of the screen shows Pip's words for you to read aloud, and a 👆 hand demonstrates the move straight away. A drag leaves a dotted trail. You can then do it together with your child. On Level 3 the hand shows the kind of move without giving the answer away. If nothing happens for a while, the cue plays again.
 
@@ -32,13 +33,13 @@ Seventeen touchscreen learning games for a 2-year-old, in five worlds (meadow, b
 
 ## The games
 
-**New:** 🐒 Dress Monkey (world 4: drag clothes from the wardrobe onto Monkey; L1 hats, L2 tops, L3 dressing for the weather) and 🧱 Brick letters (world 5: tap bricks to build A–T, 5 bricks per letter rising to 20, counting each brick; L1 A–G, L2 H–N, L3 O–T).
+Games marked **new** are still being built (see docs/WORLDS.md). 🌞 My day has replaced 🧽 Splash wash, in the Home world.
 
 **Music:** one gentle instrumental loop per world (made with Suno for personal use), plus CC0 sound effects (see app/assets/sfx/CREDITS.md).
 
 **Tapping animals:** they react in ~15 different ways, getting sillier; after 15 quick taps they nap for a few seconds (3 taps wake them).
 
-All fifteen use topics from the [Marble os-taxonomy](https://github.com/withmarbleapp/os-taxonomy). The taxonomy rates these topics for ages 3 and up, so for a 2-year-old they are early exposures.
+Every game uses topics from the [Marble os-taxonomy](https://github.com/withmarbleapp/os-taxonomy). The taxonomy rates these topics for ages 3 and up, so for a 2-year-old they are early exposures.
 
 ### World 1: Meadow 🌼
 
@@ -58,17 +59,33 @@ All fifteen use topics from the [Marble os-taxonomy](https://github.com/withmarb
 | 🦀 Where's Crab? | `mt_qeZYF6HZ4o` Positional language, `mt_VY3rBq8RyP` Prepositions | Drags Crab in the bucket, on the stool or under the stool |
 | 🐚 Which has more? | `mt__h7hvT4tEb` Comparing groups: more or fewer | Taps the towel with more. Afterwards the groups line up one-to-one so the extras stand out. Level 3 also asks "fewer". |
 | 👃 Bear's nose | `mt_83gRQ9OPkc` Body parts & senses | Touches the named body part. Level 3 gives clues like "We smell with our nose!" |
-| 🧽 Splash wash | `mt_vbbxnY7ZDT` Keeping clean and healthy | Rubs the sandy spots off a friend with a sponge. Level 3 adds "dip the sponge in the water first". |
+| 🧪 Sink or float lab (**new**) | `mt_auVZZEuXjs` Describing material properties, `mt_Wa44s-f8Ws` Simple tests and experiments, `mt_MRQcEvyPJv` Did it happen as predicted? | Guesses sink or float, drops the object in the water tank, watches, then sorts it into the matching tub. Level 3 has surprises: a big log floats, a small coin sinks. |
 
 ### World 3: Farm 🚜
 
 | Game | Taxonomy topic | What your child does |
 |---|---|---|
 | 🐮 Who says moo? | `mt_ppENoD8vf1` Local plants & animals | Hears an animal call and taps the animal that made it. Level 3 gives the sound only. |
-| 🌱 Grow a flower | `mt_0B64gfJf7j` Seeds & plant growth, `mt_L1469gt34A` What living things need | Plants the seed, waters it and lets the sun out, so the flower grows and blooms. Level 3 adds a silly distractor and clues like "It's thirsty!" |
 | 🥕 Share the snacks | `mt_FwI7q7DSIx` Taking turns and sharing, `mt_LpSuPgL31x` Equal sharing | Gives carrots one at a time until every bunny has the same. |
 | 🥁 Barn band | `mt_2mb17lUCPD` Creating musical sound | Copies Pip's drum beats. Level 2 adds loud vs quiet, and Level 3 mixes them. |
 | 🐥 Peekaboo pots | `mt_AzNSWFgtxC` Remembering visual forms | Finds the chick under the right flowerpot. From Level 2 the pots swap places. |
+| 📖 What happens next? (**new**) | `mt_VEwM7ClYYE` Story sequence, `mt_-vvVxpOHG2` Ordering events in time, `mt_8-POYyg7GJ` Predicting what happens next | Short picture stories (egg → chick, seed → flower). Taps what comes next, then puts 3, later 4, cards in order. |
+
+### World 4: Home 🏠
+
+| Game | Taxonomy topic | What your child does |
+|---|---|---|
+| 🐒 Dress Monkey | `mt_83gRQ9OPkc` Body parts & senses, `mt_Dj2xr8CoI0` Dressing for the weather | Drags clothes from the wardrobe onto Monkey. Level 1 hats, Level 2 tops, Level 3 dressing for the weather. |
+| 🌞 My day | `mt_vbbxnY7ZDT` Keeping clean and healthy, `mt_2eVg4Tt5r0` Keeping up a healthy routine, `mt_-vvVxpOHG2` Ordering events in time | Does Bunny's routines in a little bathroom and bedroom, one real step at a time: tap on, soap and rub, rinse, towel; toothpaste, brush, rinse; a tissue for a sneeze, then the bin; a bubble bath; brushing fluffy ears. Level 2 is a whole morning (wake up, open the curtains, make the bed, then the bathroom). Level 3 is the evening: nothing glows, the child picks what comes next, through to bedtime and lights off. |
+| 🍓 Snack chef (**new**) | `mt_F62VTeHB4-` Preparing simple healthy snacks, `mt_QhLAeAlHI0` Balanced diet and food groups, `mt_EWiY8-opdd` Keeping food safe and clean, `mt_WcfaSfVT33` One-to-one counting | Washes hands, then builds a plate, counting the pieces onto it. Level 3 takes one food from each group. |
+
+### World 5: Building site 🏗️
+
+| Game | Taxonomy topic | What your child does |
+|---|---|---|
+| 🧱 Brick letters | `mt_frDIaXzWbx` Knowing all letters, `mt_WcfaSfVT33` One-to-one counting, `mt_yqAL6O5i_v` Counting objects to 20 | Taps bricks to build a capital letter, counting each brick (5 per letter, rising to 20). Level 1 A–G, Level 2 H–N, Level 3 O–T. |
+| 🧊 Block builder (**new**) | `mt_Qcp2d_kuta` 3-D shapes, `mt_XjwUlmxdCT` Combining simple shapes | Stacks cubes, cylinders, cones and arches to copy a little model, and finds which shape rolls. |
+| ⚖️ Fill & balance (**new**) | `mt_zkFbMLpu3U` Comparing capacity, `mt_-P1kdZhHbL` Measuring mass and weight, `mt_lMz9nAs7VO` Early maths vocabulary | Pours sand or water to make buckets full, half full or empty; a see-saw shows which side is heavier. |
 
 ### What the levels change
 
@@ -95,8 +112,9 @@ app/main.js            Electron shell: fullscreen, blocks reload/zoom keys, keep
 app/index.html, style.css
 app/vendor/three.module.js   Three.js r170, stored locally
 app/src/engine/        stage, toon shading and outlines, touch input, synthesized audio, speech, tweens, effects, lesson base class, storage, UI
-app/src/lessons/       the fifteen games and meta.js (worlds and the taxonomy mapping)
-app/src/home.js        home screen (one page per world, swipe between them)
+app/src/lessons/       the games and meta.js (worlds and the taxonomy mapping)
+app/src/worldmap.js    the world map the app opens on (five islands; tap one to fly into that world)
+app/src/home.js        each world's page (its 3–5 games; swipe between worlds, 🗺️ back to the map)
 app/src/engine/beach.js  beach props: crab, bucket, ball, shell, sponge, gull, body-part anchors
 tools/snap.js          dev tool: drives the app and saves screenshots
 tools/viewmodel.sh     renders one character model (front, 3/4, side, close-up)
@@ -107,6 +125,7 @@ app/assets/            models, sound effects and music
 docs/DESIGN.md         the design plan for the original five games
 docs/DESIGN-WORLD2.md  the design for the beach world and the level tables
 docs/DESIGN-WORLD3.md  the farm world, the polish pass and the quality review
+docs/WORLDS.md         the five worlds and 21 games, and the rules for building a new game
 app/src/engine/farm.js   farm animals and props; cursor.js is the hand cursor
 ```
 

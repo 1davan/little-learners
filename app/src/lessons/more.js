@@ -29,7 +29,7 @@ const PLANS = [
 // who eats the pick on each level, where it waits, and where its mouth is (relative to its position)
 const EATERS = [
   { make: () => makeGull(), at: [0, 2.6, -3.6], mouth: [0, 1.0, 0.5], call: 'gull', post: true },
-  { make: () => makeDuck(1.5), at: [0.85, 0, 0.6], mouth: [0, 1.6, 0.7], call: 'quack' },
+  { make: () => makeDuck(1.5), at: [0.8, 0, -1.2], mouth: [0, 1.6, 0.7], call: 'quack' },
   { make: () => { const c = makeCrab(0xff6a3a); c.scale.setScalar(1.35); return c; }, at: [0, 0, -2.4], mouth: [0, 1.0, 0.8], call: 'squeak' },
 ];
 
@@ -62,7 +62,7 @@ export default class MoreLesson extends Lesson {
     this.holderStatics();
     // Pip stands in the gap between the tall stalls / glass jars (no room at the sides, and behind a jar he looked
     // like one of the things to count); the low wagons leave him room at the back
-    const PIP = [[-0.85, 0, 1.3], [-0.85, 0, 1.3], [-6.9, 0, -3.0]][this.level];
+    const PIP = [[-0.8, 0, -1.7], [-0.85, 0, -1.9], [-2.0, 0, -8.5]][this.level];   // set back so he never stands in front of a holder's things
     this.pip.position.set(...PIP);
     this.pip.rotation.y = 0.2;
     this.mood = { t: 0, next: 2, look: 0, tilt: 0 };
@@ -219,7 +219,7 @@ export default class MoreLesson extends Lesson {
     hop(this.s, this.gull, 0.5, 0.35);
     // quick pairing: both groups hop out into two rows, one above the other
     const [Lg, Rg] = this.groups;
-    for (const t of [...Lg, ...Rg]) physics.remove(t);
+    for (const t of [...Lg, ...Rg]) { physics.remove(t); t.visible = true; }   // (the errorless step hid the wrong group: both rows must show for the match-up)
     const n = Math.max(Lg.length, Rg.length), m = Math.min(Lg.length, Rg.length);
     const sp = Math.min(1.15, 6.5 / n);
     const xAt = (i) => (i - (n - 1) / 2) * sp;

@@ -173,7 +173,7 @@ export default class FeelingsLesson extends Lesson {
     // two friends stand either side of Pip's stage; with three, the middle one stands further forward and smaller,
     // so (seen from the raised camera) its head stays below the stage top and never covers Pip
     const xs = two ? [-4.4, 4.4] : [-4.7, 0, 4.7];
-    const zs = two ? [2.3, 2.3] : [2.2, 4.4, 2.2];
+    const zs = two ? [2.3, 2.3] : [2.2, 3.9, 2.2]; // the middle one's feet stay on screen
     const ss = two ? [1.22, 1.22] : [1.15, 0.82, 1.15];
     feelings.forEach((f, i) => {
       const a = makeAnimal(kinds[i]);
@@ -219,7 +219,7 @@ export default class FeelingsLesson extends Lesson {
     return input.addTap(a, { radius: Math.max(size.x, size.y) / 2 * 0.85, offset: c, onTap: () => this.tapFriend(a) });
   }
 
-  promptText() { return `Pip is ${SAY_FEEL[this.emo]} ${FACE_ICON[this.emo]}. Who else is ${SAY_FEEL[this.emo]}?`; }
+  promptText() { return `Pip is ${SAY_FEEL[this.emo]} ${FACE_ICON[this.emo]}. Who else?`; }
 
   async tapFriend(a) {
     if (this.busy || !this.friends.includes(a)) return;

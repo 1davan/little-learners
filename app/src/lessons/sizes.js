@@ -221,13 +221,14 @@ export default class SizesLesson extends Lesson {
   spawnVisitor(kind) {
     const v = makeAnimal(kind);
     v.userData.baseScale = 0.55;
-    v.position.set(11, 0, -2.8);
-    v.rotation.y = -0.6;
+    // comes in from the left and stands beside Pip, in the gap left of the things (on the right it hid behind a big one)
+    v.position.set(-13, 0, -1.6);
+    v.rotation.y = 0.6;
     v.scale.setScalar(0.55);
     this.root.add(v);
     this.visitor = v;
     this.s.wait(0.3).then(() => {
-      this.s.anim(0.6, (_, p) => { v.position.x = 11 - 4.2 * Ease.out(p); v.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.35; }).then(() => { v.position.y = 0; sfx.land(); });
+      this.s.anim(0.6, (_, p) => { v.position.x = -13 + 6.6 * Ease.out(p); v.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.35; }).then(() => { v.position.y = 0; sfx.land(); });
       sfx.patter && sfx.patter();
     });
   }
@@ -345,9 +346,18 @@ export default class SizesLesson extends Lesson {
   // stuck child: the right one hops
   nudgeTarget() { return this.busy ? null : this.things.find((t) => t.userData.role === this.ask) || null; }
 
+  // a simulated thing (a ball that fell from the sky) gets a real physics hop, never a tween that fights the body
+  nudge(step) {
+    const o = this.nudgeTarget();
+    if (!o || !physics.has(o)) return super.nudge(step);
+    sfx.boing();
+    physics.poke(o, 0.7);
+    if (step >= 2) { const stop = fx.halo(o, (o.userData.hit?.r || 1) + 0.3); this.s.wait(3).then(stop); }
+  }
+
   promptText() {
     const n = NOUN[this.kind], i = ICON[this.kind];
-    return this.ask === 'big' ? `Big! Where is the BIG ${n}? ${i}` : `Small! Where is the small ${n}? ${i}`;
+    return this.ask === 'big' ? `Find the BIG ${n}! ${i}` : `Find the small ${n}! ${i}`;
   }
   prompt() {
     this.say(this.promptText(), this.ask === 'big' ? { pitch: 0.75, rate: 0.85 } : { pitch: 1.6, rate: 1.0 });

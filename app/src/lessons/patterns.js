@@ -195,9 +195,11 @@ export default class PatternsLesson extends Lesson {
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = SY + 0.02;
     const q = new T.Group();
-    const arc = ink(geo.torus(0.2, 0.07, Math.PI * 1.4, 6, 16));
+    // the night stage (Level 3) gets a bright yellow "?" — a dark one vanished against the night sky
+    const qm = (g) => (this.level === 2 ? new T.Mesh(g, basic(0xffd23f)) : ink(g));
+    const arc = qm(geo.torus(0.2, 0.07, Math.PI * 1.4, 6, 16));
     arc.rotation.z = -0.5; arc.position.y = 0.15;
-    const dot = ink(geo.sphere(0.08, 8, 6)); dot.position.y = -0.3;
+    const dot = qm(geo.sphere(0.08, 8, 6)); dot.position.y = -0.3;
     q.add(arc, dot);
     marker.add(ring, q);
     marker.position.set(this.slotX(gap, n), 0, ROW_Z);
@@ -528,11 +530,7 @@ export default class PatternsLesson extends Lesson {
       u.ring.scale.setScalar(k);
       u.ring.material.color.setRGB(1, 1 - u.pulse * 0.25, 1 - u.pulse * 0.7);
     }
-    // the waiting parade sways to the beat and the flag flutters
-    if (!this.busy) this.row.forEach((o, i) => { o.rotation.z = Math.sin(t * 5 + i * 1.3) * 0.06; });
-    if (this.leader) this.leader.userData.flag.rotation.y = Math.sin(t * 7) * 0.3;
-    // the engine puffs
-    if (this.engine && this.engine.parent) this.engine.userData.chimney.scale.y = 1 + Math.max(0, Math.sin(t * 5)) * 0.15;
+    // (the waiting parade, its flag and the engine stand still: no idle prop sway; they only move on events)
   }
 
   onFinale() {

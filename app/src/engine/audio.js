@@ -314,3 +314,22 @@ export async function setMusic(world) {
     mus = { s, g };
   } catch (e) { /* audio unavailable */ }
 }
+
+// ---------- voice clips: one at a time (a new line interrupts the last), music dips while speaking ----------
+let voiceSrc = null;
+const voiceBufs = new Map();
+export async function playVoice(file) {
+  try {
+    const c = ac();
+    if (!voiceBufs.has(file)) voiceBufs.set(file, fetch('assets/voice/' + file).then((r) => r.arrayBuffer()).then((b) => c.decodeAudioData(b)).catch(() => null));
+    const buf = await voiceBufs.get(file);
+    if (!buf) return 0;
+    if (voiceSrc) { try { voiceSrc.stop(); } catch (e) { /* */ } }
+    const s = c.createBufferSource(); s.buffer = buf;
+    const g = c.createGain(); g.gain.value = 1.0;
+    s.connect(g); g.connect(master); s.start();
+    voiceSrc = s;
+    if (mus) { mus.g.gain.setTargetAtTime(0.12 * musicVol, c.currentTime, 0.1); s.onended = () => { if (voiceSrc === s && mus) mus.g.gain.setTargetAtTime(0.28 * musicVol, c.currentTime, 0.4); }; }
+    return buf.duration;
+  } catch (e) { return 0; }
+}
