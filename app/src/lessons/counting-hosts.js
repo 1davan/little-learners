@@ -327,15 +327,16 @@ export function makeHost(kind, variant = 0) {
     };
   }
   // tree (variant 1 = pink blossom tree): the Blender tree tinted leaf-green or blossom-pink
-  const obj = prop('prop_m_tree', { tint: variant ? 0xffb3d1 : C.leaf, hide: ['snow'], size: 2.1 }) || makeTree(2.1, variant ? 0xffb3d1 : C.leaf);
-  if (obj.userData.model) obj.add(blobShadow(2.4));
-  obj.position.z = -2.5;
+  // set back a little so the whole crown fits under the caption (it was cut off at the top of the frame)
+  const obj = prop('prop_m_tree', { tint: variant ? 0xffb3d1 : C.leaf, hide: ['snow'], size: 1.95 }) || makeTree(1.95, variant ? 0xffb3d1 : C.leaf);
+  if (obj.userData.model) obj.add(blobShadow(2.3));
+  obj.position.z = -3.6;
   return {
     kind, obj,
     slots: (n, layout) => Array.from({ length: n }, (_, i) => {
-      let x = (i - (n - 1) / 2) * 1.9, y = 5.0;
-      if (layout === 'arc') y = 5.6 - Math.abs(i - (n - 1) / 2) * 0.7;
-      if (layout === 'scatter') { x += (i % 2 ? 0.4 : -0.3); y = 4.4 + ((i * 7) % 3) * 0.6; }
+      let x = (i - (n - 1) / 2) * 1.9, y = 4.6;
+      if (layout === 'arc') y = 5.15 - Math.abs(i - (n - 1) / 2) * 0.7;
+      if (layout === 'scatter') { x += (i % 2 ? 0.4 : -0.3); y = 4.0 + ((i * 7) % 3) * 0.6; }
       return new T.Vector3(x, y, 0.9);
     }),
   };

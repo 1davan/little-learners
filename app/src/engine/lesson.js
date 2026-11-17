@@ -16,6 +16,7 @@ import { physics } from './physics.js';
 import { setAmbience } from './audio.js';
 import { pokeScenery } from './react.js';
 import { awardSticker } from './ui.js';
+import { dressPip } from './piphat.js';
 
 const PRAISE = ['Yay!', 'You did it!', 'Wow!', 'Hooray!', 'Great job!', 'Super!', 'Brilliant!', 'Yes!', 'Amazing!', 'Well done!'];
 const LADDER = [6, 12, 20, 45]; // seconds of no touching → show the cue again, glow + hand, errorless, go home
@@ -57,26 +58,7 @@ export class Lesson {
     this.pip.position.set(-6.9, 0, -0.5);
     this.pip.rotation.y = 0.35;
     this.root.add(this.pip);
-    if (this.meta.world === 'beach') {
-      // sun hat for the beach, sitting on the crown of the head (Pip's head is ~0.76 wide at y 0.45 and tops out at 0.75,
-      // so a brim lower than ~0.6 or a crown narrower than the head there disappears inside it)
-      const hat = mesh(geo.cone(0.44, 0.4, 20), 0xff5a5a, { outline: 0.025 });
-      hat.position.y = 0.8;
-      const brim = mesh(geo.cyl(0.75, 0.75, 0.05, 24), 0xff5a5a, { outline: 0.02 });
-      brim.position.y = 0.6;
-      this.pip.userData.head.add(hat, brim);
-      this.pip.userData.bones?.tuft1?.scale.setScalar(0.01);
-    } else if (this.meta.world === 'farm') {
-      // straw hat with a red band
-      const crown = mesh(geo.cyl(0.4, 0.48, 0.32, 18), 0xf2d16b, { outline: 0.025 });
-      crown.position.y = 0.76;
-      const band = mesh(geo.cyl(0.49, 0.49, 0.08, 18), 0xd94f3d, { outline: 0 });
-      band.position.y = 0.66;
-      const brim = mesh(geo.cyl(0.85, 0.85, 0.05, 24), 0xf2d16b, { outline: 0.02 });
-      brim.position.y = 0.6;
-      this.pip.userData.head.add(crown, band, brim);
-      this.pip.userData.bones?.tuft1?.scale.setScalar(0.01);
-    }
+    dressPip(this.pip, this.meta.world, store.level()); // the world's hat (sun hat, straw hat...), same as on the home page
     this.build();
     this.offs.push(input.onAny(() => { this.idle = 0; this.ladder = 0; }));
     this.offs.push(input.onMash(() => this.mash()));
@@ -233,8 +215,14 @@ export class Lesson {
       s.anim(0.8, (_, p) => { w.forEach((x, i) => (x.rotation.z = r0[i] + (i ? 1 : -1) * Math.abs(Math.sin(p * Math.PI * 4)) * 1.1)); }).then(() => w.forEach((x, i) => (x.rotation.z = r0[i])));
       hop(s, pip, 0.4, 0.35);
     } else {
-      const r0 = pip.rotation.x;
-      s.anim(0.6, (_, p) => { pip.rotation.x = r0 - Ease.inOut(p) * Math.PI * 2; pip.position.y = Math.sin(p * Math.PI) * 1.3; }).then(() => { pip.rotation.x = r0; pip.position.y = 0; sfx.land(); });
+      // a cartwheel spin around Pip's middle, in the picture plane (never swings toward the camera)
+      const r0 = pip.rotation.z, x0 = pip.position.x, c = 1.2 * pip.scale.y;
+      s.anim(0.6, (_, p) => {
+        const a = Ease.inOut(p) * Math.PI * 2;
+        pip.rotation.z = r0 + a;
+        pip.position.x = x0 + c * Math.sin(a);
+        pip.position.y = c - c * Math.cos(a) + Math.sin(p * Math.PI) * 0.9;
+      }).then(() => { pip.rotation.z = r0; pip.position.x = x0; pip.position.y = 0; sfx.land(); });
     }
   }
 

@@ -1287,7 +1287,7 @@ export function makeFarm({ floor: floorCol = 0x9bd45a, hills = [0x86c44e, 0xe8c9
   if (pondDeco) { pondDeco.position.set(5.5, 0, -7); g.add(pondDeco); }
   if (grass) addGrass(g, grass, 140, 26, -1.5);
   addPatches(g, patch, 14);
-  if (sun) g.add(makeSun(23, 10.5, -44));
+  if (sun) g.add(makeSun(-19, 12.5, -44)); // up between the barn and the silo, clear of the turning windmill sails
   for (let i = 0; i < clouds; i++) g.add(makeCloud(-18 + i * (45 / clouds), 9.5 + (i % 3), -22 - (i % 2) * 4, 0.9 + (i % 3) * 0.25, cloud));
   const fl = flies ? [makeButterfly(0xff8fc0, -4, 2.6, -3), makeButterfly(0xffd23f, 5, 3, -2.5)] : [];
   if (fl.length) g.add(...fl);
@@ -1713,7 +1713,7 @@ function meadowWinter() {
   for (const [x, z, s] of [[-13.5, -3, 1.0], [13.5, -2.6, 0.9], [-7.5, -9.5, 0.8], [9, -10, 0.9]]) place(g, makePine(s, true), x, 0, z);
   // snow drifts
   for (const [x, z, s] of [[-12, 0.5, 1.2], [12.5, 1, 1], [1.6, -8.6, 1.2], [-4, -9.4, 1]]) {
-    const d = mesh(dome(1, 18, 6), 0xffffff, { outline: 0.02 }); d.scale.set(1.6 * s, 0.4 * s, 1 * s); d.position.set(x, 0, z); g.add(d);
+    const d = mesh(dome(1, 18, 6), 0xeef4fb, { outline: 0 }); d.scale.set(1.6 * s, 0.4 * s, 1 * s); // soft, no ink line (read as stray arcs on snow) d.position.set(x, 0, z); g.add(d);
   }
   // a frozen pond with shiny streaks
   const ice = new T.Mesh(geo.circle(2, 28), toon(0xbfe4fa)); ice.rotation.x = -Math.PI / 2; ice.scale.set(1.6, 0.75, 1); ice.position.set(6.5, 0.02, -7.5);

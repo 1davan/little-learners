@@ -68,8 +68,8 @@ export function makeSpot(kind) {
     ring.rotation.x = -Math.PI / 2; ring.position.set(-0.7, 0.045, 0.2); g.add(ring);
     g.userData.ring = ring;
   } else if (kind === 'mud') {
-    g.add(disc(1.2, 0x8a5a34, 0.02, 1.35, 0.8), disc(1.0, 0x6b4423, 0.03, 1.35, 0.8));
-    for (const [x, z] of [[-1.2, 0.25], [1.2, -0.15], [1.05, 0.6]]) { const b = mesh(geo.sphere(0.13, 10, 8), 0x5a3a20, { outline: 0.01 }); b.scale.y = 0.45; b.position.set(x, 0.05, z); g.add(b); }
+    g.add(disc(1.2, 0xb08050, 0.02, 1.35, 0.8), disc(1.0, 0x9a6a40, 0.03, 1.35, 0.8)); // warm mid-brown: reads as mud, never as a dark hole
+    for (const [x, z] of [[-1.2, 0.25], [1.2, -0.15], [1.05, 0.6]]) { const b = mesh(geo.sphere(0.13, 10, 8), 0x80562f, { outline: 0.01 }); b.scale.y = 0.45; b.position.set(x, 0.05, z); g.add(b); }
   } else if (kind === 'tree') {
     // the tree stands well back and to the side, so it never sits right behind the animal's head
     const t = makeTree(0.62); t.position.set(-1.75, 0, -2.6); g.add(t);
@@ -293,7 +293,7 @@ export const SIGNATURE = {
   // the pig rolls over in a mud puddle and gets a muddy spot
   async pig(s, a, root) {
     const home = a.position.clone(), base = a.userData.baseScale ?? 1, c = 0.9 * base;
-    puddle(s, root, home, 0x6b4423);
+    puddle(s, root, home, 0x9a6a40);
     sfx.splash();
     // roll over sideways around the middle of the body
     await s.anim(0.7, (e) => {

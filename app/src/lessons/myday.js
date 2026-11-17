@@ -40,6 +40,9 @@ const DUVET = {
   folded: { p: [BED.x + 1.95, 1.05, BED.z], r: [0, 0, 0], s: [0.32, 2.4, 1.0] },
 };
 
+// where Pip stands in each room: in from the frame edge (at ±12.2/13.4 half of Pip was cut off by the screen side)
+const PIP_X = { bath: -11.3, bed: 12.5 };
+
 // how a thing is held while carried, and its business end (wrapper-local) - the brush head goes to the mouth
 const CARRY = {
   brush: { rot: [0.1, Math.PI, 0.25], tip: [0.44, 0.16, 0] },
@@ -130,7 +133,7 @@ export default class MydayLesson extends Lesson {
     this.room = this.level === 1 ? 'bed' : 'bath';
     this.cam = { from: null, to: null, t: 1 };
     this.setRoom(this.room, true);
-    this.pip.position.set(this.room === 'bath' ? -12.2 : 13.4, 0, 1.4);
+    this.pip.position.set(PIP_X[this.room], 0, 1.4);
     this.pip.rotation.y = this.room === 'bath' ? 0.5 : -0.5;
     this.phase = 'idle';
     this.dim = 0;
@@ -312,7 +315,7 @@ export default class MydayLesson extends Lesson {
   }
   pipFollow(room) {
     const p = this.pip, s = this.s;
-    const out = room === 'bed' ? -15 : 16, inn = room === 'bed' ? 16.5 : -15.5, to = room === 'bed' ? 13.4 : -12.2;
+    const out = room === 'bed' ? -15 : 16, inn = room === 'bed' ? 16.5 : -15.5, to = PIP_X[room];
     const x0 = p.position.x;
     s.anim(0.9, (e) => { p.position.x = x0 + (out - x0) * e; }).then(() => {
       p.position.x = inn;
@@ -377,8 +380,10 @@ export default class MydayLesson extends Lesson {
     this.si++;
     if (this.si < this.steps.length) {
       sfx.note(this.si * 2);
+      // a small pop of confetti beside Bunny's head (on the side away from the camera's centre), never on the face
       const tp = this.target(this.steps[this.si - 1].at || 'body').pos;
-      fx.confetti(tp, 12);
+      const side = tp.x > this.bunny.position.x ? 1 : -1;
+      fx.confetti(new T.Vector3(this.bunny.position.x + side * 1.6, tp.y + 0.4, tp.z + 0.4), 10);
       await this.wait(0.15);
       this.startStep();
       return;

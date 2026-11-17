@@ -229,7 +229,7 @@ export default class BandLesson extends Lesson {
     if (!d) return;
     setDot(d, state);
     const b = 1;
-    this.s.anim(0.3, (_, p) => d.scale.setScalar(b + Math.sin(p * Math.PI) * (d.userData.loud ? 0.45 : 0.3))).then(() => d.scale.setScalar(b));
+    this.s.anim(0.3, (_, p) => d.scale.setScalar(b + Math.sin(p * Math.PI) * (d.userData.loud ? 0.18 : 0.22))).then(() => d.scale.setScalar(b)); // (a loud dot already fills the board: its pop stays inside the frame)
   }
 
   pipHit(k, dot) {

@@ -132,22 +132,35 @@ export function setMode(mode) {
 }
 
 // ---------- sticker award ----------
+// A clean, short moment: the scene dims a touch, the game's sticker pops in (die-cut look, slight tilt) on a soft glow,
+// a few sparkles twinkle once and a shine sweeps across it; ~2.4 s later (or on a tap) it flies off to the top-left
+// corner, where the sticker shelf lives on the home screen.
+const SPARKS = [[-17, -11, 1.0, 0.35], [16, -14, 0.8, 0.5], [19, 7, 1.0, 0.65], [-18, 10, 0.7, 0.8], [-6, -19, 0.6, 0.95], [8, 18, 0.65, 1.05]];
 export function awardSticker(meta) {
   return new Promise((resolve) => {
     const el = document.createElement('div');
     el.className = 'award';
     el.style.setProperty('--c', meta.color);
-    el.innerHTML = `<div class="burst"></div><div class="sticker">${meta.icon}</div>`;
+    el.innerHTML = '<div class="glow"></div><div class="stk-wrap"><div class="sticker"><span>' + meta.icon + '</span><i class="shine"></i></div>' +
+      SPARKS.map(([x, y, k, d]) => `<i class="tw" style="--x:${x}vmin;--y:${y}vmin;--k:${k};--d:${d}s"></i>`).join('') + '</div>';
     ui.appendChild(el);
+    sfx.sparkle && sfx.sparkle();
     let done = false;
     const finish = () => {
       if (done) return; done = true;
       el.classList.add('fly');
       sfx.whoosh();
-      setTimeout(() => { el.remove(); resolve(); }, 650);
+      // fly into the top-left corner (the sticker shelf on the home screen / the home button in a game)
+      const w = el.querySelector('.stk-wrap');
+      const r = w.getBoundingClientRect();
+      const v = Math.min(innerWidth, innerHeight) / 100;
+      const dx = 8 * v - (r.left + r.width / 2), dy = 8 * v - (r.top + r.height / 2);
+      w.animate([{ transform: 'translate(0, 0) scale(1)' }, { transform: `translate(${dx * 0.55}px, ${dy * 0.35 - 4 * v}px) scale(.62)`, offset: 0.45 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.16)`, opacity: 0.9 }], { duration: 560, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' });
+      setTimeout(() => { el.remove(); resolve(); }, 580);
     };
     el.addEventListener('pointerdown', (e) => { e.stopPropagation(); sfx.pop(); finish(); });
-    setTimeout(finish, 6500);
+    setTimeout(finish, 2600);
   });
 }
 

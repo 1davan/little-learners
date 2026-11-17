@@ -256,9 +256,9 @@ export default class CountingLesson extends Lesson {
     const i = this.count++;
     sfx.note(i);
     const last = this.count === this.n;
-    // the numeral pops up big over the fruit (no voice: the numeral carries the count)
+    // the numeral pops up big over the fruit (no voice: the numeral carries the count); beside a thing on the ground, which springs straight up next
     f.getWorldPosition(tmp);
-    fx.float(tmp.clone().add(new T.Vector3(0, 0.9, 0)), String(i + 1), { color: NUM_COL[i], size: 11 });
+    fx.float(tmp.clone().add(f.position.y < 1.5 ? new T.Vector3(-0.85, 1.0, 0) : new T.Vector3(0, 0.9, 0)), String(i + 1), { color: NUM_COL[i], size: 11 });
     if (f.userData.golden) { sfx.sparkle(); fx.confetti(tmp.clone(), 18); }
     this.release(f, i);
     // the eater follows it with its eyes and gets more excited with every fruit

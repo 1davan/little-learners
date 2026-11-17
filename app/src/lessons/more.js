@@ -28,9 +28,10 @@ const PLANS = [
 ];
 // who eats the pick on each level, where it waits, and where its mouth is (relative to its position)
 const EATERS = [
-  { make: () => makeGull(), at: [0, 2.6, -3.6], mouth: [0, 1.0, 0.5], call: 'gull', post: true },
-  { make: () => makeDuck(1.5), at: [0.8, 0, -1.2], mouth: [0, 1.6, 0.7], call: 'quack' },
-  { make: () => { const c = makeCrab(0xff6a3a); c.scale.setScalar(1.35); return c; }, at: [0, 0, -2.4], mouth: [0, 1.0, 0.8], call: 'squeak' },
+  { make: () => makeGull(), at: [0.95, 2.6, -3.6], mouth: [0, 1.0, 0.5], call: 'gull', post: true },   // post right of Pip, never growing out of him
+  { make: () => makeDuck(1.5), at: [0.95, 0, -2.8], mouth: [0, 1.6, 0.7], call: 'quack' },
+  // big Crab at 1.1 (3.9 wide): its claws stay clear of the wagons' inner ends and it doesn't hide Pip behind it
+  { make: () => { const c = makeCrab(0xff6a3a); c.scale.setScalar(1.1); return c; }, at: [0, 0, -2.6], mouth: [0, 0.82, 0.65], call: 'squeak' },
 ];
 
 export default class MoreLesson extends Lesson {
@@ -52,7 +53,7 @@ export default class MoreLesson extends Lesson {
     this.root.add(this.gull);
     if (E.post) {
       const post = makePost();
-      post.position.set(0, 0, -3.6);
+      post.position.set(E.at[0], 0, E.at[2]);
       this.root.add(post);
     }
     this.groups = [[], []];
@@ -62,7 +63,9 @@ export default class MoreLesson extends Lesson {
     this.holderStatics();
     // Pip stands in the gap between the tall stalls / glass jars (no room at the sides, and behind a jar he looked
     // like one of the things to count); the low wagons leave him room at the back
-    const PIP = [[-0.8, 0, -1.7], [-0.85, 0, -1.9], [-2.0, 0, -8.5]][this.level];   // set back so he never stands in front of a holder's things
+    // L2: Pip and Duck stand further back so both fit inside the gap between the jars (the jars' glass posts and the
+    // things in them no longer overlap them)
+    const PIP = [[-0.8, 0, -1.7], [-0.7, 0, -3.3], [-2.9, 0, -8.5]][this.level];   // set back so he never stands in front of a holder's things
     this.pip.position.set(...PIP);
     this.pip.rotation.y = 0.2;
     this.mood = { t: 0, next: 2, look: 0, tilt: 0 };
@@ -196,7 +199,7 @@ export default class MoreLesson extends Lesson {
     this.mood.look = side ? -0.7 : 0.7;
     this.mood.tilt = side ? -0.35 : 0.35;
     s.anim(0.6, (_, p) => { g.rotation.x = Math.sin(p * Math.PI * 4) * 0.1; }).then(() => { g.rotation.x = 0; this.mood.tilt = 0; });
-    fx.float(g.position.clone().add(new T.Vector3(0, 1.7 * g.scale.y, 0)), '?', { color: '#3fb6e0', size: 7 });
+    fx.float(g.position.clone().add(new T.Vector3(0, 1.7 * g.scale.y, 0)), '?', { color: this.level === 2 ? '#ffd23f' : '#3fb6e0', size: 7 });   // yellow on the night beach (blue vanished)
   }
 
   async pick(side) {

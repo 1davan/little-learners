@@ -47,6 +47,32 @@ onFrame((dt) => {
   im.instanceMatrix.needsUpdate = true;
 });
 
+// The halo: a soft warm ring with a bright white core line, fading out on both sides (one shared texture).
+// The plane is 2.8 units wide, so at scale r the ring's core sits at radius r.
+const haloGeo = new T.PlaneGeometry(2.8, 2.8);
+let _haloTex = null;
+function haloTex() {
+  if (_haloTex) return _haloTex;
+  const S = 256, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  const R = S / 2, core = R / 1.4; // radius 1.0 of 1.4
+  const grad = g.createRadialGradient(R, R, core * 0.7, R, R, R);
+  const at = (rr) => (rr * core - core * 0.7) / (R - core * 0.7);
+  grad.addColorStop(0, 'rgba(255,208,60,0)');
+  grad.addColorStop(at(0.84), 'rgba(255,208,60,0.7)');
+  grad.addColorStop(at(0.96), 'rgba(255,250,215,1)');
+  grad.addColorStop(at(1.04), 'rgba(255,250,215,1)');
+  grad.addColorStop(at(1.16), 'rgba(255,200,50,0.65)');
+  grad.addColorStop(1, 'rgba(255,200,50,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, S, S);
+  _haloTex = new T.CanvasTexture(c);
+  _haloTex.colorSpace = T.SRGBColorSpace;
+  _haloTex.userData.shared = true;
+  return _haloTex;
+}
+
 const hands = new Set();
 function ripple(x, y) {
   const r = document.createElement('div');
@@ -69,38 +95,43 @@ export const fx = {
     document.getElementById('fx').appendChild(el);
     setTimeout(() => el.remove(), 1100);
   },
-  confetti(pos, n = 50) {
+  // A short, tidy pop of confetti from a world point: a compact fountain that settles within ~1.6 s.
+  confetti(pos, n = 36) {
     const v = new T.Vector3();
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 5;
-      v.set(Math.cos(a) * sp * 0.8, 4 + Math.random() * 6, Math.sin(a) * sp * 0.4 + 1.5);
-      spawn(pos, v, 1.6 + Math.random() * 1.2);
+      const a = Math.random() * Math.PI * 2, sp = 1.8 + Math.random() * 3;
+      v.set(Math.cos(a) * sp, 3.5 + Math.random() * 4, Math.sin(a) * sp * 0.4 + 1);
+      spawn(pos, v, 1.0 + Math.random() * 0.7);
     }
   },
-  rain(n = 220) {
+  // The finale: a light shower over the whole scene.
+  rain(n = 120) {
     const p = new T.Vector3(), v = new T.Vector3();
     for (let i = 0; i < n; i++) {
       p.set(Math.random() * 24 - 12, 9 + Math.random() * 6, Math.random() * 6 - 1);
       v.set(Math.random() - 0.5, -1 - Math.random(), 0);
-      spawn(p, v, 4 + Math.random() * 2.5);
+      spawn(p, v, 3.5 + Math.random() * 2);
     }
   },
 
-  // Pulsing yellow ring behind an object. Returns a stop function.
+  // A soft glowing ring around an object's origin (drawn over everything), gently breathing. Returns a stop function.
   halo(obj, r = 1.2) {
-    const m = new T.Mesh(new T.RingGeometry(r * 0.85, r * 1.15, 48), new T.MeshBasicMaterial({ color: 0xfff27a, transparent: true, opacity: 0.8, depthWrite: false, depthTest: false }));
+    const m = new T.Mesh(haloGeo, new T.MeshBasicMaterial({ map: haloTex(), transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
     m.renderOrder = 5;
+    m.scale.setScalar(r);
     scene.add(m);
     const wp = new T.Vector3();
+    const t0 = performance.now() / 1000;
     const off = onFrame((dt, t) => {
       obj.getWorldPosition(wp);
       m.position.copy(wp);
       m.quaternion.copy(camera.quaternion);
-      const k = 1 + Math.sin(t * 6) * 0.12;
-      m.scale.setScalar(k);
-      m.material.opacity = 0.55 + Math.sin(t * 6) * 0.3;
+      const age = performance.now() / 1000 - t0;
+      const k = 1 + Math.sin(t * 4.5) * 0.06;
+      m.scale.setScalar(r * k * (age < 0.25 ? 0.7 + 1.2 * age : 1));
+      m.material.opacity = Math.min(1, age * 4) * (0.78 + Math.sin(t * 4.5) * 0.2);
     });
-    return () => { off(); scene.remove(m); m.geometry.dispose(); m.material.dispose(); };
+    return () => { off(); scene.remove(m); m.material.dispose(); };
   },
 
   sparkle(x, y) {

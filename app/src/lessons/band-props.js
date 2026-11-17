@@ -302,7 +302,7 @@ export function animDots(g) {
   for (const d of g.userData.dots || []) {
     const n = d.userData.num; if (!n || !n.visible) continue;
     const t = (now - (n.userData.pop || 0)) / 1000;
-    const k = t < 0.35 ? 1 + Math.sin((t / 0.35) * Math.PI) * 0.6 * (1 - t / 0.35) : 1;
+    const k = t < 0.35 ? 1 + Math.sin((t / 0.35) * Math.PI) * 0.35 * (1 - t / 0.35) : 1;
     const e = Math.min(1, t / 0.12);
     n.scale.setScalar(Math.max(0.001, e * k));
   }
@@ -374,9 +374,11 @@ export function makeStage(level, makeHay) {
       const b = new T.Mesh(geo.sphere(0.13, 10, 8), toonUnique(col, { emissive: col, emissiveIntensity: 0.6 }));
       b.position.set(x, y, -2.0); g.add(b); bulbs.push(b);
     }
-    for (const x of [-2.2, 5.0]) {
-      const beam = new T.Mesh(geo.cone(1.6, 6, 24, true), new T.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.16, depthWrite: false, side: T.DoubleSide }));
-      beam.position.set(x * 0.6 + 0.6, 3.0, 0.6); beam.rotation.z = x < 0 ? -0.25 : 0.25; g.add(beam);
+    // two soft spotlight pools on the stage under the instruments (no see-through light cones: those washed out
+    // the beat board and the friends standing behind them)
+    for (const [x, z, r] of [[-0.5, 1.3, 2.0], [3.4, 1.8, 1.4]]) {
+      const pool = new T.Mesh(new T.CircleGeometry(r, 40), new T.MeshBasicMaterial({ color: 0xfff2a0, transparent: true, opacity: 0.22, depthWrite: false, blending: T.AdditiveBlending }));
+      pool.rotation.x = -PI / 2; pool.scale.set(1.15, 0.75, 1); pool.position.set(x, 0.07, z); g.add(pool);
     }
     g.userData.bulbs = bulbs;
   }

@@ -38,7 +38,7 @@ const CARD_Z = 0.05;        // a card's centre on its stand (stand-relative)
 export default class StoryLesson extends Lesson {
   build() {
     setCamera(CAM.pos, CAM.look);
-    this.pip.position.set(-5.6, 0, 1.2);
+    this.pip.position.set(-5.1, 0, 1.0); // (in from the left edge: the hat brim was clipped by the frame)
     this.pip.rotation.y = 0.5;
     // three big stands (Levels 1 and 2) or four (Level 3); the cards on them are this size too
     const n = this.level === 2 ? 4 : 3;

@@ -19,6 +19,7 @@ import { renderShelf, checkSleepy, setPageHandler, renderPages, setLevelHandler,
 import { WORLDS } from './lessons/meta.js';
 import { makeCreature, hasCreature, garmentProp } from './engine/creature.js';
 import { propModel, propAnchor } from './engine/prop-models.js';
+import { staticProp, dressPip } from './engine/piphat.js';
 import { makeFarmAnimal, makeCarrot, makeDrum, makePot, makeChick } from './engine/farm.js';
 import { makeCrab, makeBucket, makeBeachBall, makeShell } from './engine/beach.js';
 import { makeBrick } from './lessons/bricks-pieces.js';
@@ -42,35 +43,6 @@ const modelOf = (o) => o.userData.model || o;
 function mountOf(o) {
   const u = modelOf(o).userData;
   return u.head?.isBone ? u.head : u.body?.isBone ? u.body : modelOf(o);
-}
-// Layer names and outline weight of a model (read once from a throwaway instance).
-const _info = new Map();
-function modelInfo(kind) {
-  if (!_info.has(kind)) {
-    const c = makeCreature(kind);
-    _info.set(kind, { layers: Object.keys(c.userData.layers || {}).filter((n) => !/^cloth/.test(n)), outline: c.children[0]?.userData.outline ?? 0.025 });
-  }
-  return _info.get(kind);
-}
-// A Blender prop as plain static meshes sharing the loaded geometry: no skeleton, no idle sway, no per-frame cost.
-// For things that sit still: pedestals, hats, crowns, pedestal trim. tint: colour for the base layer (painted white /
-// greys in Blender); layerTint: { layerName: colour } for others; unlit: layer names drawn flat (glowing lanterns).
-function staticProp(kind, { tint = null, layerTint = {}, unlit = [] } = {}) {
-  if (!hasCreature(kind)) return null;
-  const info = modelInfo(kind);
-  const g = new T.Group();
-  for (const name of [kind, ...info.layers]) {
-    const gp = garmentProp(kind, name);
-    const src = gp && gp.children[0].children.find((o) => o.isMesh && !o.userData.outline);
-    if (!src) continue;
-    const col = name === kind ? tint ?? 0xffffff : layerTint[name] ?? 0xffffff;
-    const mat = unlit.includes(name) ? basic(col, { vertexColors: true }) : toon(col, { vertexColors: true });
-    const m = mesh(src.geometry, col, { outline: name === kind ? info.outline : info.outline * 0.8, mat });
-    m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
-    m.name = name;
-    g.add(m);
-  }
-  return g;
 }
 // Recolour one layer of a creature-style model (its white / grey paint times the colour).
 function tintLayer(m, name, col) {
@@ -665,7 +637,7 @@ export class Home {
     this.pip.scale.setScalar(0.55);
     this.pip.userData.baseScale = 0.55;
     this.root.add(this.pip);
-    addHat(this.pip, this.world.id, this.level, 0x6a8fff, 0.72);
+    dressPip(this.pip, this.world.id, this.level);
     input.addTap(this.pip, { radius: 0.7, offset: new T.Vector3(0, 0.6, 0), onTap: () => this.tapPip(), onRelease: true });
 
     this.offs.push(input.onAny(() => { this.idle = 0; }));

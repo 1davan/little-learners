@@ -25,13 +25,13 @@ function burst(bx, by) {
   const b = document.createElement('div');
   b.className = 'cur-burst';
   b.style.left = bx + 'px'; b.style.top = by + 'px';
-  const n = 8, rot = Math.random() * 45;
+  const n = 6, rot = Math.random() * 60;
   for (let i = 0; i < n; i++) {
     const s = document.createElement('i');
     s.textContent = i % 2 ? '★' : '●';
     s.style.color = COLS[(i + Math.floor(Math.random() * 6)) % COLS.length];
     s.style.setProperty('--a', rot + (i * 360) / n + 'deg');
-    s.style.setProperty('--d', 7 + Math.random() * 4 + 'vmin');
+    s.style.setProperty('--d', 5 + Math.random() * 2.5 + 'vmin');
     b.appendChild(s);
   }
   const ring = document.createElement('b');

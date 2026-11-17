@@ -58,13 +58,18 @@ function minY(geom) {
   for (let i = 0; i < idx.length; i++) m = Math.min(m, pos.getY(idx[i]));
   return m;
 }
+// (the shorts' waistband poked through the T-shirt's hem the same way; a slimmer overlap keeps no gap at the hem)
+const UNDER = { cloth_body_dungarees: 0.12, cloth_legs_shorts: 0.05 };
 function fitLayers(monkey) {
-  const L = monkey.userData.layers, d = L.cloth_body_dungarees;
-  if (!d) return;
-  d.orig = d.orig || d.mesh.geometry;
+  const L = monkey.userData.layers;
   const top = TOPS.map((n) => L['cloth_body_' + n]).find((l) => l && l.mesh.visible);
-  const g = top ? trimmedUnder(d.orig, minY(top.mesh.geometry) + 0.12) : d.orig;
-  d.mesh.geometry = g; d.outline.geometry = g;
+  for (const [name, lap] of Object.entries(UNDER)) {
+    const d = L[name];
+    if (!d) continue;
+    d.orig = d.orig || d.mesh.geometry;
+    const g = top ? trimmedUnder(d.orig, minY(top.mesh.geometry) + lap) : d.orig;
+    d.mesh.geometry = g; d.outline.geometry = g;
+  }
 }
 
 
@@ -216,6 +221,35 @@ function hideInnerOutline(w) {
   });
 }
 
+// wardrobe.glb has one stray cream (cabinet-inside colour) triangle on the front of the left door, which read as a
+// pale wedge stuck on the purple. Any door-bone vertex painted cream takes the door's
+// main colour. Runs once on the shared geometry; a no-op once the model itself is fixed.
+function fixDoorPaint(w) {
+  w.traverse((o) => {
+    if (!o.isSkinnedMesh || o.userData.outline || o.geometry.userData.doorFixed) return;
+    const g = o.geometry, P = g.attributes.position, C = g.attributes.color, S = g.attributes.skinIndex;
+    const bones = o.skeleton?.bones || [];
+    const door = new Set(bones.map((b, i) => (/^door/.test(b.name) ? i : -1)).filter((i) => i >= 0));
+    if (!C || !S || !door.size) return;
+    g.userData.doorFixed = true;
+    const isCream = (i) => C.getX(i) > 0.95 && C.getY(i) > 0.85 && C.getZ(i) > 0.6;
+    const odd = [], ok = [];
+    for (let i = 0; i < P.count; i++) {
+      if (!door.has(S.getX(i))) continue;
+      (P.getZ(i) > 0.7 && isCream(i) ? odd : ok).push(i);
+    }
+    if (!odd.length || odd.length > 12) return;      // only ever a stray triangle or two, never a whole painted area
+    // the door's main colour: the commonest colour on the door fronts
+    const count = new Map();
+    for (const j of ok) if (P.getZ(j) > 0.7) { const k = [C.getX(j), C.getY(j), C.getZ(j)].map((v) => v.toFixed(3)).join(); count.set(k, (count.get(k) || 0) + 1); }
+    const main = [...count.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (!main) return;
+    const [r, gg, b] = main[0].split(',').map(Number);
+    for (const i of odd) C.setXYZ(i, r, gg, b);
+    C.needsUpdate = true;
+  });
+}
+
 function doorHeart() {
   const s = new T.Shape();
   s.moveTo(0, -0.3);
@@ -262,6 +296,7 @@ export default class DressLesson extends Lesson {
     const w = (this.wardrobe = makeCreature('wardrobe'));
     w.position.copy(WARD.pos); w.rotation.y = WARD.rot; w.scale.setScalar(WARD.scale);
     this.root.add(w);
+    fixDoorPaint(w);
     this.doors = [w.userData.bones.doorL, w.userData.bones.doorR];
     // a crisp pink heart on each door (a flat decal riding on the door bone)
     this.doors.forEach((d, i) => { if (d) { const h = doorHeart(); h.position.set(i ? -0.64 : 0.64, 1.86, 0.075); d.add(h); } });
@@ -426,7 +461,7 @@ export default class DressLesson extends Lesson {
     const p = makeProp(name);
     const s = p.userData.size;
     const ud = p.userData;
-    const tilt = g.slot === 'feet' ? 0.35 : g.slot === 'head' ? 0.3 : g.slot === 'legs' ? 0.3 : 0.12;
+    const tilt = g.slot === 'feet' ? 0.35 : g.slot === 'head' ? 0.3 : name === 'tutu' ? 0.3 : name === 'shorts' ? -0.2 : 0.12;   // shorts tipped toward us showed their cream lining: a bowl
     ud.ry = showRy(name);
     p.rotation.set(tilt, ud.ry, 0);
     // big and upright, facing us, filling its backing disc (up to twice the worn size, so glasses read too).

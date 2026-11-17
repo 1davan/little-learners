@@ -534,13 +534,16 @@ export default class ShapesLesson extends Lesson {
       p.scale.setScalar(0.8);
       this.root.add(p);
       sfx.pop();
-      if (this.phys(p)) physics.body(p).setLinvel({ x: (Math.random() - 0.5) * 3, y: 3, z: 3 + Math.random() }, true);
+      // aim each one at the middle stretch of grass, clear of the bunny and the bear standing at the sides
+      const tx = Math.min(3.4, Math.max(-2.9, w.x)) + (Math.random() - 0.5) * 1.2;
+      if (this.phys(p)) physics.body(p).setLinvel({ x: (tx - w.x) / 0.8, y: 3, z: 3 + Math.random() }, true);
     }));
     ['bunny', 'bear'].forEach((k, i) => {
       const a = makeAnimal(k);
-      // out to the sides (the shapes tumble down in the middle), each with a body the shapes bump into
-      a.position.set(i ? 5.4 : -5.4, 0, 3);
-      physics.box(new T.Vector3(a.position.x, 1.0, 3), new T.Vector3(1.2, 2.0, 1.0));
+      // out to the sides (the shapes tumble down in the middle), each with a body the shapes bump into;
+      // the bunny stands beside Pip (level with him, just to his right) so it never hides him
+      a.position.set(i ? 5.4 : -4.3, 0, i ? 3 : 1.5);
+      physics.box(new T.Vector3(a.position.x, 1.0, a.position.z), new T.Vector3(1.2, 2.0, 1.0));
       a.scale.setScalar(0.9);
       a.userData.baseScale = 0.9;
       this.root.add(a);

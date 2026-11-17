@@ -32,7 +32,8 @@ function sunglasses(span) {
 
 function sunscreen() {
   const d = pm('prop_dollop');
-  if (d) return d;
+  // tipped so the swirl's curly tip points up-and-out: seen tip-on it read as a flat white button
+  if (d) { d.userData.model.rotation.x = -0.5; d.userData.model.scale.multiplyScalar(0.85); return d; }   // (steeper read as a horn)
   const b = mesh(geo.sphere(0.11, 12, 8), 0xffffff, { outline: 0.012 });
   b.scale.set(1.3, 0.9, 0.7);
   return b;

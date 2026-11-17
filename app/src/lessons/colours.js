@@ -383,7 +383,14 @@ export default class ColoursLesson extends Lesson {
     sfx.gasp();
     s.anim(0.18, (_, q) => { b.scale.set(1 - q * 0.06, 1 + q * 0.12, 1 - q * 0.06); });
     item.userData.body.position.set(0, 0, 0);
-    await s.tween(item.position, { x: tube.position.x + (Math.random() - 0.5) * 0.3, y: u.mouthY + 0.8, z: tube.position.z }, 0.18, Ease.out);
+    // lift first, then slide over the mouth, so a thing dropped in front of the container never cuts through its wall
+    {
+      const p0 = item.position.clone(), p1 = new T.Vector3(tube.position.x + (Math.random() - 0.5) * 0.3, Math.max(u.mouthY + 0.8, item.position.y), tube.position.z);
+      await s.anim(0.2, (_, p) => {
+        const up = 1 - (1 - Math.min(1, p * 1.6)) ** 2, over = Math.max(0, (p - 0.3) / 0.7) ** 1.5;
+        item.position.set(p0.x + (p1.x - p0.x) * over, p0.y + (p1.y - p0.y) * up, p0.z + (p1.z - p0.z) * over);
+      });
+    }
     b.scale.set(1, 1, 1);
     u.items.push(item);
     sfx.swoosh();

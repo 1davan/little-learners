@@ -333,8 +333,9 @@ function makeChairProp() {
   if (pm) { ch.clear(); ch.add(pm); }
   g.add(ch, blobShadow(1.3));
   g.userData.zones = {
-    on: { pos: V(0, 2.1, 0.1), rest: V(0, SEAT + 0.06, 0.15), radius: 1.3 },
-    under: { pos: V(0, 0.5, 1.3), rest: V(0, 0, 0.1), radius: 1.2 },
+    // fit: the friend sits between the arm rests / between the legs, claws clear of the frame (a crab is 3.5 wide)
+    on: { pos: V(0, 2.1, 0.1), rest: V(0, SEAT + 0.06, 0.2), radius: 1.3, fit: 0.52 },
+    under: { pos: V(0, 0.5, 1.3), rest: V(0, 0, 0.1), radius: 1.2, fit: 0.5 },
   };
   g.userData.cover = {
     async lift() {},
@@ -571,7 +572,7 @@ export function splashCrown(s, parent, center, r, color = 0x7fd0ff) {
   const drops = [];
   const n = 12;
   for (let i = 0; i < n; i++) {
-    const d = makeWaterDrop(0.12 + (i % 3) * 0.03, i % 3 ? color : 0xdff6ff);
+    const d = makeWaterDrop(0.085 + (i % 3) * 0.025, i % 3 ? color : 0xdff6ff);   // small, so the crown never hides the friend's face
     const a = (i / n) * Math.PI * 2;
     d.userData.a = a;
     d.userData.k = d.scale.x;
@@ -580,13 +581,13 @@ export function splashCrown(s, parent, center, r, color = 0x7fd0ff) {
     drops.push(d);
   }
   // a tall centre spout
-  const spout = makeWaterDrop(0.22, color);
+  const spout = makeWaterDrop(0.16, color);
   spout.userData.k = spout.scale.x;
   spout.position.copy(center);
   parent.add(spout);
-  return s.anim(0.7, (_, p) => {
+  return s.anim(0.6, (_, p) => {
     for (const d of drops) {
-      const rr = r * (0.7 + p * 0.9);
+      const rr = r * (0.95 + p * 1.1);   // flies outward, clear of the friend in the middle
       d.position.set(center.x + Math.cos(d.userData.a) * rr, center.y + Math.sin(p * Math.PI) * 1.5 - p * 0.4, center.z + Math.sin(d.userData.a) * rr * 0.7);
       d.scale.setScalar(d.userData.k * Math.max(0.01, 1 - p * p));
     }

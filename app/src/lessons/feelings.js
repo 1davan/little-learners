@@ -233,11 +233,10 @@ export default class FeelingsLesson extends Lesson {
     }
     this.busy = true;
     input.lock(3000);
-    fx.float(a.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 3.4, 0)), FACE_ICON[f], { size: 7 });
     // the friend hops over to Pip's left on the stage (props are on the right)
     if (a.userData.col) { physics.removeStatic(a.userData.col); a.userData.col = null; }
     const from = a.position.clone(), s0 = a.scale.x;
-    const to = new T.Vector3(PIP_POS.x - 1.8, TOP, PIP_POS.z + 0.8); // beside Pip, not inside (the hug leans in)
+    const to = new T.Vector3(PIP_POS.x - 2.05, TOP, PIP_POS.z + 1.0); // beside Pip and a step forward, never over his face (the hug leans in)
     sfx.swoosh();
     await this.s.anim(0.4, (e, p) => {
       a.position.lerpVectors(from, to, e);
@@ -247,6 +246,8 @@ export default class FeelingsLesson extends Lesson {
     a.userData.baseScale = 1.0;
     a.rotation.y = 0.6;
     sfx.land();
+    // the feeling icon pops over the friend once it has landed (floated at the old spot it was left hanging there)
+    fx.float(to.clone().add(new T.Vector3(0, 3.0, 0)), FACE_ICON[f], { size: 6 });
     const list = FIXES[this.emo];
     const k = (this.fixTurn[this.emo] = ((this.fixTurn[this.emo] ?? -1) + 1) % list.length);
     const [move, line] = list[k];
@@ -260,7 +261,7 @@ export default class FeelingsLesson extends Lesson {
 
   async fixFeeling(a, move) {
     const pip = this.pip, s = this.s;
-    const top = PIP_POS.clone().add(new T.Vector3(-0.7, 2.4, 0.6));
+    const top = PIP_POS.clone().add(new T.Vector3(-0.7, 3.3, 0.6)); // above both heads, never over a face
     const storyFix = this.fix ? Promise.resolve(this.fix()) : Promise.resolve();
     const cheer = () => { setFace(pip.userData.face, 'happy'); setFace(a.userData.face, 'happy'); pip.userData.head.rotation.x = 0; };
     const PS = 1.2;
@@ -269,11 +270,11 @@ export default class FeelingsLesson extends Lesson {
       // a squeezy hug: both lean in and squash together, hearts pop out
       const ax = a.position.x, pr = pip.rotation.z, ar = a.rotation.z;
       sfx.mmm();
-      await s.anim(0.25, (e) => { a.position.x = ax + 0.5 * e; pip.rotation.z = pr + 0.2 * e; a.rotation.z = ar - 0.2 * e; }, Ease.out);
+      await s.anim(0.25, (e) => { a.position.x = ax + 0.25 * e; pip.rotation.z = pr + 0.2 * e; a.rotation.z = ar - 0.2 * e; }, Ease.out);
       hearts();
       await s.anim(0.3, (_, p) => { const k = 1 + Math.sin(p * Math.PI) * 0.12; pip.scale.set(PS * k, PS / k, PS * k); a.scale.set(k, 1 / k, k); });
       cheer(); sfx.twinkle();
-      await s.anim(0.2, (e) => { a.position.x = ax + 0.5 * (1 - e); pip.rotation.z = pr + 0.2 * (1 - e); a.rotation.z = ar - 0.2 * (1 - e); });
+      await s.anim(0.2, (e) => { a.position.x = ax + 0.25 * (1 - e); pip.rotation.z = pr + 0.2 * (1 - e); a.rotation.z = ar - 0.2 * (1 - e); });
       pip.scale.setScalar(PS); a.scale.setScalar(1);
     } else if (move === 'pat') {
       // the friend pats Pip's head: pat, pat, pat

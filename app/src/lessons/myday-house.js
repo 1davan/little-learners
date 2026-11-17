@@ -199,7 +199,13 @@ export function makeHouse(level) {
   // the lamp's shade glows (unlit, warm); its light pool on the wall
   const shade = lamp.userData.model.userData.layers?.shade?.mesh;
   if (shade) shade.material = basic(0xfff1c0, { vertexColors: true, fog: false });
-  const pool = new T.Mesh(new T.CircleGeometry(1.6, 32), basic(0xffe9a8, { transparent: true, opacity: level === 2 ? 0.35 : 0.12, depthWrite: false, fog: false }));
+  // (a soft radial glow that fades to nothing: a flat disc read as a hard-edged yellow plate on the wallpaper)
+  const glow = document.createElement('canvas'); glow.width = glow.height = 128;
+  const gx = glow.getContext('2d'), gr = gx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
+  const glowTex = new T.CanvasTexture(glow); glowTex.colorSpace = T.SRGBColorSpace;
+  const pool = new T.Mesh(new T.PlaneGeometry(4.2, 4.2), new T.MeshBasicMaterial({ color: 0xffe9a8, map: glowTex, transparent: true, opacity: level === 2 ? 0.45 : 0.16, depthWrite: false, fog: false }));
   pool.position.set(2.45, 2.6, WALL_Z + 0.03); g.add(pool);
 
   return { group: g, bathWin, sink, stool, bath, cab, bin, lid, bed, table, lamp, clock, drapes, bedWin, shade, pool };
@@ -236,7 +242,8 @@ export function makeItems(h, level) {
   const tl = tb.userData.model.userData.layers.tissue; if (tl) { tl.mesh.visible = false; tl.outline.visible = false; }
   h.tissueBox = tb;
   add('tissue', propModel('prop_md_tissue', { size: 1.0 }), new T.Vector3(-1.62, 2.12, -3.0), [-0.25, -0.2, 0.15]);
-  add('hairbrush', propModel('prop_md_hairbrush', { tint: 0xffb020, size: 1.4 }), new T.Vector3(-1.6, 1.52, -2.75), [-Math.PI / 2 + 0.25, 0, -0.4]);
+  // the hairbrush lies flat along the front of the cabinet top, in front of the tissues (it used to lean out over the sink)
+  add('hairbrush', propModel('prop_md_hairbrush', { tint: 0xffb020, size: 1.12 }), new T.Vector3(-1.45, 1.47, -2.62), [-Math.PI / 2, 0, 0.1]);
   // bedroom
   add('duvet', propModel('prop_md_duvet', { tint: 0x8fc7ff }), new T.Vector3(BED.x + 0.6, 1.05, BED.z), [0, 0, 0]);
   const teddy = makeAnimal('bear');

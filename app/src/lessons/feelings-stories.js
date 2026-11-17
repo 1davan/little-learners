@@ -41,13 +41,14 @@ export async function feel(ctx, emo) {
 }
 
 // Put a set of tumbled physics props back where they started (quick, with a note per piece).
+// each piece arcs back out in front of Pip (never through him) and lands on its home spot
 async function rebuild(ctx, items) {
   for (let i = 0; i < items.length; i++) {
     const { o, p, q } = items[i];
     physics.remove(o);
     const p0 = o.position.clone(), q0 = o.quaternion.clone();
     sfx.note(i * 2);
-    await ctx.s.anim(0.16, (e) => { o.position.lerpVectors(p0, p, e); o.position.y += Math.sin(e * Math.PI) * 0.6; o.quaternion.slerpQuaternions(q0, q, e); }, Ease.out);
+    await ctx.s.anim(0.16, (e) => { o.position.lerpVectors(p0, p, e); o.position.y += Math.sin(e * Math.PI) * 0.8; o.position.z += Math.sin(e * Math.PI) * 1.1; o.quaternion.slerpQuaternions(q0, q, e); }, Ease.out);
   }
   for (const { o } of items) ctx.dyn(o, { shape: 'box', bounce: 0.2 });
 }

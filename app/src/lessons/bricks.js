@@ -42,7 +42,7 @@ const BX = 2.75, BZ = -1.0;                                // the letter board (
 const STAND = { x0: -3.85, x1: 5.45, front: 3.2, back: 2.15, plateK: 0.62, stepK: 1.5 };
 const GREY = 0xb9bdc8;
 const PIC = new T.Vector3(7.55, 0, 0.3);                  // where the picture pops out (right of the board, clear of the stand)
-const BEAR = new T.Vector3(-7.3, 0, -1.7);                // Bear and Pip: far left, never in front of the stand
+const BEAR = new T.Vector3(-7.1, 0, -2.1);                // Bear and Pip: far left, never in front of the stand
 const FLY = 0.35;                                         // one hop, pile → letter
 
 export default class BricksLesson extends Lesson {
@@ -52,7 +52,8 @@ export default class BricksLesson extends Lesson {
     this.cfg = LEVELS[this.level] || LEVELS[0];
     setCamera(CAM.pos, CAM.look);
     // Pip watches from the far left, beside the stand: never in front of a brick
-    this.pip.position.set(-7.0, 0, 1.7);
+    // (in from the frame edge, so Pip's somersault stays whole on screen; Bear peeks out behind to the right)
+    this.pip.position.set(-6.5, 0, 1.2);
     this.pip.rotation.y = 0.55;
     // the board
     const board = (this.board = makeBoard());
@@ -323,7 +324,7 @@ export default class BricksLesson extends Lesson {
     if (g) g.visible = false;
     const top = b.position.clone().add(new T.Vector3(0, 0.25, 0.6));
     const last = n === this.need;
-    fx.float(top, String(n), { color: hexCss(b.userData.col), size: last ? 15 : 11 });
+    this.countNum(top, n, b.userData.col, last ? 12 : 9);
     const sc = project(b.position);
     fx.sparkle(sc.x, sc.y);
     // Bear nods along with the count
@@ -332,12 +333,21 @@ export default class BricksLesson extends Lesson {
     if (last) this.complete();
   }
 
+  // One count number on screen at a time: quick taps used to stack 7, 8, 9… on top of each other over the
+  // letter. The previous number is cleared the moment the next one rises.
+  countNum(pos, n, col, size) {
+    if (this.numEl) this.numEl.remove();
+    const host = document.getElementById('fx');
+    fx.float(pos, String(n), { color: hexCss(col), size });
+    this.numEl = host && host.lastElementChild;
+  }
+
   tapPlaced(b, i) {
     if (b.userData.wig) return;
     b.userData.wig = true;
     bsfx.clack();
     const r = b.userData.rest;
-    fx.float(b.position.clone().add(new T.Vector3(0, 0.25, 0.6)), String(i + 1), { color: hexCss(b.userData.col), size: 9 });
+    this.countNum(b.position.clone().add(new T.Vector3(0, 0.25, 0.6)), i + 1, b.userData.col, 8);
     // it lifts off the board toward you and clicks back (straight out and in: never into a neighbour)
     if (this.phase !== 'build') { b.userData.wig = false; return; }
     this.s.anim(0.3, (_, q) => { b.position.z = r.p.z + Math.sin(q * Math.PI) * 0.35; }).then(() => { b.position.z = r.p.z; b.userData.wig = false; });

@@ -77,14 +77,14 @@ export const speech = {
         caption(text);
         playVoice(clip).then((dur) => {
           const ms = Math.max(900, (dur || 1.2) * 1000 + 150);
-          setTimeout(() => { setTimeout(() => caption(null, text), 1200); resolve(); }, ms);
+          setTimeout(() => { setTimeout(() => caption(null, text), 700); resolve(); }, ms);
         });
       });
     }
     return new Promise((resolve) => {
       const estimate = text.length * 85 + 1200;
       caption(text);
-      const hideLater = () => setTimeout(() => caption(null, text), 1600);
+      const hideLater = () => setTimeout(() => caption(null, text), 900);
       if (!synth || !voice || volume === 0) { setTimeout(() => { hideLater(); resolve(); }, Math.max(1400, estimate - 600)); return; }
       if (interrupt) speech.stop();
       let done = false;

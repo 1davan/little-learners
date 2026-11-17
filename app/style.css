@@ -78,27 +78,40 @@ body[data-mode="home"] #home-btn, body[data-mode="map"] #home-btn { display: non
 .extra { position: absolute; right: -1.1vmin; bottom: -1.1vmin; font-style: normal; font-size: 1.8vmin; font-weight: 800; line-height: 1.2;
   background: var(--cream); color: var(--ink); border-radius: 2vmin; padding: 0 .5vmin; border: .25vmin solid var(--ink); }
 
-/* sticker award */
-.award { position: fixed; inset: 0; display: grid; place-items: center; z-index: 15; }
-.award .burst {
-  position: absolute; width: 70vmin; height: 70vmin; border-radius: 50%;
-  background: repeating-conic-gradient(rgba(255,242,122,.85) 0 10deg, rgba(255,255,255,0) 10deg 20deg);
-  animation: rot 6s linear infinite, grow .5s cubic-bezier(.3,1.6,.5,1) both;
-}
+/* sticker award: a soft dim + glow, a die-cut sticker with a slight tilt, a few one-shot sparkles, then it flies to the corner */
+/* it sits in the upper middle, above the characters (who stand in the lower half) and below the caption */
+.award { position: fixed; inset: 0; z-index: 15; --ay: 36%; }
+.award::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% var(--ay), rgba(42,36,64,0) 20vmin, rgba(42,36,64,.14) 75vmin); animation: fadeIn .3s ease-out both; }
+.award .glow { position: absolute; left: 50%; top: var(--ay); width: 46vmin; height: 46vmin; margin: -23vmin 0 0 -23vmin; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.85) 0 34%, rgba(255,246,214,.45) 50%, rgba(255,246,214,0) 70%);
+  animation: glowIn .5s ease-out both; }
+.award .stk-wrap { position: absolute; left: 50%; top: var(--ay); width: 27vmin; height: 27vmin; margin: -13.5vmin 0 0 -13.5vmin; will-change: transform; }
 .award .sticker {
-  position: relative; width: 38vmin; height: 38vmin; border-radius: 50%; background: var(--cream);
-  border: 2.2vmin solid var(--c); box-shadow: 0 0 0 1vmin var(--ink), 0 2.2vmin 0 1vmin var(--ink);
-  display: grid; place-items: center; font-size: 22vmin;
-  animation: grow .6s cubic-bezier(.3,1.8,.5,1) both, bob 1.4s ease-in-out .6s infinite;
+  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #fff 0 45%, var(--cream) 75%);
+  border: 1.5vmin solid var(--c); box-shadow: 0 0 0 1vmin #fff, 0 0 0 1.45vmin var(--ink), 0 1.6vmin 0 1.45vmin rgba(42,36,64,.22);
+  display: grid; place-items: center; transform: rotate(-6deg);
+  animation: stickIn .55s cubic-bezier(.3,1.5,.5,1) both;
 }
-.award.fly .sticker { animation: fly .6s ease-in forwards; }
-.award.fly .burst { animation: fade .4s forwards; }
-@keyframes rot { to { transform: rotate(360deg); } }
-@keyframes grow { from { transform: scale(0); } }
-@keyframes bob { 50% { transform: translateY(-2vmin) rotate(4deg); } }
-@keyframes fly { to { transform: translateY(-48vh) scale(.18); opacity: .6; } }
+.award .sticker span { font-size: 15vmin; line-height: 1; filter: drop-shadow(0 .5vmin 0 rgba(42,36,64,.18)); }
+.award .shine { position: absolute; top: -20%; left: -60%; width: 34%; height: 140%; transform: rotate(24deg);
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.75), rgba(255,255,255,0)); animation: shine .7s ease-in-out .55s both; }
+.award .tw { position: absolute; left: 50%; top: 50%; width: 5.6vmin; height: 5.6vmin; margin: -2.8vmin 0 0 -2.8vmin; opacity: 0;
+  background: #ffd23f; clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%);
+  filter: drop-shadow(0 0 .4vmin #fff); animation: twinkleOnce .9s ease-in-out var(--d) both; }
+.award .tw:nth-of-type(2n) { background: #fff; filter: drop-shadow(0 0 .4vmin #ffd23f); }
+.award.fly::before { animation: fadeOut .45s ease-in forwards; }
+.award.fly .glow, .award.fly .tw { animation: fadeOut .25s forwards; }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+@keyframes glowIn { from { transform: scale(.4); opacity: 0; } }
+@keyframes stickIn { 0% { transform: scale(.15) rotate(-30deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-6deg); } }
+@keyframes shine { from { left: -60%; } to { left: 130%; } }
+@keyframes twinkleOnce { 0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(0) rotate(0); }
+  45% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--k)) rotate(12deg); }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(0) rotate(30deg); } }
 @keyframes fade { to { opacity: 0; } }
-
 
 /* parent panel */
 #parent-panel { position: fixed; inset: 0; display: none; place-items: center; background: rgba(42,36,64,.55); z-index: 30; }
@@ -139,7 +152,7 @@ body[data-mode="home"] #home-btn, body[data-mode="map"] #home-btn { display: non
 #caption.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
 #caption .who { font-size: 6vmin; }
 /* on the home screen the bubble stays in the middle of the sky, clear of the sticker row and the gear */
-body[data-mode="home"] #caption, body[data-mode="map"] #caption { max-width: 56vw; white-space: normal; font-size: 4vmin; }
+body[data-mode="home"] #caption, body[data-mode="map"] #caption { max-width: 62vw; white-space: normal; text-wrap: balance; text-align: center; font-size: 4vmin; }
 body[data-mode="home"] #caption .who, body[data-mode="map"] #caption .who { font-size: 5vmin; }
 
 /* level picker */
@@ -217,12 +230,12 @@ html, body, body * { cursor: none !important; }
 @keyframes curPress { from { transform: scale(1); } to { transform: scale(.82, .74) rotate(5deg); } }
 @keyframes curPop { 0% { transform: scale(.8, .74); } 60% { transform: scale(1.12, 1.08) rotate(-4deg); } 100% { transform: scale(1); } }
 .cur-burst { position: absolute; width: 0; height: 0; pointer-events: none; }
-.cur-burst i { position: absolute; left: 0; top: 0; font-style: normal; font-size: 3.2vmin; line-height: 1; margin: -1.6vmin 0 0 -1.1vmin;
-  text-shadow: 0 0 .3vmin #fff; animation: curStar .6s cubic-bezier(.15,.8,.3,1) forwards; }
+.cur-burst i { position: absolute; left: 0; top: 0; font-style: normal; font-size: 2.7vmin; line-height: 1; margin: -1.35vmin 0 0 -.9vmin;
+  text-shadow: 0 0 .3vmin #fff; animation: curStar .5s cubic-bezier(.15,.8,.3,1) forwards; }
 @keyframes curStar { 0% { transform: rotate(var(--a)) translateY(0) scale(.3); opacity: 1; }
   70% { opacity: 1; } 100% { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(.9) rotate(180deg); opacity: 0; } }
-.cur-burst b { position: absolute; width: 10vmin; height: 10vmin; left: -5vmin; top: -5vmin; border-radius: 50%;
-  border: .7vmin solid #fff; box-shadow: 0 0 0 .5vmin #ffd23f; animation: ripple .5s ease-out forwards; }
+.cur-burst b { position: absolute; width: 8vmin; height: 8vmin; left: -4vmin; top: -4vmin; border-radius: 50%;
+  border: .55vmin solid #fff; box-shadow: 0 0 0 .4vmin rgba(255,210,63,.8); animation: ripple .45s ease-out forwards; }
 
 /* soft vignette to frame the scene */
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;

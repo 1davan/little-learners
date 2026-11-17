@@ -33,13 +33,15 @@ const PLANS = [
   ['apple', 'key', 'leaf', 'marble', 'block', 'gem'],
   ['log', 'roll', 'coin', 'bounce', 'bigapple', 'tinymarble'],
 ];
-const CAM = { pos: new T.Vector3(0.4, 3.5, 14.4), look: new T.Vector3(0.4, 1.4, 0) };
+// aimed a little higher so the lab sits mid-frame (it used to float in the top half over a wide empty strip of sand)
+const CAM = { pos: new T.Vector3(0.4, 3.5, 14.4), look: new T.Vector3(0.4, 2.1, 0) };
 const TP = new T.Vector3(-0.6, 0, -0.2);           // the tank
 const CRATE = new T.Vector3(-4.35, 0, 0.75);       // the crate things wait on
 const CRATE_K = 0.7, CRATE_TOP = 0.86 * CRATE_K;   // its straw bed
 const TUBS = { float: new T.Vector3(3.95, 0, 0.85), sink: new T.Vector3(6.55, 0, 0.85) };
 const TUB_R = 1.12, TUB_H = 0.85;   // shallow, so what is in them peeks over the rim
-const CRAB_HOME = new T.Vector3(-3.25, 0, 3.0);
+// a little further forward and a touch smaller, so its eye stalks never hide the thing waiting on the crate
+const CRAB_HOME = new T.Vector3(-3.1, 0, 3.4);
 const RAMP_AT = new T.Vector3(-1.95, 0, 2.55);     // Level 3 ramp (high end on the left, next to the crate)
 const DROP_AT = new T.Vector3(-2.9, 0, 2.8);       // Level 3 bounce test: dropped onto the sand here
 const G = 9.81 * 1.6;                              // the physics world's gravity
@@ -93,7 +95,7 @@ export default class SinkLesson extends Lesson {
     }
     // Crab, the lab helper
     const crab = (this.crab = makeCrab());
-    crab.scale.setScalar(0.72);
+    crab.scale.setScalar(0.62);
     crab.position.copy(CRAB_HOME);
     crab.rotation.y = 0.4;
     this.root.add(crab);
@@ -321,7 +323,11 @@ export default class SinkLesson extends Lesson {
     sfx.pop();
     const a = it.position.clone(), up = new T.Vector3(a.x, TANK.TOP + 1.0, a.z);
     this.walkCrab(new T.Vector3(tub.position.x - 0.15, 0, tub.position.z + TUB_R + 0.9));
-    await this.s.anim(0.32, (e) => { it.position.lerpVectors(a, up, e); }, Ease.out);
+    // something longer than the tub (the big log) settles to tub size on the way up, so it lands IN the tub
+    // instead of propping across the rim or tumbling out behind it
+    const bb = new T.Box3().setFromObject(it), wide = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
+    const s0 = it.scale.x, s1 = wide > TUB_R * 1.8 ? s0 * (TUB_R * 1.8) / wide : s0;
+    await this.s.anim(0.32, (e) => { it.position.lerpVectors(a, up, e); it.scale.setScalar(s0 + (s1 - s0) * e); }, Ease.out);
     if (this.dead) return;
     this.drips(it);
     // into its tub on a real arc; it stays there

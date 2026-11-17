@@ -128,6 +128,9 @@ export default class SnackLesson extends Lesson {
     if (!u?.arms) return f ? f.localToWorld(new T.Vector3(0, 1.0, 0.7)) : new T.Vector3();
     return u.arms[i].localToWorld(u.handLocal[i].clone());
   }
+  // where the celebration confetti pops: low on the worktop off to the friend's right, so it fans up beside them
+  // instead of raining over their face
+  besideFriend(p) { return new T.Vector3(p.x + 2.1, TOP + 0.35, Math.max(p.z, 0) + 0.7); }
   handsMid(f = this.friend) { return this.hand(0, f).add(this.hand(1, f)).multiplyScalar(0.5); }
   mouth(f = this.friend) {
     const a = f.userData.anchors.mouth;
@@ -394,14 +397,15 @@ export default class SnackLesson extends Lesson {
     this.s.anim(0.22, (_, p) => { const q = 1 - 0.25 * Math.sin(p * Math.PI); f.scale.set(ks / Math.sqrt(q), ks * q, ks / Math.sqrt(q)); }).then(() => f.scale.setScalar(ks));
     const n = this.onPlate.length;
     sfx.note(n - 1);
-    fx.float(to.clone().add(new T.Vector3(0, 1.0, 0.2)), String(n), { color: NUM_COL[(n - 1) % NUM_COL.length], size: 11 });
+    // the count rises beside the plate (in the open, not over the friend's face)
+    fx.float(to.clone().add(new T.Vector3(1.6, 0.35, 0.9)), String(n), { color: NUM_COL[(n - 1) % NUM_COL.length], size: 9 });
     this.face('joy', 0.6);
     hop(this.s, this.friend, 0.25, 0.3);
     if (u.where === 'fridge') this.shutFridge();
     if (this.complete()) {
       this.phase = 'done';
       await this.wait(0.25);
-      this.success(this.plate.position.clone().add(new T.Vector3(0, 1.2, 0)), this.doneText());
+      this.success(this.besideFriend(this.plate.position), this.doneText());
     }
   }
   complete() { return this.plan.want ? this.missing().length === 0 : this.onPlate.length >= 3; }
@@ -537,7 +541,7 @@ export default class SnackLesson extends Lesson {
     fx.sparkle(sc.x, sc.y);
     this.face('joy', 0.9);
     this.busy = false;
-    this.success(m.clone().add(new T.Vector3(0, 0.8, 0.5)), 'Clean hands!');
+    this.success(this.besideFriend(m), 'Clean hands!');
   }
   async doSoap() {
     const pump = this.K.pump;

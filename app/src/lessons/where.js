@@ -18,12 +18,12 @@ import { mesh, geo, basic } from '../engine/toon.js';
 import { makeProp, makeBit, PROP_NAME, splashCrown, zoneIds, makeRainCloud, makeRainbow } from './where-props.js';
 
 const SPAWN = new T.Vector3(0.6, 0, 3.6);
-const L = -3.4, R = 3.2;
+const L = -3.1, R = 3.2;   // L leaves Pip (x -6.5) room, so an open box's flap never overlaps him
 
 // Who can be placed or can watch. size = scale; call = their sound.
 const CAST = {
   crab: { name: 'Crab', say: 'the crab', make: () => makeCrab(), size: 1, call: 'squeak' },
-  baby: { name: 'Baby Crab', say: 'the baby crab', make: () => makeCrab(0xff9f3f), size: 0.7, call: 'cheep' },
+  baby: { name: 'Baby Crab', say: 'the baby crab', make: () => { const g = makeCrab(0xff9f3f); g.scale.multiplyScalar(0.72); return g; }, size: 0.7, call: 'cheep' },
   duck: { name: 'Duck', say: 'the duck', make: () => makeDuck(1.6), size: 1.6, call: 'quack' },
   gull: { name: 'Gull', say: 'the gull', make: () => makeGull(), size: 1, call: 'gull' },
 };
@@ -349,11 +349,12 @@ export default class WhereLesson extends Lesson {
       sfx.thunk();
       this.bumpBits(wz.obj);
       this.squash(ch, 0.3);
+      this.clawsUp(ch, 1);   // claws wave up out of the top instead of poking through the walls
       gag = this.gagIn(wz, rest);
     } else if (want === 'on') {
       await this.arc(ch, rest, 0.9, 0.36);
       sfx.land();
-      gag = this.gagOn(rest);
+      gag = this.gagOn(rest, fit);
     } else {
       gag = this.gagUnder(wz, rest);
       await this.wait(0.4);
@@ -394,8 +395,16 @@ export default class WhereLesson extends Lesson {
     }).then(() => { ch.scale.setScalar(base); ch.position.y = rest.y; });
   }
 
-  gagOn(rest) {
-    const ch = this.char, s = this.s, base = ch.userData.baseScale, ud = ch.userData;
+  // claws (crab) lifted by `amt` (0 = rest pose), tweened; they stay up until reset with amt 0
+  clawsUp(ch, amt, dur = 0.2) {
+    for (const [i, c] of (ch.userData.claws || []).entries()) {
+      const r0 = c.userData.r0;
+      if (r0) this.s.tween(c.rotation, { z: r0.z + (i ? -1 : 1) * amt }, dur, Ease.out);
+    }
+  }
+
+  gagOn(rest, fit = 1) {
+    const ch = this.char, s = this.s, base = ch.userData.baseScale * fit, ud = ch.userData;
     sfx.boing();
     // land squash, wobble wobble (balancing!)… then claws up: ta-da!
     const claws = ud.claws || ud.wings || [];
@@ -557,8 +566,13 @@ export default class WhereLesson extends Lesson {
     if (!pal) return;
     const s = this.s, who = pal.userData.who;
     const side = rest.x > 0 ? -1 : 1;
-    const to = new T.Vector3(rest.x + side * 2.0, 0, rest.z + 1.3);   // beside the prop, never inside it
-    if (z.id === 'on') to.set(rest.x + side * 1.9, 0, z.obj.position.z + 1.6);
+    // beside the prop and the friend, never overlapping either: spacing from their real widths
+    const halfW = (o) => { const b = new T.Box3().setFromObject(o); return (b.max.x - b.min.x) / 2; };
+    const ch = this.char;
+    const chHalf = halfW(ch) / ch.scale.x * ch.userData.baseScale * (z.def.fit ?? 1);
+    const gap = Math.max(halfW(z.obj), z.id === 'on' ? 0 : chHalf) + halfW(pal) + 0.25;
+    const tx = Math.max(-5.6, Math.min(5.6, rest.x + side * gap));
+    const to = new T.Vector3(tx, 0, z.id === 'on' ? z.obj.position.z + 1.6 : rest.z + 1.3);
     s.wait(0.15).then(() => {
       sfx[CAST[who].call]();
       const from = pal.position.clone();
@@ -579,6 +593,8 @@ export default class WhereLesson extends Lesson {
     this.pal = null;
     if (this.storyObj) { const o = this.storyObj; this.storyObj = null; popOut(this.s, o, 0.25).then(() => this.root.remove(o)); }
     for (const p of this.props) p.userData.cover?.reset();
+    if (ch) this.clawsUp(ch, 0, 0.15);
+    const last = this.round >= this.totalRounds;   // the friend stays for the finale show (no second crab)
     sfx.patter();
     const hops = [];
     for (const g of [ch, pal]) {
@@ -592,6 +608,7 @@ export default class WhereLesson extends Lesson {
       } else g.scale.setScalar(base);
     }
     await Promise.all(hops);
+    if (last) { this.pal = pal; return; }
     for (const g of [ch, pal]) {
       if (!g) continue;
       const crab = g.userData.who === 'crab' || g.userData.who === 'baby';
@@ -682,7 +699,7 @@ export default class WhereLesson extends Lesson {
     const who = spec.who || 'crab';
     const g = new T.Group();
     // the bubble: a white cloud-pill with a dark edge, and two little puffs trailing down to the friend
-    const W = 1.5, H = 1.08;
+    const W = 1.7, H = 1.2;
     const edge = new T.Mesh(geo.circle(1, 40), basic(0x3a2838));
     edge.scale.set(W + 0.07, H + 0.07, 1);
     edge.position.z = -1.0;
@@ -690,7 +707,7 @@ export default class WhereLesson extends Lesson {
     fill.scale.set(W, H, 1);
     fill.position.z = -0.98;
     g.add(edge, fill);
-    for (const [x, y, r] of [[-0.55, -1.32, 0.2], [-0.85, -1.68, 0.12]]) {
+    for (const [x, y, r] of [[-0.62, -1.45, 0.21], [-0.95, -1.82, 0.13]]) {
       const e2 = new T.Mesh(geo.circle(r + 0.05, 20), basic(0x3a2838));
       const f2 = new T.Mesh(geo.circle(r, 20), basic(0xffffff));
       e2.position.set(x, y, -1.0); f2.position.set(x, y, -0.98);
@@ -712,7 +729,8 @@ export default class WhereLesson extends Lesson {
     const lift0 = hides ? fh * 0.92 : 0;               // a covering prop hovers so the friend shows beneath it
     const tall = want === 'on' ? Math.max(pb.max.y, z.rest.y + fh) : Math.max(pb.max.y + lift0, z.rest.y + fh);
     const fw = fb.max.x - fb.min.x;
-    const k = Math.min(0.5, 1.6 / Math.max(1.2, tall), 2.5 / Math.max(1, pb.max.x - pb.min.x + 0.5 + fw * 0.8));
+    // the whole demo (friend's start spot to the prop's far edge) stays well inside the bubble, even a long flat towel
+    const k = Math.min(0.55, 1.75 / Math.max(1.2, tall), 2.25 / Math.max(1, pb.max.x - pb.min.x + fw * 0.8));
     prop.scale.setScalar(k);
     scene.add(prop, fr);
     const lift = lift0 * k;
@@ -725,11 +743,11 @@ export default class WhereLesson extends Lesson {
     scene.position.set(-(start.x - fw * k * 0.45 + pb.max.x * k) / 2, -midY - 0.05, 0);   // centred: friend's left edge to the prop's right
     g.userData = { t: 0, prop, fr, sz, rest, start, lift, want, k, rim: (z.rim ?? 1) * k, topY: Math.max(pb.max.y * k, rest.y) };
     const at = this.home || SPAWN;
-    g.position.set(Math.max(-2.2, Math.min(2.2, at.x + 0.9)), 3.9, 2.6);
-    g.scale.setScalar(0.001);
+    g.position.set(Math.max(-2.2, Math.min(2.2, at.x + 0.9)), 3.82, 2.6);
+    g.scale.setScalar(0.55);   // pops from half size (growing from a speck read as a tiny unreadable dot)
     this.root.add(g);
     this.thought = g;
-    this.s.tween(g.scale, { x: 1, y: 1, z: 1 }, 0.3, Ease.back);
+    this.s.tween(g.scale, { x: 1, y: 1, z: 1 }, 0.22, Ease.back);
   }
 
   animThought(dt) {
@@ -766,7 +784,9 @@ export default class WhereLesson extends Lesson {
     if (!g) return;
     this.thought = null;
     if (now) { this.root.remove(g); return; }
-    this.s.tween(g.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.18, Ease.in).then(() => this.root.remove(g));
+    // pops like a soap bubble (a quick swell, then gone) rather than shrinking through a tiny unreadable dot
+    g.userData.pulse = 0;
+    this.s.tween(g.scale, { x: 1.1, y: 1.1, z: 1.1 }, 0.08, Ease.out).then(() => { this.root.remove(g); sfx.pop(); });
   }
 
   // the friend to place (it's the drag target; a tap on it already wiggles), the pal while it hops, and the tiny friend
@@ -817,20 +837,34 @@ export default class WhereLesson extends Lesson {
 
   onFinale() {
     // Crab shows off on every spot that's left: in, on, under
+    // the friend from the last round (still on the sand) shows off on every spot: in, on, then under to finish
     this.stopStory();
-    const crab = this.spawnChar('crab', SPAWN.clone());
+    const crab = this.char && this.char.parent ? this.char : this.spawnChar('crab', SPAWN.clone());
+    this.char = crab;
+    const base = crab.userData.baseScale;
     for (const p of this.props) { p.userData.cover?.reset(); p.scale.setScalar(1); }
+    const order = { in: 0, on: 1, under: 2 };
+    const zs = this.zoneList.slice().sort((a, b) => order[a.id] - order[b.id]);
     (async () => {
       await this.wait(1.2);
       let i = 0;
-      for (const z of this.zoneList) {
+      for (const z of zs) {
+        if (this.dead) return;
         const r = z.rest();
-        const under = z.id === 'under';
-        const k = z.def.fit ?? 1;
+        const k = base * (z.def.fit ?? 1);
+        this.clawsUp(crab, 0, 0.15);
+        if (z.id === 'under') {
+          this.s.tween(crab.scale, { x: base, y: base, z: base }, 0.3);
+          await this.arc(crab, new T.Vector3(r.x, 0, z.obj.position.z + 1.9), 1, 0.4);   // down to the sand in front first
+          await this.gagUnder(z, r);
+          return;
+        }
         this.s.tween(crab.scale, { x: k, y: k, z: k }, 0.3);
-        await this.arc(crab, r.clone().add(new T.Vector3(0, 0, under ? 0.9 : 0)), under ? 0.6 : 1.4, 0.45);
+        const rimY = z.obj.position.y + (z.def.rim ?? 1);
+        await this.arc(crab, r, z.id === 'in' ? Math.max(0.6, rimY + 0.8 - r.y) : 1.2, 0.45);
+        if (z.id === 'in') this.clawsUp(crab, 1);
         sfx.note(i++ * 2);
-        await this.wait(0.3);
+        await this.wait(0.45);
       }
       hop(this.s, crab, 0.8, 0.45, { sound: true });
     })();

@@ -322,7 +322,7 @@ export default class PotsLesson extends Lesson {
     s.anim(0.5, (_, p) => w.forEach((x, i) => (x.rotation.z = r0[i] + (i ? -1 : 1) * Math.sin(p * Math.PI) * 0.9))).then(() => w.forEach((x, i) => (x.rotation.z = r0[i])));
     const b = c.scale.x;
     s.anim(0.3, (_, p) => { const q = 1 - Math.sin(p * Math.PI) * 0.2; c.scale.set(b / Math.sqrt(q), b * q, b / Math.sqrt(q)); }).then(() => c.scale.setScalar(b));
-    fx.float(to.clone().add(new T.Vector3(0, 1.4, 0)), '♥', { color: '#ff5a8a', size: 8 });
+    fx.float(pip.position.clone().add(new T.Vector3(1.1, 2.6, 0.6)), '♥', { color: '#ff5a8a', size: 7 }); // beside and above Pip's head, never over the faces
   }
 
   async afterSuccess() {

@@ -25,7 +25,7 @@ import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { setCamera, project } from '../engine/stage.js';
 import { Ease } from '../engine/tween.js';
-import { toonUnique, geo } from '../engine/toon.js';
+import { toonUnique } from '../engine/toon.js';
 import { Pail, SeeSaw, SEESAW, Stream, PAIL, makeCastle, makeHeap, makeTub, makePourer, spoutWorld, spoutOffset, MATS } from './balance-props.js';
 import { pourSound, bal } from './balance-sound.js';
 
@@ -70,6 +70,23 @@ const SPOTS = [new T.Vector3(3.5, 0, 3.4), new T.Vector3(1.2, 0, 3.7), new T.Vec
 const RATE = 0.75;                                // pour speed: a unit pail fills in about 1.3 s
 const AUTO_RATE = 1.5;
 const V = (x, y, z) => new T.Vector3(x, y, z);
+
+// the wet-sand splotch: white with soft alpha, tinted by the material colour (drawn once, shared by every puddle)
+let _wet = null;
+function wetTex() {
+  if (_wet) return _wet;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const blobs = [[64, 64, 44], [40, 58, 26], [88, 70, 28], [62, 40, 24], [70, 90, 22], [30, 76, 14], [100, 48, 13]];
+  for (const [x, y, rr] of blobs) {
+    const gr = g.createRadialGradient(x, y, rr * 0.55, x, y, rr);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill();
+  }
+  _wet = new T.CanvasTexture(c);
+  _wet.colorSpace = T.SRGBColorSpace;
+  return _wet;
+}
 
 export default class BalanceLesson extends Lesson {
   build() {
@@ -633,9 +650,11 @@ export default class BalanceLesson extends Lesson {
     }
   }
   // a dark wet patch on the sand that dries away
+  // (an organic splotch with a soft rim, not a flat ellipse: a few overlapping blobs in a cached alpha texture)
   puddle(pos, r = 0.8) {
-    const m = new T.Mesh(geo.circle(1, 28), toonUnique(0xc79a57, { transparent: true, opacity: 0, depthWrite: false }));
+    const m = new T.Mesh(new T.PlaneGeometry(2, 2), toonUnique(0xc79a57, { map: wetTex(), transparent: true, opacity: 0, depthWrite: false }));
     m.rotation.x = -Math.PI / 2;
+    m.rotation.z = Math.random() * Math.PI * 2;
     m.position.set(pos.x, 0.025, pos.z);
     m.scale.set(0.01, 0.01, 1);
     m.renderOrder = 1;

@@ -144,6 +144,7 @@ export default class BodyLesson extends Lesson {
     this.gear = {};
     const ud = f.userData;
     this.armHome = (ud.arms || []).map((a) => ({ p: a.position.clone(), r: a.rotation.clone() }));
+    this.armRestQ = (ud.arms || []).map((a) => a.quaternion.clone());   // the modelled pose (the hand anchors match it)
     this.taps = [];
     for (const name of this.cfg.live) {
       const p = PARTS[name];
@@ -263,27 +264,48 @@ export default class BodyLesson extends Lesson {
     // which paw goes where (world points), per part
     const pt = (a, dx = 0, dy = 0, dz = 0.12) => this.wp(a).add(new T.Vector3(dx * this.fs, dy * this.fs, dz * this.fs));
     let goals;
-    if (name === 'nose') goals = [null, pt('nose', 0.08, -0.03)];
-    else if (name === 'mouth') goals = [null, pt('mouth', 0.1, -0.03)];
-    else if (name === 'eyes') goals = [pt('eyeL', -0.03, -0.02, 0.15), pt('eyeR', 0.03, -0.02, 0.15)];
-    else if (name === 'ears') goals = [pt('earL', 0.05, -0.15, 0.1), pt('earR', -0.05, -0.15, 0.1)];
-    else if (name === 'tummy') goals = [pt('tummy', -0.22, 0, 0.08), pt('tummy', 0.22, 0, 0.08)];
-    else if (name === 'hands') goals = [pt('tummy', -0.1, 0.45, 0.35), pt('tummy', 0.1, 0.45, 0.35)];
+    // (goals sit just in front of / beside the part: the arm swings there, so a goal on the surface buried the paw)
+    if (name === 'nose') goals = [null, pt('nose', 0.1, -0.05, 0.3)];
+    else if (name === 'mouth') goals = [null, pt('mouth', 0.12, -0.05, 0.3)];
+    else if (name === 'eyes') goals = [pt('eyeL', -0.05, -0.04, 0.35), pt('eyeR', 0.05, -0.04, 0.35)];
+    else if (name === 'ears') goals = [pt('earL', -0.3, -0.22, 0.25), pt('earR', 0.3, -0.22, 0.25)];
+    else if (name === 'tummy') goals = [pt('tummy', -0.3, 0, 0.35), pt('tummy', 0.3, 0, 0.35)];
+    else if (name === 'hands') goals = [pt('tummy', -0.12, 0.45, 0.7), pt('tummy', 0.12, 0.45, 0.7)];
     else goals = [pt('footL', 0, 0.25, 0.1), pt('footR', 0, 0.25, 0.1)];
-    const local = goals.map((g, i) => (g && arms[i] ? arms[i].parent.worldToLocal(g) : null));
+    // Reach by ROTATING each arm about its shoulder so the paw points at the goal (moving the bone instead stretched
+    // the skin into wide blobs), plus at most a small slide when the goal is beyond the paw's reach.
+    f.updateMatrixWorld(true);
+    const reach = goals.map((g, i) => {
+      const ar = arms[i];
+      if (!g || !ar) return null;
+      const hand = this.anchors[i ? 'handR' : 'handL'];
+      const q0 = new T.Quaternion().setFromEuler(home[i].r);
+      if (!hand) return { q0, q1: q0, p1: ar.parent.worldToLocal(g.clone()) };
+      const sh = home[i].p;
+      const v0 = ar.parent.worldToLocal(hand.getWorldPosition(new T.Vector3())).sub(sh);
+      const v1 = ar.parent.worldToLocal(g.clone()).sub(sh);
+      const q1 = new T.Quaternion().setFromUnitVectors(v0.clone().normalize(), v1.clone().normalize()).multiply(this.armRestQ[i]);
+      const slide = Math.max(-0.15, Math.min(0.15, v1.length() - v0.length()));
+      return { q0, q1, p1: sh.clone().add(v1.normalize().multiplyScalar(slide)) };
+    });
+    const pose = (k) => reach.forEach((r, i) => {
+      if (!r) return;
+      arms[i].quaternion.slerpQuaternions(r.q0, r.q1, k);
+      arms[i].position.lerpVectors(home[i].p, r.p1, k);
+    });
     const bend = name === 'feet';
     const pats = name === 'tummy' || name === 'hands' ? 2 : 1;
     if (bend) s.tween(f.rotation, { x: 0.35 }, 0.2, Ease.out);
-    await s.anim(0.2, (e) => local.forEach((l, i) => { if (l) arms[i].position.lerpVectors(home[i].p, l, e); }), Ease.out);
+    await s.anim(0.2, (e) => pose(e), Ease.out);
     for (let k = 0; k < pats; k++) {
       if (name === 'hands') sfx.drumSoft(); else sfx.tap();
       if (name === 'nose' || name === 'mouth') sfx.squeak();
       // little squish on contact
-      await s.anim(0.14, (_, p) => local.forEach((l, i) => { if (l) arms[i].position.lerpVectors(l, home[i].p, Math.sin(p * Math.PI) * 0.18); }));
+      await s.anim(0.14, (_, p) => pose(1 - Math.sin(p * Math.PI) * 0.18));
     }
     if (name === 'eyes') { sfx.pop(); fx.float(this.wp('eyeR').add(new T.Vector3(0.5, 0.6, 0.5)), '👀', { size: 5 }); } // peekaboo!
     if (bend) s.tween(f.rotation, { x: 0 }, 0.2, Ease.out);
-    await s.anim(0.2, (e) => local.forEach((l, i) => { if (l) arms[i].position.lerpVectors(l, home[i].p, e); }), Ease.inOut);
+    await s.anim(0.2, (e) => pose(1 - e), Ease.inOut);
     arms.forEach((ar, i) => { ar.position.copy(home[i].p); ar.rotation.copy(home[i].r); });
   }
 
@@ -328,6 +350,14 @@ export default class BodyLesson extends Lesson {
         // a snack for the mouth: chomp chomp, gone
         s.wait(0.4).then(() => { sfx.chomp(); return s.anim(0.3, (_, p) => g.scale.set(k.x * (1 - p) + 0.001, k.y * (1 - p) * (1 - p) + 0.001, k.z)); }).then(() => { g.parent?.remove(g); sfx.mmm(); });
       }
+    }
+    if (name === 'tummy') {
+      // arms rest on top of the swim ring (hanging down, they vanished inside its tube); this becomes their home pose
+      (ud.arms || []).forEach((ar, i) => {
+        const z = (this.armHome[i]?.r.z ?? ar.rotation.z) + (i ? -1 : 1) * 0.62;
+        if (this.armHome[i]) this.armHome[i].r.z = z;
+        s.tween(ar.rotation, { z }, 0.3, Ease.back);
+      });
     }
     sfx.sparkle();
     if (!list[0].eat) this.gear[name] = made;

@@ -76,6 +76,7 @@ export default class MooLesson extends Lesson {
 
   async startRound(r) {
     this.busy = true;
+    this.solved = false;
     for (const a of this.animals) popOut(this.s, a, 0.18).then(() => this.root.remove(a));
     for (const sp of this.spots) popOut(this.s, sp, 0.18).then(() => this.root.remove(sp));
     // puddles, eggs and splashes from last round's signature move pop away with it (each body leaves the physics
@@ -140,11 +141,13 @@ export default class MooLesson extends Lesson {
   // the sound bubble pops up by Pip and wobbles in time with the call
   playCall() {
     const t = this.target, b = this.bubble, k = b.userData.size;
-    if (this.busy || this.dead) return;
+    // (a replay queued by a wrong tap or the prompt never brings the bubble back once the round is solved)
+    if (this.busy || this.dead || this.solved) return;
     sfx[SOUND[t]]();
     b.visible = true;
     this.s.stop(b.scale);
     this.s.anim(0.75, (_, p) => {
+      if (this.solved) return; // the right animal was tapped mid-wobble: let the bubble's pop-out win
       const e = p < 0.25 ? Ease.back(p / 0.25) : 1;
       const w = 1 + Math.sin(p * Math.PI * 6) * 0.07 * (1 - p);
       b.scale.set(k * e * w, k * e / w, 1);
@@ -173,6 +176,7 @@ export default class MooLesson extends Lesson {
       return;
     }
     this.busy = true;
+    this.solved = true;
     input.lock(1200);
     for (const o of this.animals) if (o.userData.tap) input.remove(o.userData.tap);
     // the bubble pops, the animal shouts its call and does its signature move, the others turn and bob along

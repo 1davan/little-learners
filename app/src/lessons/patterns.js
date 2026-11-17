@@ -6,7 +6,7 @@
 // and catch the things Gull throws. The right answer is thrown into its spot with real physics (bounce, settle).
 import * as T from '../three.js';
 import { Lesson, shuffle } from '../engine/lesson.js';
-import { mesh, geo, basic, ink } from '../engine/toon.js';
+import { mesh, geo, basic } from '../engine/toon.js';
 import { popIn, popOut, hop } from '../engine/actors.js';
 import { makeCrab, makeBucket, makeBeachBall, makeShell, makeSeaStar, makeDuck, makeGull } from '../engine/beach.js';
 import { input } from '../engine/input.js';
@@ -32,12 +32,36 @@ const THEMES = [
   { towel: 0xff5a5a, bucket: 0x4ab0ff, shell: 0xffe08a, star: 0xffa53f, crab: 0xff7a3a, ball: [0x5fd068, 0xff5a5a, 0xa77bff], leader: 'gull', flag: 0xa77bff },
 ];
 
+// The "?" over the empty slot: a crisp round badge (white disc, ink rim, bold coral "?" in the app's rounded font),
+// drawn once to a canvas and shown as a sprite, so it reads clearly on every stage, day or night.
+let qTex = null;
+function questionBadge() {
+  if (!qTex) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const x = c.getContext('2d');
+    x.beginPath(); x.arc(128, 128, 112, 0, Math.PI * 2);
+    x.fillStyle = '#ffffff'; x.fill();
+    x.lineWidth = 14; x.strokeStyle = '#2a2440'; x.stroke();
+    x.fillStyle = '#ff5a5a';
+    x.font = '800 180px "Baloo 2", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('?', 128, 140);
+    qTex = new T.CanvasTexture(c);
+    qTex.colorSpace = T.SRGBColorSpace;
+    qTex.userData.shared = true;   // kept across plays (disposeTree skips shared textures)
+  }
+  const sp = new T.Sprite(new T.SpriteMaterial({ map: qTex, depthWrite: false }));
+  sp.scale.setScalar(0.85);
+  return sp;
+}
+
 function makeItem(kind, th = THEMES[0]) {
   const g = new T.Group();
   let m;
   if (kind === 'shell') { m = makeShell(th.shell, 1.15); m.rotation.x = 1.1; m.position.y = 0.45; }
   else if (kind === 'star') { m = makeSeaStar(th.star, 0.55); m.position.y = 0.55; }
-  else if (kind === 'crab') { m = makeCrab(th.crab); m.scale.setScalar(0.55); }
+  else if (kind === 'crab') { m = makeCrab(th.crab); m.scale.setScalar(0.46); }   // 1.6 wide: claws stay clear of the next slot (1.64–1.7 apart)
   else if (kind === 'ball') { m = makeBeachBall(0.48, th.ball); m.position.y = 0.5; }
   else { m = makeBucket(th.bucket, 0.42, 0.6); m.position.y = 0.02; }
   g.add(m);
@@ -195,12 +219,7 @@ export default class PatternsLesson extends Lesson {
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = SY + 0.02;
     const q = new T.Group();
-    // the night stage (Level 3) gets a bright yellow "?" — a dark one vanished against the night sky
-    const qm = (g) => (this.level === 2 ? new T.Mesh(g, basic(0xffd23f)) : ink(g));
-    const arc = qm(geo.torus(0.2, 0.07, Math.PI * 1.4, 6, 16));
-    arc.rotation.z = -0.5; arc.position.y = 0.15;
-    const dot = qm(geo.sphere(0.08, 8, 6)); dot.position.y = -0.3;
-    q.add(arc, dot);
+    q.add(questionBadge());
     marker.add(ring, q);
     marker.position.set(this.slotX(gap, n), 0, ROW_Z);
     marker.userData = { q, ring, pulse: 0, qy: SY + 0.9 };
@@ -515,7 +534,9 @@ export default class PatternsLesson extends Lesson {
     }
     if (this.stage === 'podium') for (const pd of this.bases) {
       pd.userData.leaving = true;
-      this.s.tween(pd.scale, { y: 0.001 }, 0.35, Ease.in).then(() => this.root.remove(pd));
+      // the things hop down first (their drop takes 40% of the leave), then the podiums sink back into the sand —
+      // sinking at once read as the podiums vanishing out from under them
+      this.s.wait(Math.min(0.5, dur * 0.4)).then(() => this.s.tween(pd.scale, { y: 0.001 }, dur > 1 ? 0.6 : 0.35, Ease.inOut)).then(() => this.root.remove(pd));
     }
   }
 

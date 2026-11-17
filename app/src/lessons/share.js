@@ -76,7 +76,7 @@ export default class ShareLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.themes = THEMES[this.level];
-    this.pip.position.set(-6.4, 0, -2.2);
+    this.pip.position.set(-6.8, 0, -2.4); // clear of the leftmost friend in a four-friend party
     frame(0, 5.6, 12.8, 0, 1.2, 1.0);
     calmBackdrop(this.meadow);
     this.bunnies = [];
@@ -113,6 +113,8 @@ export default class ShareLesson extends Lesson {
       const p = b.userData.plate;
       popOut(this.s, p, 0.18).then(() => { this.root.remove(p); disposeTree(p); });
     }
+    // last round's friends and plates are fully gone before the new ones pop in (never two sets overlapping)
+    if (this.bunnies.length) await this.wait(0.2);
     // one bowl-shaped catcher per plate (last round's catchers went with their plates; the floor stays)
     const [n, each, pre] = this.plan[r];
     this.each = each;

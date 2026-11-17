@@ -264,7 +264,8 @@ export class WorldMap {
     const v = new T.Vector3();
     this.islands.forEach((g, i) => {
       const [x, z, r] = SPOTS[i];
-      const p = project(v.set(x, 0, z + r * OVAL * 1.05));
+      // the back-row labels lean outward a little so they sit in open water, clear of the farm island in front
+      const p = project(v.set(x + (z < 0 ? Math.sign(x) * 0.9 : 0), 0, z + r * OVAL * 1.05));
       this.labels[i].style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, 0)`;
     });
     this.idle += dt;
