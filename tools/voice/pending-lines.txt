@@ -776,3 +776,384 @@ Brilliant! A healthy plate!
 Yes! A healthy plate!
 Amazing! A healthy plate!
 Well done! A healthy plate!
+
+which holds more / less?
+Fill the bucket with sand!
+Now tip it out!
+Fill it up with water!
+Make it empty!
+Fill the big bucket up!
+Tip it out!
+Fill this bucket half way!
+Which bucket is heavy?
+Fill this one right up!
+Which bucket is full?
+Tip out the half full one!
+Which bucket is light?
+Make the see-saw balance!
+Which one holds more?
+The big one holds more!
+Balance it with water!
+The wide one holds more!
+Make it balance again!
+Which one holds less?
+The small one holds less!
+which holds more?
+Pour it in this one!
+This one!
+Half full!
+It's full!
+Full right up!
+It balances!
+A little bit more!
+A bit more out!
+Pour in this one!
+Find the half full one!
+Try the other one!
+Hmm, let\'s look again!
+Heavy goes down!
+Light goes up!
+That one is full!
+A sand castle!
+Empty!
+Now it's empty!
+All empty!
+That one isn't full yet!
+what a band!
+Copy Pip!
+Boom!
+Listen… now you!
+Your turn!
+What a band!
+one more!
+One more!
+More!
+Bottom first!
+Which one rolls?
+Which one stacks?
+Which one rolls? Tap it!
+Which one stacks? Put it on top!
+The cube stacks!
+We see with our eyes!
+We smell with our nose!
+We hear with our ears!
+We eat with our mouth!
+A is for Apple!
+How many in total?
+Hats go on heads!
+Tops go on the body!
+Shoes go on feet!
+That goes round the legs!
+Glasses go on eyes!
+That goes round the neck!
+Mittens go on hands!
+Shorts go on legs!
+A tutu goes round the middle!
+Scarves go round necks!
+A bow tie goes on the neck!
+Necklaces go round necks!
+Sunny day!
+A T-shirt! Put it on Monkey!
+T-shirt on!
+Shorts! Put them on Monkey!
+Shorts on!
+Sneakers! Put them on Monkey!
+Sneakers on!
+A sun hat! Put it on Monkey!
+Hat on!
+Party time!
+A party dress! Put it on Monkey!
+So pretty!
+A tutu! Put it on Monkey!
+Twirl twirl!
+A bow tie! Put it on Monkey!
+Bow tie on!
+Heart glasses! Put them on Monkey!
+Glasses on!
+A party hat! Put it on Monkey!
+Party hat on!
+Snowy day!
+Dungarees! Put them on Monkey's legs!
+Dungarees on!
+On Monkey's legs!
+A cosy jumper! Put it on Monkey's tummy!
+Nice and cosy!
+On Monkey's tummy!
+Wellies! Put them on Monkey's feet!
+Stomp stomp!
+On Monkey's feet!
+A scarf! Put it round Monkey's neck!
+Scarf on!
+Round Monkey's neck!
+A woolly hat! Put it on Monkey's head!
+Warm head!
+On Monkey's head!
+Mittens! Put them on Monkey's hands!
+Warm hands!
+On Monkey's hands!
+Arr!
+Yum!
+Ta-da!
+I need something here!
+ooh ooh AAH!
+ooh?
+One more! Tap the wardrobe!
+Tap the wardrobe!
+not there!
+Sad. 😢 Big hug!
+Sad. 😢 Pat pat, all better!
+Sad. 😢 A flower for you!
+Angry! 😠 Stomp it out!
+Scared! 😨 It's okay. Cuddle!
+Scared! 😨 We are brave together!
+Happy! 😊 Happy dance!
+Happy! 😊 High five!
+Happy! 😊 Spin spin!
+Colours!
+Let's sort colours!
+Counting!
+Someone's hungry! Let's count!
+Shapes!
+Let's find shapes!
+Feelings!
+How does Pip feel?
+Big and small!
+Let's find big and small!
+Patterns!
+Let's make a pattern!
+Where's Crab?
+In, on, under!
+Let's play with Crab!
+Which has more?
+Let's find more!
+Nose and toes!
+Hello Bear! Let's find nose and toes!
+Sink or float?
+Let's see what floats!
+Did it happen as predicted?
+Who says moo?
+Listen! Farm animals!
+Sharing!
+The bunnies are hungry!
+Drums!
+Let's play drums!
+Peekaboo!
+Peekaboo! Who is hiding?
+What happens next?
+Let's tell a story!
+Dress up!
+Monkey wants to get dressed!
+My day!
+Let's help Bunny!
+Snack time!
+Who is hungry? Snack time!
+Letters!
+Let's build letters with bricks!
+Blocks!
+Let's build with blocks!
+Fill it up!
+Let's fill the buckets!
+Moo!
+Oink!
+Baa!
+Quack!
+Cluck!
+Neigh!
+Listen! Who is it?
+That one has fewer. Find more!
+That one has more. Find fewer!
+Wash your hands! What comes first?
+Clean paws!
+Turn on the tap!
+The tap first!
+Soap on! Rub rub rub!
+Now the soap!
+Rinse the bubbles off!
+Rinse them off!
+Dry with the towel!
+Now the towel!
+Teeth time! What comes first?
+Shiny teeth!
+Toothpaste on the brush!
+Toothpaste first!
+Brush brush brush!
+Now brush!
+Rinse with water!
+Now the cup!
+Ah... ah... What do we need?
+Bless you!
+Quick! A tissue!
+A tissue first!
+Tissue in the bin!
+In the bin!
+Now wash your hands!
+Bath time! What comes first?
+All clean!
+Turn on the bath!
+Water first!
+Bubbles in!
+Bubbles next!
+Wash with the sponge!
+Now the sponge!
+Fluffy fur time!
+So fluffy!
+Brush your ears!
+The brush!
+Now the other ear!
+The other ear!
+Ring ring! Wake up!
+Good morning!
+Ring ring! Tap the clock!
+The clock!
+Open the curtains!
+The curtains!
+Make the bed!
+Nice and tidy!
+Duvet on the bed!
+The duvet first!
+Teddy on the pillow!
+Now Teddy!
+Bedtime! What comes first?
+So cosy!
+Close the curtains!
+Curtains first!
+Teddy for a cuddle!
+Sleepy time! What comes next?
+Night night!
+Tuck Bunny in!
+Tuck in first!
+Lights off!
+Now lights off!
+Painty paws!
+Teeth time!
+Bath time!
+Muddy paws!
+Messy fur!
+Wash your paws!
+Sticky jam paws!
+To the bedroom!
+To the bathroom!
+What comes next?
+Rinse!
+Atchoo!
+what?
+A ball!
+A worm!
+Frog!
+A sock!
+A snail!
+peekaboo!
+Watch!
+Not here!
+One for you!
+And one for you!
+ooh!
+This one is waiting!
+Same for everyone!
+A cookie for each friend!
+Share the cookies!
+Everyone gets one!
+which rolls? which bounces?
+Did it happen?
+Which one bounces?
+Drop it in! Let's see!
+Put it in the float tub!
+Put it in the sink tub!
+Which tub does it go in?
+You think it floats! Let's test it!
+You think it sinks! Let's test it!
+It floats!
+It sinks!
+You were right! It floats!
+You were right! It sinks!
+Surprise! It floats!
+Surprise! It sinks!
+It floated! The float tub!
+It sank! The sink tub!
+In the float tub!
+In the sink tub!
+The ball rolls!
+Boing! The ball bounces!
+The block does not roll! Try the other one!
+Thud! The rock does not bounce!
+BIG!
+Soap first!
+We have a fruit! Now a veg!
+Wash hands first! Tap the tap!
+Wash hands first! Tap the soap!
+Rub rub rub!
+Now rinse! Tap the tap!
+Rub the soap first!
+Rinse first!
+Dry hands now!
+ooh, food!
+A fruit and a veg, please!
+One of each, please!
+Wash a fruit in the sink!
+Now milk or cheese! Look in the fridge!
+Wash hands first!
+Wash the fruit first!
+A fruit and a veg!
+A healthy plate!
+Clean fruit!
+brr!
+Clean hands!
+The chick hatched!
+The flower grew!
+A butterfly!
+Yum! Bunny ate the apple!
+A rainbow!
+Piggy is clean!
+Hmm, not that one!
+Look again!
+Not yet! What comes first?
+Not yet! What comes next?
+which one?
+What happens at the end?
+What happens first?
+Uh-oh, rain!
+Swim time!
+Sea view!
+Sleepy!
+Picnic!
+So hot!
+Rain!
+Hide!
+Treasure!
+Sail away!
+Ball game!
+Splash!
+Put the crab ON the bucket!
+Yay!
+You did it!
+Wow!
+Hooray!
+Great job!
+Super!
+Brilliant!
+Yes!
+Amazing!
+Well done!
+Bye bye! See you soon!
+You did it! A sticker!
+The meadow! Tap a game!
+The beach! Tap a game!
+The farm! Tap a game!
+Home sweet home! Tap a game!
+The building site! Tap a game!
+Look! A new sticker! Tap another game!
+Tap a game!
+Tap one!
+Hi! I'm Pip!
+Hee hee! That tickles!
+Reset all stickers and progress?
+The meadow!
+The beach!
+The farm!
+Home!
+The building site!
+Hi! I'm Pip! Where shall we play? Tap a world!
+Tap a world!
+Ahoy! Tap a world!
+Hee hee! Where shall we go?
+Pick an island!
