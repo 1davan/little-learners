@@ -573,6 +573,7 @@ export class Lesson {
     fx.clearHands();
     this.s.kill();
     this.clearHints();
+    fx.clearHalos(); // rings whose stop timer was just killed with this.s
     input.clear();
     speech.stop();
     for (const f of this.offs) f();

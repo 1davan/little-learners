@@ -74,6 +74,7 @@ function haloTex() {
 }
 
 const hands = new Set();
+const halos = new Set(); // every live glow ring, so a closing game can never leave one behind
 function ripple(x, y) {
   const r = document.createElement('div');
   r.className = 'tap-ripple';
@@ -145,8 +146,11 @@ export const fx = {
       m.scale.setScalar(r * k * (age < 0.25 ? 0.7 + 1.2 * age : 1));
       m.material.opacity = strength * Math.min(1, age * 4) * (0.78 + Math.sin(t * 4.5) * 0.2);
     });
-    return () => { off(); scene.remove(m); m.material.dispose(); };
+    const stop = () => { if (!halos.has(stop)) return; halos.delete(stop); off(); scene.remove(m); m.material.dispose(); };
+    halos.add(stop);
+    return stop;
   },
+  clearHalos() { for (const h of [...halos]) h(); },
 
   sparkle(x, y) {
     const el = document.createElement('div');
