@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from skit import SProp, dome_profile
 
 p = SProp('prop_starfish', base=0xffffff)
-NT, NR = 60, 6
+NT, NR = 90, 12
 
 
 def Rof(t):
@@ -21,7 +21,9 @@ for i in range(1, NR + 1):
     f = i / NR
     for j in range(NT):
         t = j / NT * math.tau
-        R = Rof(t)
+        R0 = Rof(t)
+        k_ = min(1.0, f / 0.45) ** 2 * (3 - 2 * min(1.0, f / 0.45))   # round near the middle: no creases meeting at the centre
+        R = 0.72 + (R0 - 0.72) * k_
         r = R * f
         h = 0.26 * (1 - f ** 2.2) ** 0.55 * (0.75 + 0.25 * R) + 0.02
         grid[(i, j)] = len(verts)
@@ -45,6 +47,7 @@ for j in range(NT):
     faces.append((c, bot + j2, bot + j))
 p.mesh(verts, faces)
 p.layer('dots', base=0xfff4e0)
+p.layers['dots'].update(remesh=True, voxel=0.012, target_faces=1400)
 for a in range(5):
     t = math.pi / 2 + a * math.tau / 5
     for k, rr in enumerate((0.3, 0.52, 0.74)):
@@ -52,7 +55,8 @@ for a in range(5):
         h = 0.26 * (1 - (rr / R) ** 2.2) ** 0.55 + 0.02
         for s in ((0,) if k == 2 else (-1, 1)):
             tt = t + s * 0.11 / max(rr, 0.2) * (1 if k < 2 else 0)
-            p.lathe(dome_profile(0.06 - k * 0.01, 0.05, n=3), pos=(rr * math.cos(tt), rr * math.sin(tt), h - 0.02), rot=(90, 0, 0), seg=8)
+            s_ = 0.065 - k * 0.012                                     # soft round bumps, half sunk (no ink rings)
+            p.blob((rr * math.cos(tt), rr * math.sin(tt), h - s_ * 0.3), (s_, s_, s_ * 0.55), group='d%d%d%d' % (a, k, s + 1))
 p.layer('skin')
 p.extras['outline'] = 0.02
 p.build()

@@ -16,6 +16,8 @@ let win = null;
 function createWindow() {
   win = new BrowserWindow({
     fullscreen: true,
+    // kiosk + always-on-top: multi-finger swipes, the taskbar and edge gestures can't pull a toddler out
+    kiosk: process.platform === 'win32' && app.isPackaged,
     autoHideMenuBar: true,
     backgroundColor: '#bfe8ff',
     title: 'Little Learners',
@@ -36,7 +38,16 @@ function createWindow() {
     if (mod && ['r', 'w', '=', '+', '-', '0', 'i'].includes(k) && !input.shift) e.preventDefault();
     if (mod && input.shift && k === 'i') e.preventDefault();
   });
-  win.on('leave-full-screen', () => win.setFullScreen(true));
+  if (app.isPackaged) win.on('leave-full-screen', () => win.setFullScreen(true));
+  // if a stray multi-finger gesture minimises or hides the window, bring it straight back
+  const comeBack = () => setTimeout(() => { if (!win || win.isDestroyed()) return; win.restore(); win.show(); win.setFullScreen(true); win.focus(); }, 150);
+  // (the toddler lock only applies to the packaged app; `npm start` lets a grown-up Cmd/Alt-Tab while testing)
+  if (app.isPackaged) {
+    win.on('minimize', comeBack);
+    win.on('hide', comeBack);
+    win.on('blur', () => setTimeout(() => { if (win && !win.isDestroyed() && win.isMinimized()) comeBack(); }, 300));
+    if (process.platform === 'win32') win.setAlwaysOnTop(true, 'screen-saver');
+  }
 }
 
 app.whenReady().then(() => {

@@ -1,20 +1,20 @@
-"""Toy train wagon (Pattern parade, level 2). Origin on the rails under the middle; things ride on its floor at y 0.29.
-A rounded open tub (1.36 long, 1.0 deep, walls to y 0.62) on a dark chassis, tintable body (argMode 'tint'), white
+"""Toy train wagon (Pattern parade, level 2). Origin on the rails under the middle; things ride on its floor at y 0.45.
+A low open flatbed tub (1.36 long, 1.0 deep, a low lip to y 0.56, so the cargo is the star) on a dark chassis, tintable body (argMode 'tint'), white
 rolled rim, four chunky wheels with yellow hubs on bones 'wheel.F' / 'wheel.B' (rotation.z spins them), and couplers."""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop, rounded
 
 BODY, RIM, DARK, HUB = 0xffffff, 0xfffaf0, 0x4a3a52, 0xffd23f
-FL, WT, HX, HZ = 0.29, 0.07, 0.66, 0.5
+FL, WT, HX, HZ = 0.45, 0.07, 0.66, 0.5
 p = Prop('prop_traincart', base=BODY, target_faces=2200, voxel=0.02, smooth=3)
-p.box((0, FL - 0.06, 0), (HX, 0.06, HZ), bevel=0.04)                      # floor
+p.box((0, FL - 0.1, 0), (HX, 0.1, HZ), bevel=0.04)                       # deep floor (the bed sits high)
 for s in (-1, 1):
-    p.box((s * (HX - WT / 2), 0.45, 0), (WT / 2, 0.18, HZ), bevel=0.035)
-    p.box((0, 0.45, s * (HZ - WT / 2)), (HX, 0.18, WT / 2), bevel=0.035)
-p.paint_fn(lambda q, n: q.y < FL - 0.07, 0xd8d8d8)
+    p.box((s * (HX - WT / 2), 0.42, 0), (WT / 2, 0.13, HZ), bevel=0.035)
+    p.box((0, 0.42, s * (HZ - WT / 2)), (HX, 0.13, WT / 2), bevel=0.035)
+p.paint_fn(lambda q, n: q.y < FL - 0.12, 0xd8d8d8)
 p.layer('rim', base=RIM, target_faces=700, voxel=0.016)
-pts = rounded([(-HX + 0.03, 0.635, -HZ + 0.03), (HX - 0.03, 0.635, -HZ + 0.03), (HX - 0.03, 0.635, HZ - 0.03), (-HX + 0.03, 0.635, HZ - 0.03)], 0.12, n=4, closed=True)
+pts = rounded([(-HX + 0.03, 0.565, -HZ + 0.03), (HX - 0.03, 0.565, -HZ + 0.03), (HX - 0.03, 0.565, HZ - 0.03), (-HX + 0.03, 0.565, HZ - 0.03)], 0.12, n=4, closed=True)
 p.tube(pts, 0.05, closed=True, rseg=10)
 p.layer('chassis', base=DARK, target_faces=600, voxel=0.018)
 p.box((0, 0.13, 0), (HX - 0.12, 0.06, HZ - 0.12), bevel=0.03)

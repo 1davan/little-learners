@@ -147,7 +147,9 @@ function makeSprings(bones) {
     const len = child ? child.position.length() : 0.35;
     const depth = (name.match(/(\d)$/) || [0, 1])[1] | 0;
     const stiff = /^trunk/.test(name) ? 1.7 : /^tail/.test(name) ? 0.9 : 1;
-    list.push({ b, len: Math.max(0.1, len), tip: null, vel: new T.Vector3(), k: (90 - depth * 18) * stiff, damp: /^trunk/.test(name) ? 10 : 7.5, grav: 1.2, base: b.quaternion.clone(), lastQ: null });
+    // ears swing less (about 30°), so long bunny ears never flop into the face
+    const max = /^ear/.test(name) ? 0.55 : MAX_SWING;
+    list.push({ b, max, len: Math.max(0.1, len), tip: null, vel: new T.Vector3(), k: (90 - depth * 18) * stiff, damp: /^trunk/.test(name) ? 10 : 7.5, grav: 1.2, base: b.quaternion.clone(), lastQ: null });
   }
   // parents first
   list.sort((a, c) => depthOf(a.b) - depthOf(c.b));
@@ -186,8 +188,8 @@ function stepSprings(springs, dt) {
     const turn = _turn.setFromUnitVectors(restDir, tipDir);
     // never swing further than ~50° from the pose (stops ears smearing into the head on a hard shove)
     const ang = 2 * Math.acos(Math.min(1, Math.abs(turn.w)));
-    if (ang > MAX_SWING) {
-      turn.slerp(_qi, 1 - MAX_SWING / ang);
+    if (ang > s.max) {
+      turn.slerp(_qi, 1 - s.max / ang);
       s.vel.multiplyScalar(0.5);
       s.tip.copy(head).add(_w.copy(restDir).applyQuaternion(turn).applyQuaternion(_pq.invert()).multiplyScalar(s.len));
     }
@@ -371,3 +373,6 @@ onAfterRender(() => {
   for (let i = 0; i < saved.length; i += 3) { saved[i].position.copy(saved[i + 1]); saved[i].quaternion.copy(saved[i + 2]); }
   saved.length = 0;
 });
+
+// (An automatic render-time 'personal space' push was tried here and removed: it made walking characters
+// stall and then snap through furniture. Clipping is solved by staging/animation in each game instead.)

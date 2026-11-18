@@ -23,9 +23,9 @@ export function containerDims(style) { return STYLE[style] || STYLE.tube; }
 // Blender walls per style (tinted to the container's colour): model, scale, physics inner radius / floor, face depth.
 const MODEL = {
 // floor: a raised false floor (physics + a dark disc) so the pile shows over the rim from the low camera.
-  tube: { kind: 'prop_m_ctube', inner: 0.84, floor: 2.45, faceZ: 0.02 },
+  tube: { kind: 'prop_m_ctube', inner: 0.84, floor: 2.2, faceZ: 0.02 }, // pile tops show just over the rim
   basket: { kind: 'prop_m_cbasket', size: 0.94, inner: 0.8, floor: 0.85, faceZ: 0.03 }, // 0.94: four in a row never touch
-  bucket: { kind: 'prop_bucket', size: [1.15, 1.9 / 1.3, 1.15], hide: ['deco'], inner: 0.85, floor: 1.15, faceZ: 0.05 },
+  bucket: { kind: 'prop_bucket', size: [1.15, 1.9 / 1.3, 1.15], hide: ['deco'], inner: 0.85, floor: 1.45, faceZ: 0.05 }, // raised: things show, not vanish
 };
 
 export function makeTube(color, style = 'tube') {
@@ -40,7 +40,7 @@ export function makeTube(color, style = 'tube') {
   if (pm) {
     body.add(pm);
     // (the bucket's handle stays upright: its bone also carries the top of the rim, which would bulge if it turned)
-    const ins = new T.Mesh(geo.circle(M.inner + 0.04, 28), toon(shade(c, 0.5)));
+    const ins = new T.Mesh(geo.circle(M.inner + 0.04, 28), toon(shade(c, 0.35)));
     ins.rotation.x = -Math.PI / 2; ins.position.y = M.floor;
     body.add(ins);
     glass = new T.Object3D(); // tap / hint / halo target in the middle of the wall
@@ -123,6 +123,7 @@ export function makeTube(color, style = 'tube') {
   const mouth = ink(geo.sphere(0.26, 18, 12)); // open "ooh / gulp" mouth, scaled by the lesson
   mouth.position.set(0, -0.12, 0);
   mouth.scale.set(1, 0.001, 0.25);
+  mouth.visible = false; // shown only while it opens (a closed one drew a hairline over the smile)
   const tongue = new T.Mesh(geo.sphere(0.14, 10, 8), basic(0xff7a8a));
   tongue.position.set(0, -0.45, 0.6);
   tongue.scale.set(1, 0.6, 0.3);

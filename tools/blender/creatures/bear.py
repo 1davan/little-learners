@@ -99,4 +99,9 @@ for k, p in dict(nose=(0, HY - 0.03), eyeL=(-0.36 * R, HY + 0.12 * R), eyeR=(0.3
                  handL=(-0.92, 0.64), handR=(0.92, 0.64),
                  footL=(-0.33, 0.1), footR=(0.33, 0.1), earL=(-0.56, HY + 0.51), earR=(0.56, HY + 0.51)).items():
     c.anchor(k, p, 'head' if p[1] > 1.2 else 'body')
+# WORDS batch 6 body-part anchors (head top, left code-face cheek, mid left arm, left leg)
+c.anchor('head', (0, HY + 0.5), 'head')
+c.anchor('cheek', (-0.58 * R, HY - 0.12 * R), 'head')
+c.anchor('armL', (-0.63, 0.88), 'arm.L')
+c.anchor('legL', (-0.3, 0.3), 'leg.L')
 c.build()

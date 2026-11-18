@@ -164,12 +164,24 @@ export function makeStand() {
   const t = mesh(geo.cyl(1.3, 1.3, 0.25, 32), 0xe8bf86, { outline: 0.02 }); t.position.y = 1.32; g.add(t);
   return g;
 }
-export const TRAY = { len: 11.0, d: 1.7, floor: 0.12, rim: 0.34 };
-export function makeTray() {
-  const m = staticModel('prop_blk_tray', ['rim']);
+// two trays: the long one (11.0) and a short one (6.2) for Level 1's two- and three-block models
+export const TRAY = { len: 11.0, short: 6.2, d: 1.7, floor: 0.12, rim: 0.34 };
+export function makeTray(len = TRAY.len) {
+  const short = len < 8;
+  const m = staticModel(short ? 'prop_blk_tray_s' : 'prop_blk_tray', ['rim']);
   if (m) return m;
   const g = new T.Group();
-  g.add(box(TRAY.len, TRAY.floor, TRAY.d, 0xe8bf86));
+  g.add(box(short ? TRAY.short : TRAY.len, TRAY.floor, TRAY.d, 0xe8bf86));
+  return g;
+}
+// the keepsake shelf behind the mat: every finished model goes to stand on it
+export const SHELF = { len: 5.8, d: 0.9, top: 0.72 };
+export function makeShelf() {
+  const m = staticModel('prop_blk_shelf', ['legs']);
+  if (m) return m;
+  const g = new T.Group();
+  g.add(box(SHELF.len, 0.14, SHELF.d, 0xe8bf86, SHELF.top - 0.07));
+  for (const sx of [-1, 1]) { const leg = box(0.3, SHELF.top - 0.14, SHELF.d - 0.1, 0xc98f55); leg.position.x = sx * (SHELF.len / 2 - 0.35); g.add(leg); }
   return g;
 }
 export const TOYBOX = { w: 2.6, h: 1.3, d: 1.7 };
@@ -184,7 +196,7 @@ export function makeToyBox() {
 export const RAMP = { w: 4.6, l: 2.6, h: 1.8, lip: 0.04, lanes: [-1.53, 0, 1.53] };
 RAMP.ang = Math.atan2(RAMP.h - RAMP.lip, RAMP.l);
 export function makeRamp() {
-  const m = staticModel('prop_blk_ramp', ['lanes']);
+  const m = staticModel('prop_blk_ramp', ['lanes', 'trim']);
   if (m) return m;
   const g = new T.Group();
   const w = new T.Mesh(rampGeo(), toon(0x3f8cff));
@@ -208,7 +220,7 @@ export const rampY = (z) => RAMP.lip + (RAMP.h - RAMP.lip) * (RAMP.l / 2 - z) / 
 // Each slot: [shape, x, y (bottom, in cubes), colour]. Every model stands in one row facing us, so nothing hides.
 const S = (shape, x, y, col) => ({ shape, x, y, col: COL[col] ?? col });
 export const MODELS = {
-  tree: { name: 'a tree', slots: [S('cyl', 0, 0, 'brown'), S('cone', 0, 1, 'green')], gag: 'leaves' },
+  tree: { name: 'a tree', slots: [S('cyl', 0, 0, 'brown'), S('cone', 0, 1, 'green')], gag: 'bounce' },
   house: { name: 'a house', slots: [S('cuboid', 0, 0, 'yellow'), S('roof', 0, 1, 'red')], gag: 'flag' },
   tower: { name: 'a tower', slots: [S('cube', 0, 0, 'blue'), S('cube', 0, 1, 'yellow'), S('cone', 0, 2, 'red')], gag: 'flag' },
   bridge: { name: 'a bridge', slots: [S('cube', -1, 0, 'orange'), S('cube', 1, 0, 'orange'), S('cuboid', 0, 1, 'teal')], gag: 'bounce' },
@@ -219,7 +231,7 @@ export const MODELS = {
   castle: { name: 'a castle', slots: [S('cube', -1.5, 0, 'purple'), S('arch', 0, 0, 'pink'), S('cube', 1.5, 0, 'purple'), S('cone', -1.5, 1, 'yellow'), S('cone', 1.5, 1, 'yellow')], gag: 'flag' },
   rocket2: { name: 'a big rocket', slots: [S('cyl', 0, 0, 'blue'), S('cyl', 0, 1, 'white'), S('cyl', 0, 2, 'blue'), S('cone', 0, 3, 'red')], gag: 'rocket' },
   temple: { name: 'a gate', slots: [S('cyl', -0.5, 0, 'teal'), S('cyl', 0.5, 0, 'teal'), S('cuboid', 0, 1, 'yellow'), S('roof', 0, 2, 'orange')], gag: 'bounce' },
-  hometree: { name: 'a house and a tree', slots: [S('arch', -0.9, 0, 'sky'), S('cuboid', -0.9, 1, 'yellow'), S('roof', -0.9, 2, 'red'), S('cyl', 1.6, 0, 'brown'), S('cone', 1.6, 1, 'green')], gag: 'leaves' },
+  hometree: { name: 'a house and a tree', slots: [S('arch', -0.9, 0, 'sky'), S('cuboid', -0.9, 1, 'yellow'), S('roof', -0.9, 2, 'red'), S('cyl', 1.6, 0, 'brown'), S('cone', 1.6, 1, 'green')], gag: 'bounce' },
   tower2: { name: 'a tall tower', slots: [S('cube', 0, 0, 'red'), S('cyl', 0, 1, 'yellow'), S('cube', 0, 2, 'blue'), S('cone', 0, 3, 'green')], gag: 'flag' },
   // Level 3
   towers: { name: 'a bridge with towers', slots: [S('cyl', -1.5, 0, 'blue'), S('arch', 0, 0, 'orange'), S('cyl', 1.5, 0, 'blue'), S('cone', -1.5, 1, 'red'), S('cone', 1.5, 1, 'red')], gag: 'flag' },
@@ -228,7 +240,7 @@ export const MODELS = {
 };
 // Rounds per level: build a model, or (Level 3) a twist - which one rolls (on the ramp), which one stacks (on a tower).
 export const PLANS = [
-  { felt: 0x6fa8ff, rounds: [{ build: 'tree' }, { build: 'house' }, { build: 'tower' }, { build: 'bridge' }, { build: 'rocket' }, { build: 'door' }] },
+  { felt: 0x6fa8ff, tray: TRAY.short, rounds: [{ build: 'tree' }, { build: 'house' }, { build: 'tower' }, { build: 'bridge' }, { build: 'rocket' }, { build: 'door' }] },
   { felt: 0x7fd6b0, extra: 1, rounds: [{ build: 'bighouse' }, { build: 'castle' }, { build: 'rocket2' }, { build: 'temple' }, { build: 'hometree' }, { build: 'tower2' }] },
   {
     felt: 0x9a8cff, extra: 1, rounds: [
@@ -252,8 +264,20 @@ export function supportsOf(slots) {
   });
 }
 
-// A little flag on a stick that pops up on top of a finished build.
+// A little flag on a stick that pops up on top of a finished build (Blender prop_blk_flag: its white cloth takes the
+// flag's colour, the stick and knob stay as painted).
 export function makeFlag(col = COL.red) {
+  if (hasCreature('prop_blk_flag')) {
+    const src = bakedGeo('prop_blk_flag');
+    const g = new T.Group();
+    const c = src.clone();
+    c.userData = {};
+    const a = c.attributes.color;
+    if (a) { _c.setHex(col); for (let i = 0; i < a.count; i++) if (a.getX(i) > 0.93 && a.getY(i) > 0.93 && a.getZ(i) > 0.93) a.setXYZ(i, _c.r, _c.g, _c.b); }
+    const m = mesh(c, 0xffffff, { outline: 0.016, mat: toon(0xffffff, { vertexColors: true }) });
+    g.add(m);
+    return g;
+  }
   const g = new T.Group();
   const stick = mesh(geo.cyl(0.035, 0.035, 0.9, 8), 0xc98a52, { outline: 0.012 }); stick.position.y = 0.45; g.add(stick);
   const knob = mesh(geo.sphere(0.07, 10, 8), 0xffd23a, { outline: 0.012 }); knob.position.y = 0.92; g.add(knob);

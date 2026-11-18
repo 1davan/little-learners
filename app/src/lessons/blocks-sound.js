@@ -2,19 +2,18 @@
 // build grows), a rolling rumble, a wooden crash for a toppling tower, a soft tick as a block pops into the model,
 // and a little xylophone run over a finished build. Synthesized on a small WebAudio context of our own that follows
 // the engine volume (the same approach as bricks-sound.js).
-import { getVolume } from '../engine/audio.js';
+import { getVolume, sharedCtx, cueOut } from '../engine/audio.js';
 
 let ctx = null, out = null;
 function ac() {
   if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC();
+    ctx = sharedCtx();
     const comp = ctx.createDynamicsCompressor();
     out = ctx.createGain();
-    out.connect(comp); comp.connect(ctx.destination);
+    out.connect(cueOut());
   }
   if (ctx.state === 'suspended') ctx.resume();
-  out.gain.value = getVolume() * 0.8;
+  out.gain.value = 1;
   return ctx;
 }
 function env(g, now, vol, attack, dur) {

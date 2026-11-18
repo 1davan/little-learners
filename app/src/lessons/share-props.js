@@ -97,12 +97,23 @@ export function makeCookie(s = 1) {
 // (hull: a true-shape collider, so a long carrot or cob lies flat on the plate instead of sinking into it.)
 // lay: how the snack rests on a plate. held: tilt while carried. size: on-plate scale. gap: spacing on the plate.
 export const SNACKS = {
-  carrot: { make: () => makeCarrot(1), lay: [0, 0.3, 1.45], held: 0.3, size: 0.8, y: 0.3, gap: 0.5, plural: 'carrots', hull: true },
+  // carrots and cobs lie side by side on the plate, tips toward the child (never end to end through each other)
+  carrot: { make: () => makeCarrot(1), lay: [0, -1.15, 1.45], held: 1.3, show: 0.85, size: 0.72, y: 0.3, gap: 0.46, plural: 'carrots', hull: true },
   apple: { make: () => makeApple(1.15), lay: [0, 0, 0], held: 0, size: 0.95, y: 0.4, gap: 0.62, plural: 'apples' },
-  corn: { make: () => makeCorn(1.15), lay: [0, -0.3, 1.45], held: 0.3, size: 0.85, y: 0.3, gap: 0.5, plural: 'corn', hull: true },
-  fish: { make: () => makeFish(1.2), lay: [-1.3, 0, 0], held: 0.2, size: 0.7, y: 0.4, gap: 0.55, plural: 'fish', hull: true },
+  corn: { make: () => makeCorn(1.15), lay: [0, 1.15, 1.45], held: 1.3, show: 0.85, size: 0.74, y: 0.3, gap: 0.46, plural: 'corn', hull: true },
+  // the fish lies on its side, tilted up to the camera, as big as it looked waiting on the bin
+  fish: { make: () => makeFish(1.2), lay: [-0.9, 0, 0], held: 0.2, size: 0.95, y: 0.4, gap: 0.5, plural: 'fish', hull: true, rows: true },
   cookie: { make: () => makeCookie(1.25), lay: [-1.2, 0, 0], held: 0, size: 0.95, y: 0.42, gap: 0.62, plural: 'cookies', hull: true },
 };
+// Where the i-th of `each` snacks rests on a plate ([x, z] from the plate centre). Long snacks (carrots, cobs) lie side
+// by side; apples sit in a little triangle when there are three; fish (long sideways) lie one behind the other.
+export function slotAt(kind, i, each) {
+  const sp = SNACKS[kind], g = sp.gap;
+  if (each === 1) return [0, 0];
+  if (sp.rows) { const k = i - (each - 1) / 2; return [k * 0.16, k * (each === 2 ? 0.46 : 0.4)]; }
+  if (each === 3 && kind === 'apple') return [[-g / 2, -0.2], [g / 2, -0.2], [0, 0.32]][i];
+  return [(i - (each - 1) / 2) * g, 0];
+}
 export function makeSnack(kind) {
   const s = SNACKS[kind].make();
   s.userData.snack = kind;
@@ -117,6 +128,7 @@ function crate(wood, dark) {
     pm.add(blobShadow(1.5));
     pm.userData.sign = new T.Vector3(0, 0.5, 0.79);
     pm.userData.top = 0.87;
+    pm.userData.scale = 0.64;
     return pm;
   }
   const g = new T.Group();
@@ -146,6 +158,7 @@ function basket(col) {
     pm.add(sign, blobShadow(1.5));
     pm.userData.sign = new T.Vector3(0, 0.5, 1.23);
     pm.userData.top = 0.56;
+    pm.userData.scale = 0.64;
     return pm;
   }
   const g = new T.Group();
@@ -170,7 +183,7 @@ function pail() {
   // a pail of water: the fish stand up in it, heads out
   const water = new T.Mesh(geo.circle(1.0, 32), toon(0x7fd0ff)); water.rotation.x = -PI / 2; water.position.y = 0.8;
   g.add(water);
-  g.userData = { sign: new T.Vector3(0, 0.5, 1.035), top: 0.8, water: true };
+  g.userData = { sign: new T.Vector3(0, 0.5, 1.035), top: 0.8, water: true, scale: 0.58, dz: -0.25 };
   return g;
 }
 
@@ -200,8 +213,8 @@ export function makeBin(kind) {
     const ht = 0.075;
     for (const [x, z] of [[-0.29, -0.29], [0.29, -0.29], [-0.29, 0.29], [0.29, 0.29]]) put(x, top + ht, z, -PI / 2, 0, x * 2 + z);
     put(0, top + 3 * ht, -0.22, -PI / 2, 0, 0.5); put(0.05, top + 3 * ht, 0.3, -PI / 2, 0, 1.2);
-  } else { // fish standing in the water, heads up
-    for (const x of [-0.5, 0, 0.5]) put(x, top + 0.1 + Math.abs(x) * 0.12, x * 0.2, 0, x * 0.5, PI / 2);
+  } else { // fish floating on their sides in the water, side up to the camera, in a loose fan
+    for (const [x, z, ry] of [[-0.44, -0.22, 0.35], [0.46, -0.18, -0.3], [0.02, 0.2, 0.08]]) put(x, top + 0.08, z, -1.0, ry, 0);
   }
   const icon = makeSnack(kind);
   icon.rotation.set(0, 0, kind === 'cookie' || kind === 'apple' ? 0 : sp.lay[2] * 0.7);
@@ -211,10 +224,21 @@ export function makeBin(kind) {
   return g;
 }
 
+let _glowTex = null;
+function glowTex() {
+  if (_glowTex) return _glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  _glowTex = new T.CanvasTexture(c); _glowTex.colorSpace = T.SRGBColorSpace; _glowTex.userData.shared = true;
+  return _glowTex;
+}
 // ---------- plates (a different style per level: china plate, wooden bowl, big leaf) ----------
 const GOLD = new T.Color(0xffd23f);
 // userData.floorY: where snacks rest (the physics floor), userData.rr: the inside radius snacks can land in
-export function makePlate(color, each, gap, style = 'plate') {
+export function makePlate(color, each, kind, style = 'plate') {
   const g = new T.Group();
   const rimMat = toonUnique(color);
   let rim, floorY, rr = 0.82;
@@ -249,16 +273,20 @@ export function makePlate(color, each, gap, style = 'plate') {
     g.add(base, rim);
     floorY = 0.13;
   }
-  const glowMat = new T.MeshBasicMaterial({ color: 0xfff27a, transparent: true, opacity: 0, depthWrite: false });
-  const glow = new T.Mesh(geo.circle(1.45, 32), glowMat);
-  glow.rotation.x = -PI / 2; glow.position.y = 0.025; glow.renderOrder = -1;
+  // the gold glow under a full plate: a soft additive radial pool, never a hard-edged disc
+  const glowMat = new T.MeshBasicMaterial({ color: 0xfff9c4, map: glowTex(), transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending });
+  const glow = new T.Mesh(geo.circle(1.6, 40), glowMat);
+  glow.rotation.x = -PI / 2; glow.position.y = 0.03; glow.renderOrder = -1;
   g.add(glow);
-  // dotted rings: one empty spot for each snack this friend will get
-  const slotMat = new T.MeshBasicMaterial({ color: 0x3a2838, transparent: true, opacity: 0.55, depthWrite: false });
+  // dotted rings: one empty spot for each snack this friend will get (cream on the dark wooden bowl)
+  const slotMat = new T.MeshBasicMaterial({ color: style === 'bowl' ? 0xfff6e6 : 0x3a2838, transparent: true, opacity: style === 'bowl' ? 0.8 : 0.55, depthWrite: false });
   const slots = [];
+  const sy = floorY + (style === 'leaf' ? 0.035 : 0.008);
   for (let i = 0; i < each; i++) {
     const r = new T.Mesh(geo.ring(0.16, 0.23, 24), slotMat);
-    r.rotation.x = -PI / 2; r.position.set((i - (each - 1) / 2) * gap, floorY + 0.008, 0.05);
+    const [sx, sz] = slotAt(kind, i, each);
+    r.rotation.x = -PI / 2; r.position.set(sx, sy, 0.05 + sz);
+    r.renderOrder = 1;
     g.add(r); slots.push(r);
   }
   g.userData = { rim, rimMat: pm ? rim.material : rimMat, glow, glowMat, slots, base: new T.Color(color), lit: 0, floorY, rr, style };
@@ -270,7 +298,7 @@ export function lightPlate(p, k) {
   u.lit = k;
   u.rimMat.color.copy(u.base).lerp(GOLD, k);
   u.rimMat.emissive.copy(GOLD).multiplyScalar(k * 0.45);
-  u.glowMat.opacity = k * 0.75;
+  u.glowMat.opacity = k * 0.9;
 }
 
 // ---------- the place where the sharing happens: a different set for each level ----------
@@ -295,45 +323,114 @@ function flagString(g, x0, x1, y, z, cols) {
   g.add(rope);
 }
 export const SET_STYLE = ['plate', 'bowl', 'leaf'];
+// The picnic blanket: soft cloth (a finely divided sheet) with square red-and-cream checks, rounded corners, two gentle
+// folds out at the ends where nothing stands, edges that settle onto the grass, and a rolled hem with an ink line.
+function makeBlanket(w, d) {
+  const g = new T.Group();
+  const CHECK = 0.65, rc = 0.35, hw = w / 2, hd = d / 2;
+  const geom = new T.PlaneGeometry(w, d, 104, 50);
+  geom.rotateX(-PI / 2);
+  const pos = geom.attributes.position, uv = geom.attributes.uv;
+  const bump = (u, w0) => Math.exp(-((u / w0) ** 2));
+  const fold = (x, z) => 0.05 * bump(x + 0.35 * z + 5.3, 0.3) + 0.04 * bump(x - 0.25 * z - 5.5, 0.28);
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i), z = pos.getZ(i);
+    // round the corners: pull corner vertices onto the corner arc
+    const cx = Math.max(Math.abs(x) - (hw - rc), 0), cz = Math.max(Math.abs(z) - (hd - rc), 0);
+    const r = Math.hypot(cx, cz);
+    if (r > rc) { const k = rc / r; x = Math.sign(x) * (hw - rc + cx * k); z = Math.sign(z) * (hd - rc + cz * k); }
+    const edge = Math.min(hw - Math.abs(x), hd - Math.abs(z));
+    const y = 0.035 + fold(x, z) - 0.025 * Math.max(0, 1 - edge / 0.25);
+    pos.setXYZ(i, x, y, z);
+    uv.setXY(i, (x + hw) / (CHECK * 10), (z + hd) / (CHECK * 10));
+  }
+  geom.computeVertexNormals();
+  const tex = checkerTex('#ff6b6b', '#fff6e6', 10);
+  tex.anisotropy = 4;
+  const cloth = new T.Mesh(geom, toonUnique(0xffffff, { map: tex }));
+  g.add(cloth);
+  // the rolled hem all the way round (a soft tube just inside the edge, with its own ink)
+  const pts = [];
+  const ins = 0.03, rr = rc - ins;
+  const corners = [[hw - rc, hd - rc, 0], [-(hw - rc), hd - rc, PI / 2], [-(hw - rc), -(hd - rc), PI], [hw - rc, -(hd - rc), 1.5 * PI]];
+  corners.forEach(([cx, cz, a0], ci) => {
+    for (let j = 0; j <= 6; j++) { const a = a0 + (j / 6) * (PI / 2); pts.push(new T.Vector3(cx + Math.cos(a) * rr, 0.03, cz + Math.sin(a) * rr)); }
+    // the straight edge to the next corner
+    const [nx, nz, na] = corners[(ci + 1) % 4];
+    const e0 = pts[pts.length - 1], e1 = new T.Vector3(nx + Math.cos(na) * rr, 0.03, nz + Math.sin(na) * rr);
+    for (let j = 1; j < 12; j++) pts.push(e0.clone().lerp(e1, j / 12));
+  });
+  const hem = mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts, true), 220, 0.05, 8, true), 0xe0503f, { outline: 0.015 });
+  g.add(hem);
+  return g;
+}
+// A Blender prop placed in world space (set group at the origin), or null when the model is not built.
+function place(g, kind, x, y, z, { s = 1, ry = 0, tint } = {}) {
+  const pm = propModel(kind, tint !== undefined ? { tint } : {});
+  if (!pm) return null;
+  stillProp(pm);
+  pm.position.set(x, y, z); pm.rotation.y = ry; pm.scale.setScalar(s);
+  g.add(pm);
+  return pm;
+}
+// Everything is laid out at its final size and place (the lesson does not stretch the set):
+//  friends stand at z -0.6, plates at z 1.35-1.5, the bin at z 3.9, the rug of fed friends at z -3.2 (x -4.3..4.3).
 export function makeSet(level) {
   const g = new T.Group();
   if (level === 0) {
-    // a picnic: a big red checked blanket with a few daisies around it
-    const m = new T.Mesh(new T.PlaneGeometry(14, 4.2), new T.MeshToonMaterial({ map: checkerTex('#ff6b6b', '#fff6e6', 10) }));
-    m.material.map.repeat.set(3.3, 1);
-    m.rotation.x = -PI / 2; m.position.set(1.0, 0.03, 0.35);
-    const edge = new T.Mesh(geo.box(14.2, 0.02, 4.4), basic(0xd94f3d)); edge.position.set(1.0, 0.006, 0.35);
-    g.add(edge, m);
-    for (const [x, z, c] of [[-3.8, -2.4, 0xffffff], [8.4, -1.6, 0xffd23f], [8.8, 2.8, 0xff8fc0], [-4.2, 2.9, 0xa77bff]]) {
+    // a picnic: a big soft checked blanket (square checks, a rolled hem, gentle folds near the ends)
+    const bl = makeBlanket(13, 6.2);
+    bl.position.set(0, 0, 1.55);
+    g.add(bl);
+    for (const [x, z, c] of [[-4.8, -2.4, 0xffffff], [7.4, -1.8, 0xffd23f], [7.8, 2.8, 0xff8fc0], [-8.4, 2.9, 0xa77bff]]) {
       const f = makeFlower(c); f.position.set(x, 0, z); f.scale.setScalar(1.4); g.add(f);
     }
   } else if (level === 1) {
-    // inside the barn: a red plank wall behind, a straw floor and two lanterns
-    const floor = mesh(geo.box(15, 0.05, 5.2), 0xf0d27a, { outline: 0 }); floor.position.set(1.0, 0.02, 0.2);
-    g.add(floor);
-    for (let i = 0; i < 70; i++) {
-      const st = new T.Mesh(geo.box(0.42, 0.025, 0.04), toon(i % 2 ? 0xd9b04a : 0xe8c35a));
-      st.position.set(-6.2 + ((i * 2.37) % 14.4), 0.055, -2.2 + ((i * 1.61) % 4.8)); st.rotation.y = i * 1.3; g.add(st);
+    // inside the barn: a tall red plank wall with a hay loft beam behind, a straw-strewn plank floor, hay bales in the
+    // back corners and two lanterns hung on the wall above the friends' heads
+    if (!place(g, 'prop_barnback', 0, 0, -4.75)) {
+      const wall = mesh(geo.box(24, 6.6, 0.3), 0xc9483a, { outline: 0 }); wall.position.set(0, 3.3, -4.8); g.add(wall);
     }
-    const wall = mesh(geo.box(15.6, 2.3, 0.3), 0xc9483a, { hull: 1.01, outline: 0 }); wall.position.set(1.0, 1.15, -2.65);
-    g.add(wall);
-    for (let i = 1; i < 13; i++) { const l = new T.Mesh(geo.box(0.04, 2.25, 0.02), basic(0x9a3328)); l.position.set(-6.8 + i * 1.2, 1.15, -2.49); g.add(l); }
-    const trim = mesh(geo.box(15.8, 0.22, 0.4), 0xfff6e6, { hull: 1.02 }); trim.position.set(1.0, 2.35, -2.6); g.add(trim);
-    for (const x of [-3.0, 5.2]) {
-      const hook = new T.Mesh(geo.box(0.06, 0.4, 0.06), toon(0x3a2838)); hook.position.set(x, 2.05, -2.38);
-      const lamp = mesh(geo.cyl(0.18, 0.22, 0.42, 10), 0xffd23f, { outline: 0.015, mat: toonUnique(0xffe48a, { emissive: 0xffb020, emissiveIntensity: 0.5 }) });
-      lamp.position.set(x, 1.68, -2.33);
-      const cap = mesh(geo.cone(0.24, 0.18, 10), 0x3a2838, { outline: 0.01 }); cap.position.set(x, 1.97, -2.33);
-      g.add(hook, lamp, cap);
+    if (!place(g, 'prop_strawfloor', 0, 0, 0.4)) {
+      const floor = mesh(geo.box(24, 0.05, 10.4), 0xf0d27a, { outline: 0 }); floor.position.set(0, 0.02, 0.4); g.add(floor);
+    }
+    place(g, 'prop_hay', -9.0, 0, -3.7, { s: 1.15, ry: 0.15 });
+    place(g, 'prop_hay', 9.0, 0, -3.7, { s: 1.15, ry: -0.15 });
+    for (const x of [-1.75, 1.75]) {
+      if (!place(g, 'prop_barnlantern', x, 3.05, -4.45, { s: 1 })) {
+        const lamp = mesh(geo.cyl(0.18, 0.22, 0.42, 10), 0xffd23f, { outline: 0.015, mat: toonUnique(0xffe48a, { emissive: 0xffb020, emissiveIntensity: 0.5 }) });
+        lamp.position.set(x, 3.0, -4.4); g.add(lamp);
+      }
     }
   } else {
-    // a garden party: a round rug, bunting flags between two poles and big sunflowers
-    const rug = new T.Mesh(geo.circle(1, 48), toon(0xa77bff)); rug.rotation.x = -PI / 2; rug.scale.set(7.2, 2.6, 1); rug.position.set(1.0, 0.012, 0.4);
-    const rug2 = new T.Mesh(geo.circle(1, 48), toon(0xc9a7ff)); rug2.rotation.x = -PI / 2; rug2.scale.set(6.6, 2.2, 1); rug2.position.set(1.0, 0.016, 0.4);
-    g.add(rug, rug2);
-    for (const x of [-4.6, 7.6]) { const p = mesh(geo.cyl(0.08, 0.1, 4.2, 8), 0xfff6e6, { outline: 0.015 }); p.position.set(x, 2.1, -2.0); g.add(p); const k = mesh(geo.sphere(0.16, 10, 8), 0xffd23f, { outline: 0.012 }); k.position.set(x, 4.25, -2.0); g.add(k); }
-    flagString(g, -4.6, 7.6, 4.05, -2.0, [0xff5a5a, 0xffd23f, 0x4a90ff, 0x5fd068, 0xff8fc0]);
+    // a garden party: a big woven rug with a fringe, bunting flags between two poles well clear of Pip and the friends
+    if (!place(g, 'prop_partyrug', 0, 0, 1.0)) {
+      const rug = new T.Mesh(geo.circle(1, 48), toon(0xa77bff)); rug.rotation.x = -PI / 2; rug.scale.set(7.2, 3.3, 1); rug.position.set(0, 0.05, 1.0);
+      rug.material.polygonOffset = true; rug.material.polygonOffsetFactor = -2;
+      g.add(rug);
+    }
+    // (behind the hay bench, so the flags never hang in front of the friends sitting on it)
+    for (const x of [-8.2, 8.2]) { const p = mesh(geo.cyl(0.08, 0.1, 4.6, 8), 0xfff6e6, { outline: 0.015 }); p.position.set(x, 2.3, -4.7); g.add(p); const k = mesh(geo.sphere(0.16, 10, 8), 0xffd23f, { outline: 0.012 }); k.position.set(x, 4.65, -4.7); g.add(k); }
+    flagString(g, -8.2, 8.2, 4.45, -4.7, [0xff5a5a, 0xffd23f, 0x4a90ff, 0x5fd068, 0xff8fc0]);
   }
   g.userData.level = level;
+  return g;
+}
+// The bench along the back where each round's first (fed) friend comes to sit: four hay bales in a row, top at y 1.69
+// (high enough that the friends sitting on it show above the heads of the friends in the row).
+export function makeBench() {
+  const g = new T.Group();
+  for (const [x, ry] of [[-3.0, 0.03], [-1.0, -0.02], [1.0, 0.025], [3.0, -0.03]]) {
+    const pm = propModel('prop_hay', { size: [0.8, 0.94, 0.8] });
+    if (pm) {
+      stillProp(pm);
+      const L = pm.userData.model.userData.layers || {};
+      if (L.straws) { L.straws.mesh.visible = false; L.straws.outline.visible = false; } // nothing pokes up where they sit
+      pm.position.set(x, 0, 0); pm.rotation.y = ry;
+      g.add(pm);
+    } else {
+      const b = mesh(geo.box(2.0, 1.69, 1.5), 0xf0c648, { outline: 0.02 }); b.position.set(x, 0.845, 0); g.add(b);
+    }
+  }
   return g;
 }

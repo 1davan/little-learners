@@ -13,13 +13,14 @@ SC = (1.0, 0.86)
 
 p = SProp('prop_map_island', base=EARTH, hard=False, voxel=0.02, target_faces=2600)
 p.lathe(rounded([(0, -0.9), (0.8, -0.9), (0.94, -0.62), (1.0, -0.32), (0.97, -0.05), (0, -0.05)], 0.08, n=3), scale=SC, seg=56)
-for k in range(9):
-    a = k * 2 * math.pi / 9 + 0.3
-    r = 0.98 + 0.03 * (k % 2)
-    p.blob((math.sin(a) * r * SC[0], -0.42 + 0.12 * ((k * 5) % 3) / 2, math.cos(a) * r * SC[1]), (0.14, 0.12, 0.12), rot=(0, math.degrees(a), 0), group='b%d' % k)
-p.paint_fn(lambda q, n: math.hypot(q.x / SC[0], q.z / SC[1]) > 1.0, ROCK)
-p.paint_fn(lambda q, n: math.hypot(q.x / SC[0], q.z / SC[1]) <= 1.0 and abs(q.y + 0.3) < 0.035, EARTH_D)
-p.paint_fn(lambda q, n: math.hypot(q.x / SC[0], q.z / SC[1]) <= 1.0 and abs(q.y + 0.18) < 0.02, EARTH_D)
+ROCKS = []
+for k, (a, r) in enumerate(((0.5, 0.13), (1.25, 0.1), (2.6, 0.12), (3.5, 0.09), (4.6, 0.13), (5.5, 0.1))):   # round boulders on the sand
+    c = (math.sin(a) * 1.04 * SC[0], -0.5 + r * 0.55, math.cos(a) * 1.04 * SC[1])
+    p.blob(c, (r * 1.2, r * 0.85, r), rot=(0, math.degrees(a), 0), group='b%d' % k)
+    ROCKS.append((c, r))
+p.paint_fn(lambda q, n: any((q.x - c[0]) ** 2 + (q.y - c[1]) ** 2 + (q.z - c[2]) ** 2 < (r * 1.35) ** 2 for c, r in ROCKS), ROCK)
+p.paint_fn(lambda q, n: any((q.x - c[0]) ** 2 + (q.y - c[1] - r * 0.5) ** 2 + (q.z - c[2]) ** 2 < (r * 0.75) ** 2 for c, r in ROCKS) and n.y > 0.5, 0xd2ccc4)
+p.paint_fn(lambda q, n: math.hypot(q.x / SC[0], q.z / SC[1]) <= 1.02 and -0.5 < q.y < -0.3 and not any((q.x - c[0]) ** 2 + (q.y - c[1]) ** 2 + (q.z - c[2]) ** 2 < (r * 1.35) ** 2 for c, r in ROCKS), EARTH_D)
 
 p.layer('top', base=0xffffff)
 p.lathe(rounded([(0, -0.1), (0.99, -0.1), (1.02, -0.02), (0.9, 0.05), (0.5, 0.075), (0, 0.08)], 0.07, n=3), scale=SC, seg=56)

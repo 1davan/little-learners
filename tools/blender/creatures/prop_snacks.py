@@ -24,7 +24,7 @@ def finish(p, h, outline=0.018):
 
 # ---------------- vegetables ----------------
 def cucumber():
-    p = Prop('prop_k_cucumber', base=GREEN_D, target_faces=1600, voxel=0.01, smooth=3)
+    p = Prop('prop_k_cucumber', base=GREEN_D, target_faces=3200, voxel=0.008, smooth=3)
     L, R = 0.46, 0.2
     # the body: a slightly bent capsule along x, the +x end sliced flat
     prof = rounded([(0.0, -L), (0.09, -L + 0.01), (0.17, -L + 0.08), (R, -0.2), (R + 0.01, 0.1), (R, L - 0.02), (0.0, L - 0.02)], 0.05, n=4)
@@ -52,18 +52,36 @@ def cucumber():
             j = (i + 1) % SEG
             faces.append((k * SEG + i, (k + 1) * SEG + i, (k + 1) * SEG + j, k * SEG + j))
     b0 = len(verts); verts.append((ys[0], R + 0.02 - 0.04, 0))
-    b1 = len(verts); verts.append((ys[-1], R + 0.02 - 0.04 * ((ys[-1]) / L) ** 2, 0))
     for i in range(SEG):
         j = (i + 1) % SEG
         faces.append((b0, j, i))
-        faces.append((b1, (nr - 1) * SEG + i, (nr - 1) * SEG + j))
+    # the +x cut face: flat concentric rings (no fan of slivers), one ring exactly on the flesh / skin border
+    xc = ys[-1]
+    cyc = R + 0.02 - 0.04 * (xc / L) ** 2
+    last = (nr - 1) * SEG
+    rr0 = math.hypot(verts[last][1] - cyc, verts[last][2])
+    prev = [last + i for i in range(SEG)]
+    for f in (0.97, (rr0 - 0.035) / rr0, 0.72, 0.56, 0.4, 0.24, 0.1):
+        ring = []
+        for i in range(SEG):
+            a = math.tau * i / SEG
+            ring.append(len(verts))
+            verts.append((xc, cyc + rr0 * f * math.cos(a), rr0 * f * math.sin(a)))
+        for i in range(SEG):
+            j = (i + 1) % SEG
+            faces.append((prev[i], ring[i], ring[j], prev[j]))
+        prev = ring
+    b1 = len(verts); verts.append((xc, cyc, 0))
+    for i in range(SEG):
+        j = (i + 1) % SEG
+        faces.append((b1, prev[j], prev[i]))
     p.mesh(verts, faces)
     cy = R + 0.02
     # pale stripes down the skin
     p.paint_fn(lambda q, n: q.x < L - 0.05 and abs(math.sin(math.atan2(q.z, q.y - cy) * 4)) < 0.22 and abs(q.x) < L - 0.08, GREEN)
     # the cut face: pale flesh, a darker rim of skin left round it
     cut = lambda q, n: n.x > 0.75 and q.x > L - 0.1
-    p.paint_fn(lambda q, n: cut(q, n) and math.hypot(q.y - cy, q.z) < R - 0.035, PALE_G)
+    p.paint_fn(lambda q, n: cut(q, n) and math.hypot(q.y - (R + 0.02 - 0.04 * (q.x / L) ** 2), q.z) < R - 0.04, PALE_G)
     # seeds in a ring on the cut face (own layer: crisp little ovals)
     p.layer('seeds', base=SEED, target_faces=300, voxel=0.005)
     for k in range(6):
@@ -105,26 +123,26 @@ def broccoli():
 
 
 def peapod():
-    p = Prop('prop_k_peapod', base=GREEN, target_faces=1400, voxel=0.009, smooth=2)
-    # the pod: a long boat, open on top (two walls round a hollow), ends pinched to points
-    N = 9
-    for i in range(N):
-        t = i / (N - 1)
-        x = -0.42 + 0.84 * t
-        w = 0.17 * math.sin(math.pi * t) ** 0.7 + 0.02
-        y = 0.12 + 0.05 * (2 * t - 1) ** 2
-        for s in (-1, 1):
-            p.blob((x, y, s * w * 0.75), (0.07, 0.1 * math.sin(math.pi * t) ** 0.5 + 0.03, 0.035), rot=(0, 0, 0), group='pod')
-        p.blob((x, y - 0.05, 0), (0.07, 0.05, w * 0.7), group='pod')
-    # a curly stalk tip
-    p.capsule((-0.44, 0.14, 0), (-0.52, 0.22, 0), 0.025, group='tip')
-    p.paint_fn(lambda q, n: n.y > 0.4 and abs(q.z) < 0.09, 0x3f9a3a)
-    p.layer('peas', base=0x7ed957, target_faces=900, voxel=0.008)
-    for k, x in enumerate((-0.2, 0.0, 0.2)):
-        p.blob((x, 0.18, 0), (0.105, 0.1, 0.105), group='p%d' % k)
-    p.layer('shine', base=0xffffff, target_faces=120, voxel=0.005)
-    for k, x in enumerate((-0.2, 0.0, 0.2)):
-        p.blob((x - 0.04, 0.25, 0.06), (0.025, 0.018, 0.012), rot=(-40, 0, 30), group='h%d' % k)
+    p = Prop('prop_k_peapod', base=GREEN, target_faces=2400, voxel=0.007, smooth=3)
+    # the pod: a smooth open boat (an ellipsoid hollowed out from the top), pinched to soft points at both ends
+    p.blob((0, 0.13, 0), (0.44, 0.13, 0.16), group='pod', stiffness=2.4)
+    for sx in (-1, 1):
+        p.capsule((sx * 0.36, 0.15, 0), (sx * 0.5, 0.2, 0), 0.05, r2=0.016, group='pod')
+    p.blob((0, 0.21, 0), (0.4, 0.13, 0.125), group='pod', negative=True, stiffness=2.4)
+    # a curly stalk at the left end
+    p.curve([(-0.5, 0.2, 0), (-0.56, 0.27, 0.0), (-0.52, 0.33, 0.02), (-0.46, 0.31, 0.03)], [0.022, 0.02, 0.018, 0.015], group='tip')
+    p.paint_fn(lambda q, n: n.y > 0.35 and abs(q.z) < 0.13 and q.y < 0.2, 0x9ad97a)          # pale inside of the pod
+    p.paint_fn(lambda q, n: q.y < 0.06, 0x3f9a3a)
+    p.paint_fn(lambda q, n: q.x < -0.47, 0x3f8a32)
+    p.layer('peas', base=0xa2ec72, target_faces=1400, voxel=0.006)
+    PX = (-0.26, -0.09, 0.08, 0.25)
+    for k, x in enumerate(PX):
+        r = 0.09 - 0.01 * (k in (0, 3))
+        p.blob((x, 0.17, 0), (r, r * 0.95, r), group='p%d' % k)
+    p.paint_fn(lambda q, n: q.y < 0.12, 0x6cc24a)
+    p.layer('shine', base=0xffffff, target_faces=160, voxel=0.005)
+    for k, x in enumerate(PX):
+        p.blob((x - 0.035, 0.235, 0.05), (0.024, 0.016, 0.011), rot=(-40, 0, 30), group='h%d' % k)
     p.layer('skin')
     finish(p, 0.3)
 
@@ -216,9 +234,23 @@ def yogurt():
     p.paint_fn(lambda q, n: 0.13 < q.y < 0.3 and n.y < 0.3, 0xffffff)       # a white band round the middle
     p.paint_fn(lambda q, n: q.y > 0.42 and math.hypot(q.x, q.z) < 0.25 and n.y > 0.5, 0xffd6e6)  # yogurt inside
     # a strawberry printed on the band
-    p.layer('berry', base=0xff3b4e, target_faces=200, voxel=0.005)
+    # a clean strawberry sticker on the band: a plump berry (wide shoulders, rounded point) and a green leafy cap
+    p.layer('berry', base=0xff3b4e, target_faces=1200, voxel=0.003)
     r_of = lambda y: 0.2 + 0.06 * y / 0.42
-    p.sticker([(0.045 * math.sin(a), -0.05 * math.cos(a) * (1.25 if math.cos(a) > 0 else 0.8)) for a in [i / 18 * math.tau for i in range(18)]], 0.215, r_of, thick=0.01, lift=0.004)
+    berry = []
+    for i in range(36):
+        a = i / 36 * math.tau
+        x, y = math.sin(a), math.cos(a)
+        w = 0.05 * (1.0 if y > -0.2 else 0.62 + 0.38 * (y + 1) / 0.8)
+        berry.append((w * x, 0.052 * y))
+    p.sticker(berry, 0.205, r_of, thick=0.012, lift=0.004)
+    cap = []
+    for i in range(10):
+        a = math.pi * i / 5
+        rr = 0.035 if i % 2 == 0 else 0.015
+        cap.append((rr * math.sin(a), 0.012 * math.cos(a) + (0.0 if i % 2 else 0.006)))
+    p.sticker(cap, 0.258, r_of, thick=0.012, lift=0.008)
+    p.paint_fn(lambda q, n: q.y > 0.25, 0x4fae3e)
     p.layer('swirl', base=0xffffff, target_faces=400, voxel=0.007)
     p.blob((0, 0.47, 0), (0.15, 0.05, 0.15), group='sw')
     p.blob((0.02, 0.53, 0), (0.08, 0.05, 0.08), group='sw')

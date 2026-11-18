@@ -1,68 +1,75 @@
 // Lesson 5 — Big and small. Topics mt_NtJYlJdUe9 "Measurable attributes" and mt_uhuxX8sg9f "Comparing lengths & heights".
-// Two (later three) of the same thing stand on one ground line; tap the big one or the small one.
-// Each level is its own world: L1 meadow animals, L2 a toy room, L3 a garden harvest.
-// Every round brings the things in a new way (walk in, peekaboo, drop from the sky with real physics, grow…),
-// some rounds add a visitor or a magic size swap, and the answer gets a size-flavoured payoff:
-// big things stomp, topple, BOOM and shake the little props on the grass; small things zip, bounce and squeak.
+// Two (later three) of the same thing stand on one ground line; tap the big one or the small one. With three things
+// it is always odd-one-out by size (two small and one big, or two big and one small), so "big" and "small" stay
+// unambiguous. Each level is its own world: L1 meadow animals, L2 a toy room, L3 a garden.
+// The right one: a held breath, then the big one stomps once (one thud, the little props on the grass jump) or the
+// small one hops once with a squeak. Then a few seconds of play: pressing the big one makes a slow heavy stomp, the
+// small one a quick light bounce, so she makes the contrast herself. Then the one she found walks (or hops) to its
+// place in a line on the rug at the back, sorted by size; the line is what the level builds and the finale shows.
 import * as T from '../three.js';
 import { Lesson, shuffle } from '../engine/lesson.js';
-import { mesh, geo } from '../engine/toon.js';
-import { C, makeAnimal, setFace, popIn, popOut, hop, wiggle } from '../engine/actors.js';
+import { C, setFace, popIn, popOut, hop, wiggle } from '../engine/actors.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
-import { camera, project } from '../engine/stage.js';
+import { project, onFrame } from '../engine/stage.js';
 import { physics } from '../engine/physics.js';
-import { makeThing, makeScatter, makeStage, makeBush, NOUN, ICON, PLANTS, ANIMALS } from './sizes-things.js';
+import { makeTray } from '../engine/keepsake.js';
+import { makeThing, makeScatter, makeStage, makeBush, NOUN, ICON, ANIMALS } from './sizes-things.js';
 import { frame, calmBackdrop, isTree } from './view-tools.js';
 
 // [kind, ask, sizes, theme] — the ask and sizes are the level's difficulty; the theme is the round's look and twist.
-// theme.arrive: how the things come in (walk | peek | drop | sky (physics) | build | grow | pop)
-// theme.scatter: little physics props on the grass; theme.rain: they fall from the sky first
-// theme.visitor: a surprise friend who watches and cheers; theme.swap: a magic puff swaps big and small
+// theme.arrive: how the things come in, two calm styles per level (walk | peek | pop | grow)
+// theme.scatter: three little physics props behind the line (they jump when something big stomps)
+// theme.swap: a magic puff swaps big and small (Level 3 only, once)
 const PLANS = [
   // Level 1 — meadow animals
   [
     ['elephant', 'big', [1.5, 0.6], { arrive: 'walk', scatter: 'apples' }],
-    ['bunny', 'small', [1.5, 0.6], { arrive: 'peek', scatter: 'acorns', visitor: 'frog' }],
-    ['bear', 'big', [1.5, 0.6], { arrive: 'drop', scatter: 'balls', rain: true }],
-    ['hedgehog', 'big', [1.4, 0.85], { arrive: 'walk', scatter: 'acorns', visitor: 'bunny' }],
-    ['frog', 'small', [1.4, 0.7], { arrive: 'drop', swap: true, scatter: 'berries' }],
-    ['cat', 'big', [1.35, 0.9, 0.5], { arrive: 'peek', scatter: 'balls', visitor: 'hedgehog' }],
+    ['bunny', 'small', [1.5, 0.6], { arrive: 'peek', scatter: 'acorns' }],
+    ['bear', 'big', [1.5, 0.6], { arrive: 'walk', scatter: 'balls' }],
+    ['hedgehog', 'big', [1.4, 0.85], { arrive: 'peek', scatter: 'acorns' }],
+    ['frog', 'small', [1.4, 0.7], { arrive: 'walk', scatter: 'berries' }],
+    ['cat', 'big', [1.45, 0.65, 0.55], { arrive: 'peek', scatter: 'balls' }],
   ],
   // Level 2 — toy room
   [
-    ['ball', 'small', [1.4, 0.7], { arrive: 'sky', col: C.blue, band: 0xffffff, scatter: 'marbles' }],
-    ['tower', 'big', [1.35, 0.85], { arrive: 'build', scatter: 'blocks', visitor: 'bear' }],
-    ['gift', 'small', [1.3, 0.8], { arrive: 'sky', scatter: 'marbles', rain: true }],
-    ['duck', 'big', [1.5, 0.9], { arrive: 'walk', swap: true, scatter: 'balls' }],
-    ['drum', 'small', [1.35, 0.9, 0.5], { arrive: 'drop', scatter: 'blocks', visitor: 'cat' }],
-    ['beachball', 'big', [1.4, 0.95, 0.55], { arrive: 'sky', scatter: 'marbles', rain: true }],
+    ['ball', 'small', [1.4, 0.7], { arrive: 'pop', col: C.blue, band: 0xffffff, scatter: 'marbles' }],
+    ['tower', 'big', [1.35, 0.85], { arrive: 'peek', scatter: 'blocks' }],
+    ['gift', 'small', [1.3, 0.8], { arrive: 'pop', scatter: 'marbles' }],
+    ['duck', 'big', [1.5, 0.9], { arrive: 'peek', scatter: 'balls' }],
+    ['drum', 'small', [1.35, 1.2, 0.5], { arrive: 'pop', scatter: 'blocks' }],
+    ['beachball', 'big', [1.45, 0.65, 0.55], { arrive: 'peek', scatter: 'marbles' }],
   ],
-  // Level 3 — garden harvest
+  // Level 3 — garden
   [
-    ['tree', 'small', [1.3, 0.85], { arrive: 'grow', snow: true, scatter: 'snowballs', rain: true }],
-    ['pumpkin', 'big', [1.35, 0.95, 0.6], { arrive: 'drop', swap: true, scatter: 'snowballs' }],
-    ['mushroom', 'small', [1.4, 0.95, 0.55], { arrive: 'grow', scatter: 'berries', visitor: 'frog' }],
-    ['watermelon', 'big', [1.3, 1.0, 0.6], { arrive: 'drop', swap: true, scatter: 'apples' }],
-    ['sunflower', 'small', [1.4, 0.95, 0.6], { arrive: 'grow', scatter: 'berries', visitor: 'bunny' }],
-    ['carrot', 'small', [1.5, 1.0, 0.6], { arrive: 'grow', scatter: 'acorns', visitor: 'hedgehog' }],
+    ['tree', 'small', [1.3, 0.85], { arrive: 'grow', snow: true, scatter: 'snowballs' }],
+    ['pumpkin', 'big', [1.4, 0.65, 0.55], { arrive: 'peek', scatter: 'snowballs' }],
+    ['mushroom', 'small', [1.4, 1.25, 0.55], { arrive: 'grow', scatter: 'berries' }],
+    ['watermelon', 'big', [1.35, 0.65, 0.55], { arrive: 'peek', swap: true, scatter: 'apples' }],
+    ['sunflower', 'small', [1.4, 1.25, 0.6], { arrive: 'grow', scatter: 'berries' }],
+    ['carrot', 'small', [1.5, 1.3, 0.6], { arrive: 'grow', scatter: 'acorns' }],
   ],
 ];
 export { PLANS };
+const XS2 = [-3.0, 3.5], XS3 = [-3.2, 0.8, 4.8];
+// the size line on a rug at the FRONT: from the camera it sits below the choices' feet, so a kept thing never peeks
+// out behind (or over) the next round's choices
+const RUG = [0.4, 0, 4.0];
 
 export default class SizesLesson extends Lesson {
   build() {
     this.plan = PLANS[this.level];
     this.pip.position.set(-8.3, 0, -4.6); // back-left, clear of the biggest thing
-    frame(0, 3.5, 13.4, 0, 2.2, 0);
-    calmBackdrop(this.meadow);
+    frame(0, 3.2, 12.4, 0, 2.4, 0);
+    calmBackdrop(this.meadow, { hide: (o) => Math.abs(o.position.x) > 8.6 && o.position.z > -9 && !isTree(o) });
     this.things = [];
     this.props = [];
-    this.bigI = 0; this.smallI = 0;
     this.stage = makeStage(this.level);
     this.root.add(this.stage);
+    // the line-up rug at the back: the one she found each round joins it, biggest to smallest
+    this.tray = makeTray(this, this.totalRounds, RUG, { style: 'rug', spacing: 1.4, scale: 0.4 });
     // tapping a loose prop on the grass makes it hop (never counts as an answer)
     this.offs.push(input.onMiss((x, y) => this.pokeProp(x, y)));
   }
@@ -91,15 +98,21 @@ export default class SizesLesson extends Lesson {
     return input.addTap(t, { radius: h.r * 0.85, offset: h.offset, onTap: () => this.tapThing(t) });
   }
 
+  // the answer is the biggest (ask big) or the smallest (ask small); every other thing has the OPPOSITE role, so with
+  // three things "big" and "small" stay unambiguous (two small and one big, or two big and one small)
   setRoles() {
     const sizes = this.things.map((t) => t.userData.size);
     const maxS = Math.max(...sizes), minS = Math.min(...sizes);
-    for (const t of this.things) t.userData.role = t.userData.size === maxS ? 'big' : t.userData.size === minS ? 'small' : 'middle';
+    const want = this.ask === 'big' ? maxS : minS, other = this.ask === 'big' ? 'small' : 'big';
+    for (const t of this.things) t.userData.role = t.userData.size === want ? this.ask : other;
   }
 
   // a hop for anything: physics things get an impulse, the rest the squashy tween hop
+  // (a planted carrot hops on its own: its soil mound and shadow stay put, its leafy tuft is not squashed)
   jump(t, h = 0.6, dur = 0.4) {
     if (physics.has(t)) { physics.poke(t, Math.min(1.4, 0.45 + h * 0.6)); return this.wait(0.3); }
+    const c = t.userData.carrot;
+    if (c) { const y0 = c.position.y; return this.s.anim(dur, (_, p) => { c.position.y = y0 + Math.sin(p * Math.PI) * h; }).then(() => { c.position.y = y0; }); }
     return hop(this.s, t, h, dur);
   }
 
@@ -115,14 +128,10 @@ export default class SizesLesson extends Lesson {
       if (d < Math.min(innerWidth, innerHeight) * 0.06 && d < bd) { bd = d; best = p; }
     }
     if (!best) return;
-    physics.poke(best, 0.7);
-    sfx.boing();
+    physics.poke(best, 0.6);
+    sfx.pop();
   }
 
-  shake(amt = 0.14, dur = 0.4) {
-    const y0 = this.camY ?? (this.camY = camera.position.y);
-    this.s.anim(dur, (_, p) => { camera.position.y = y0 + Math.sin(p * Math.PI * 6) * amt * (1 - p); }).then(() => { camera.position.y = y0; });
-  }
   // everything loose on the grass jumps (the ground shook)
   jolt(k = 1) {
     for (const p of this.props) physics.poke(p, (0.5 + Math.random() * 0.4) * k);
@@ -140,32 +149,19 @@ export default class SizesLesson extends Lesson {
   uncollide(t) { if (t.userData.col) { physics.removeStatic(t.userData.col); t.userData.col = null; } }
 
   // ---- the round ----
-  clearRound() {
-    for (const t of this.things) {
-      if (t.userData.tap) input.remove(t.userData.tap);
-      physics.remove(t);
-      for (const b of t.userData.blocks || []) physics.remove(b);
-      if (t.userData.lid) physics.remove(t.userData.lid);
-      this.uncollide(t);
-      popOut(this.s, t, 0.18).then(() => this.root.remove(t));
-    }
-    for (const p of this.props) popOut(this.s, p, 0.18).then(() => this.root.remove(p));
-    if (this.visitor) { const v = this.visitor; popOut(this.s, v, 0.2).then(() => this.root.remove(v)); this.visitor = null; }
-    this.things = [];
-    this.props = [];
-  }
-
   async startRound(r) {
     this.busy = true;
+    // (the last round's found thing is just stepping out of its spot: the new ones come a moment later)
+    if (this.leaving) await this.wait(0.2);
+    this.leaving = false;
+    if (this.dead) return;
     const [kind, ask, sizes, th = {}] = this.plan[r];
     this.kind = kind; this.ask = ask; this.th = th;
-    const had = this.things.length > 0;
-    this.clearRound();
-    if (had) await this.wait(0.2); // last round's things finish popping away before the new ones arrive (no overlap)
+    // (last round's things already left in afterSuccess: the found one is on the rug, the others walked off)
     // when the things are trees, the scenery's own trees must not stand between them
     for (const o of this.meadow.children) if (isTree(o) && Math.abs(o.position.x) < 12) o.visible = kind !== 'tree';
     const order = shuffle(sizes.map((s, i) => i));
-    const xs = sizes.length === 2 ? [-3.0, 3.5] : [-3.8, 0.4, 4.6];
+    const xs = sizes.length === 2 ? XS2 : XS3;
     order.forEach((idx, slot) => {
       const s = sizes[idx];
       const t = makeThing(kind, th, slot);
@@ -184,174 +180,122 @@ export default class SizesLesson extends Lesson {
     });
     this.setRoles();
     this.spawnProps(th);
-    if (th.visitor) this.spawnVisitor(th.visitor);
-    await this.arrive(th.arrive || 'pop');
+    // taps are open while they arrive (rule 0: she can answer within about a second of the round starting);
+    // behind peekaboo bushes they open as the bushes rustle
+    const open = () => { if (this.dead) return; for (const t of this.things) t.userData.tap.enabled = true; this.busy = false; };
+    const mode = th.arrive || 'pop';
+    open(); // (a tap on a peekaboo bush counts as the thing hiding behind it)
+    this.arriveP = this.arrive(mode);
+    this.arriveScales = mode !== 'walk'; // (walking in only moves them: a payoff need not wait for it)
+    await this.arriveP;
+    if (this.dead) return;
     for (const t of this.things) this.fitTap(t);
-    if (th.swap) await this.magicSwap();
     for (const t of this.things) this.collide(t);
-    for (const t of this.things) t.userData.tap.enabled = true;
-    this.busy = false;
+    // the magic swap plays while taps are already open (its roles count from the moment it starts)
+    this.swapP = th.swap ? this.magicSwap() : null;
     this.cue();
   }
 
+  // three little props sit on the grass BEHIND the line (never in front of the things, never a reason to look away)
   spawnProps(th) {
     if (!th.scatter) return;
-    const n = 6;
-    const xs = shuffle([-6.8, -5.2, -2.2, -0.8, 1.4, 2.6, 5.6, 7]).slice(0, n);
-    xs.forEach((x, i) => {
+    const xs = shuffle([-6.2, -1.2, 2.8, 6.6]).slice(0, 3);
+    xs.forEach((x) => {
       const p = makeScatter(th.scatter);
       const { r, shape } = p.userData.scatter;
-      const z = 1.9 + Math.random() * 1.3; // in front of the things (clear of a big one's toes)
+      p.position.set(x, r + 0.01, -2.0 - Math.random() * 0.6);
+      p.rotation.y = Math.random() * 6;
       this.root.add(p);
       this.props.push(p);
-      if (th.rain) {
-        p.position.set(x + (Math.random() - 0.5), 7 + i * 0.4, z);
-        p.rotation.set(Math.random() * 3, Math.random() * 3, 0);
-        physics.add(p, { shape, r, bounce: 0.55 });
-        physics.impulse(p, { x: 0, y: -6, z: 0 });
-      } else {
-        p.position.set(x, r + 0.01, z);
-        p.rotation.y = Math.random() * 6;
-        physics.add(p, { shape, r, bounce: 0.5 });
-      }
-    });
-    if (th.rain) { sfx.whoosh(); this.wait(0.45).then(() => sfx.patter && sfx.patter()); }
-  }
-
-  spawnVisitor(kind) {
-    const v = makeAnimal(kind);
-    v.userData.baseScale = 0.55;
-    // comes in from the left and stands beside Pip, in the gap left of the things (on the right it hid behind a big one)
-    v.position.set(-13, 0, -1.6);
-    v.rotation.y = 0.6;
-    v.scale.setScalar(0.55);
-    this.root.add(v);
-    this.visitor = v;
-    this.s.wait(0.3).then(() => {
-      this.s.anim(0.6, (_, p) => { v.position.x = -13 + 6.6 * Ease.out(p); v.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.35; }).then(() => { v.position.y = 0; sfx.land(); });
-      sfx.patter && sfx.patter();
+      physics.add(p, { shape, r, bounce: 0.5 });
     });
   }
 
-  // How the things come in. Every path ends within ~0.75 s.
+  // How the things come in: two calm styles per level, about a second.
   async arrive(mode) {
     const T0 = this.things;
     if (mode === 'walk') {
-      sfx.patter && sfx.patter();
-      await Promise.all(T0.map((t, i) => {
-        const x1 = t.position.x, x0 = x1 < 0 ? -13 : 13;
+      // they walk in from just outside the picture at walking pace (the motion layer adds steps)
+      await Promise.all(T0.map((t) => {
+        const x1 = t.position.x, x0 = x1 < 0 ? -9 : 9;
         t.scale.setScalar(t.userData.size);
         t.position.x = x0;
-        return this.s.anim(0.7, (_, p) => {
-          const e = Ease.out(p);
-          t.position.x = x0 + (x1 - x0) * e;
-          t.position.y = Math.abs(Math.sin(p * Math.PI * (t.userData.size > 1 ? 3 : 5))) * 0.3 * (1 - p);
-        }).then(() => { t.position.y = 0; if (i === 0) sfx.land(); });
+        return this.s.anim(Math.abs(x1 - x0) / 4.2, (_, p) => { t.position.x = x0 + (x1 - x0) * Ease.inOut(p); }).then(() => { t.position.x = x1; t.position.y = 0; });
       }));
     } else if (mode === 'peek') {
-      // bushes rustle, then — peekaboo! — out they pop
+      // small bushes rustle, then - peekaboo! - out they pop (the stage's own bushes step aside meanwhile)
+      this.stage.visible = this.level !== 0;
       const bushes = T0.map((t) => {
-        const b = makeBush(0.6 + t.userData.size * 0.5);
+        const b = makeBush(0.45 + t.userData.size * 0.4);
         b.position.set(t.position.x, 0, 0.9);
         this.root.add(b);
-        popIn(this.s, b, b.scale.x, 0.3, { sound: false });
+        popIn(this.s, b, b.scale.x, 0.25, { sound: false });
         return b;
       });
+      await this.wait(0.25);
+      bushes.forEach((b) => wiggle(this.s, b, 0.2, 0.45));
       sfx.rustle();
       await this.wait(0.3);
-      bushes.forEach((b) => wiggle(this.s, b, 0.2, 0.3));
-      sfx.rustle();
-      await this.wait(0.25);
-      sfx.pop();
-      bushes.forEach((b) => popOut(this.s, b, 0.15).then(() => this.root.remove(b)));
-      T0.forEach((t) => { popIn(this.s, t, t.userData.size, 0.4, { sound: false }); fx.float(this.centre(t).add(new T.Vector3(0, 0.5, 0)), '👀', { size: 5 }); });
-      sfx.giggle();
-      await this.wait(0.35);
-    } else if (mode === 'drop') {
-      // fall from the sky, squash on landing (characters are not simulated)
-      await Promise.all(T0.map((t, i) => {
-        const s = t.userData.size;
-        t.scale.setScalar(s);
-        t.position.y = 8;
-        return this.s.wait(i * 0.1).then(() => sfx.whoosh()).then(() => this.s.anim(0.4, (e) => { t.position.y = 8 * (1 - e); }, Ease.in)).then(() => {
-          t.position.y = 0;
-          s > 1.1 ? sfx.thunk() : sfx.land();
-          if (s > 1.1) { this.shake(0.08, 0.25); this.jolt(0.6); }
-          return this.s.anim(0.2, (_, p) => { const k = 1 - Math.sin(p * Math.PI) * 0.25; t.scale.set(s / Math.sqrt(k), s * k, s / Math.sqrt(k)); });
-        }).then(() => t.scale.setScalar(s));
-      }));
-    } else if (mode === 'sky') {
-      // real physics: tossed from up high, they bounce and settle
-      sfx.whoosh();
-      await Promise.all(T0.map((t, i) => {
-        const s = t.userData.size;
-        const target = t.position.clone();
-        t.scale.setScalar(s);
-        t.position.set(target.x, 7 + i * 0.6, 0);
-        const opts = t.userData.phys === 'ball'
-          ? { shape: 'ball', r: s * t.userData.r, bounce: 0.45, mass: 1 / s }
-          : { shape: 'box', bounce: 0.3, spin: 0 };
-        return physics.toss(t, target, { arc: 0, time: 0.42, maxT: 0.75, spin: 0, ...opts });
-      }));
-    } else if (mode === 'build') {
-      // blocks drop onto each other one by one
-      const all = [];
-      T0.forEach((t) => { t.scale.setScalar(t.userData.size); for (const b of t.userData.blocks) { b.userData.y0 = b.position.y; b.position.y = 9; all.push([t, b]); } });
-      await Promise.all(all.map(([t, b], i) => {
-        const k = t.userData.blocks.indexOf(b);
-        return this.s.wait(k * 0.16 + (i % 2) * 0.05).then(() => this.s.anim(0.3, (e) => { b.position.y = 9 + (b.userData.y0 - 9) * e; }, Ease.in)).then(() => { sfx.tick ? sfx.tick() : sfx.tap(); });
-      }));
+      bushes.forEach((b) => popOut(this.s, b, 0.3).then(() => this.root.remove(b)));
+      T0.forEach((t) => popIn(this.s, t, t.userData.size, 0.5, { sound: false }));
+      await this.wait(0.5);
+      this.stage.visible = true;
     } else if (mode === 'grow') {
       // sprout from the soil: stretch up, then settle wide
-      sfx.pop();
+      sfx.rustle();
       await Promise.all(T0.map((t, i) => {
         const s = t.userData.size;
-        return this.s.wait(i * 0.08).then(() => this.s.anim(0.55, (_, p) => {
-          const y = Ease.elastic(p);
+        return this.s.wait(i * 0.15).then(() => this.s.anim(0.9, (_, p) => {
+          const y = Ease.out(p);
           const x = Ease.out(Math.min(1, p * 1.4));
           t.scale.set(s * Math.max(0.001, x), s * Math.max(0.001, y), s * Math.max(0.001, x));
-        })).then(() => { t.scale.setScalar(s); sfx.rustle(); });
+        })).then(() => { t.scale.setScalar(s); });
       }));
-      sfx.twinkle();
     } else {
-      sfx.boing();
-      T0.forEach((t, i) => popIn(this.s, t, t.userData.size, 0.45 + i * 0.1));
-      await this.wait(0.45);
+      T0.forEach((t, i) => this.s.wait(i * 0.15).then(() => popIn(this.s, t, t.userData.size, 0.5, { sound: i === 0 })));
+      await this.wait(0.5 + T0.length * 0.15);
     }
     for (const t of T0) if (!physics.has(t)) t.scale.setScalar(t.userData.size);
   }
 
-  // Surprise! A sparkle puff swaps the biggest and the smallest, so the child has to look again.
+  // Level 3, once: a sparkle puff swaps the biggest and the smallest, so the child has to look again.
   async magicSwap() {
-    const big = this.things.find((t) => t.userData.role === 'big');
-    const small = this.things.find((t) => t.userData.role === 'small');
-    await this.wait(0.2);
+    const big = this.things.find((t) => t.userData.size === Math.max(...this.things.map((x) => x.userData.size)));
+    const small = this.things.find((t) => t.userData.size === Math.min(...this.things.map((x) => x.userData.size)));
     sfx.twinkle();
-    for (const t of [big, small]) fx.float(this.centre(t).add(new T.Vector3(0, 0.6, 0)), '✨', { color: '#ffd23f', size: 7 });
+    for (const t of [big, small]) fx.float(this.centre(t).add(new T.Vector3(0, (t.userData.hit?.r || 1) + 0.4, 0)), '✨', { color: '#ffd23f', size: 7 });
     const a = big.userData.size, b = small.userData.size;
-    wiggle(this.s, big, 0.2, 0.6);
-    wiggle(this.s, small, 0.2, 0.6);
-    await this.s.anim(0.6, (e) => {
-      big.scale.setScalar(a + (b - a) * e);
-      small.scale.setScalar(b + (a - b) * e);
-    }, Ease.back);
     big.userData.size = big.userData.baseScale = b;
     small.userData.size = small.userData.baseScale = a;
-    big.scale.setScalar(b); small.scale.setScalar(a);
-    sfx.pop();
     this.setRoles();
-    for (const t of [big, small]) this.fitTap(t);
+    for (const t of [big, small]) { this.uncollide(t); this.fitTap(t); } // (tap areas at the new sizes)
+    big.scale.setScalar(a); small.scale.setScalar(b);
+    // 0.9 s, or it hurries to the end (0.15 s) the moment she taps during it
+    this.swapHurry = false;
+    await new Promise((res) => {
+      let p = 0;
+      const off = onFrame((dt) => {
+        if (this.dead) { off(); res(); return; }
+        p = Math.min(1, p + dt / (this.swapHurry ? 0.15 : 0.9));
+        const e = Ease.inOut(p);
+        big.scale.setScalar(a + (b - a) * e);
+        small.scale.setScalar(b + (a - b) * e);
+        if (p >= 1) { off(); res(); }
+      });
+      this.offs.push(off);
+    });
+    big.scale.setScalar(b); small.scale.setScalar(a);
+    for (const t of [big, small]) this.collide(t);
   }
 
   // stuck child: the right one hops
   nudgeTarget() { return this.busy ? null : this.things.find((t) => t.userData.role === this.ask) || null; }
 
-  // a simulated thing (a ball that fell from the sky) gets a real physics hop, never a tween that fights the body
+  // a simulated thing gets a real physics hop, never a tween that fights the body
   nudge(step) {
     const o = this.nudgeTarget();
     if (!o || !physics.has(o)) return super.nudge(step);
-    sfx.boing();
-    physics.poke(o, 0.7);
+    physics.poke(o, 0.6);
     if (step >= 2) { const stop = fx.halo(o, (o.userData.hit?.r || 1) + 0.3); this.s.wait(3).then(stop); }
   }
 
@@ -359,274 +303,126 @@ export default class SizesLesson extends Lesson {
     const n = NOUN[this.kind], i = ICON[this.kind];
     return this.ask === 'big' ? `Find the BIG ${n}! ${i}` : `Find the small ${n}! ${i}`;
   }
-  prompt() {
-    this.say(this.promptText(), this.ask === 'big' ? { pitch: 0.75, rate: 0.85 } : { pitch: 1.6, rate: 1.0 });
+  prompt(opts = {}) {
+    this.say(this.promptText(), { ...opts, ...(this.ask === 'big' ? { pitch: 0.75, rate: 0.85 } : { pitch: 1.6, rate: 1.0 }) });
   }
 
-  voice(t) {
-    const role = t.userData.role, big = role === 'big', small = role === 'small', k = this.kind;
-    if (k === 'elephant') big ? sfx.trumpet() : small ? sfx.trumpetHi() : sfx.boing();
-    else if (k === 'ball' || k === 'beachball') big ? sfx.lowBoing() : small ? sfx.highBoing() : sfx.boing();
-    else if (k === 'tree') { sfx.rustle(); sfx.note(big ? 0 : small ? 7 : 4); }
-    else if (k === 'sunflower' || k === 'carrot') { big ? sfx.note(0) : small ? sfx.twinkle() : sfx.note(4); }
-    else if (k === 'bear') big ? sfx.grr() : sfx.squeak();
-    else if (k === 'cat') { sfx.meow(); if (small) sfx.squeak(); }
-    else if (k === 'frog') { sfx.ribbit(); big ? sfx.lowBoing() : small && sfx.highBoing(); }
-    else if (k === 'bunny') big ? sfx.lowBoing() : small ? sfx.highBoing() : sfx.boing2();
-    else if (k === 'duck') { sfx.quack(); if (small) sfx.squeak(); }
+  // each thing's own sound, low and deep for big, high for small (role: 'big' | 'small')
+  voiceOf(k, big) {
+    if (k === 'elephant') big ? sfx.trumpet() : sfx.trumpetHi();
+    else if (k === 'ball' || k === 'beachball' || k === 'bunny') big ? sfx.lowBoing() : sfx.highBoing();
+    else if (k === 'tree' || k === 'tower') sfx.note(big ? 0 : 7);
+    else if (k === 'sunflower' || k === 'carrot' || k === 'mushroom') sfx.note(big ? 0 : 9);
+    else if (k === 'bear' || k === 'hedgehog') big ? sfx.grr() : sfx.squeak();
+    else if (k === 'cat') big ? sfx.meow() : sfx.squeak();
+    else if (k === 'frog') sfx.ribbit();
+    else if (k === 'duck') big ? sfx.quack() : sfx.squeak();
     else if (k === 'drum') big ? sfx.drumLoud() : sfx.drumSoft();
-    else if (k === 'tower') { sfx.tick(); sfx.note(big ? 0 : small ? 9 : 4); }
-    else if (k === 'gift') { sfx.tap(); sfx.note(big ? 2 : small ? 9 : 5); }
-    else if (k === 'hedgehog') big ? sfx.grr() : sfx.squeak();
+    else if (k === 'gift') sfx.note(big ? 2 : 9);
     else big ? sfx.lowBoing() : sfx.highBoing();
   }
+  voice(t) { this.voiceOf(this.kind, t.userData.role === 'big'); }
 
   async tapThing(t) {
     if (this.busy || !this.things.includes(t)) return;
-    this.voice(t);
     const role = t.userData.role;
     if (role !== this.ask) {
+      this.voice(t);
       this.jump(t, 0.3 / t.userData.size + 0.2);
-      const name = NOUN[this.kind];
-      this.redirect(role === 'middle' ? `That's the middle ${name}. Find the ${this.ask} one!` : `That's the ${role} ${name}. Find the ${this.ask} one!`);
+      this.redirect(this.ask === 'big' ? 'That one is small. Find the BIG one!' : 'That one is big. Find the small one!');
       return;
     }
-    this.busy = true;
-    input.lock(2500);
     for (const x of this.things) x.userData.tap.enabled = false;
-    const c = this.centre(t);
-    if (role === 'big') await this.bigPayoff(t);
-    else await this.smallPayoff(t);
-    this.cheerVisitor();
-    this.busy = false;
+    this.found = t;
+    this.payoffP = this.payoff(t);
     const n = NOUN[this.kind];
-    this.success(c, role === 'big' ? `BIG ${n}! ${ICON[this.kind]}` : `Small ${n}! ${ICON[this.kind]}`);
+    this.success(this.centre(t), role === 'big' ? `BIG ${n}!` : `Small ${n}!`, { still: 0 });
   }
 
-  cheerVisitor() {
-    const v = this.visitor;
-    if (!v) return;
-    const f = v.userData.face;
-    if (f) setFace(f, 'happy');
-    hop(this.s, v, 0.6, 0.35).then(() => hop(this.s, v, 0.35, 0.3));
-    fx.float(v.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 1.6, 0)), '♥', { color: '#ff7aa8', size: 5 });
+  // one payoff with a held breath: the big one stomps once (one thud, the props behind jump a little),
+  // the small one hops once with a squeak
+  async payoff(t) {
+    if (this.arriveP && this.arriveScales) await this.arriveP; // (tapped while it was still growing in: that finishes first)
+    if (this.swapP) { this.swapHurry = true; await this.swapP; } // (tapped mid-swap: it hurries to its end first)
+    await this.beat(t.userData.carrot || t, 0.2);
+    if (this.dead) return;
+    if (t.userData.role === 'big') await this.stomp(t, 0.4);
+    else await this.bounce(t, 0.4);
+  }
+  async stomp(t, h = 0.5) {
+    const big = t.userData.size;
+    if (physics.has(t)) { physics.poke(t, 0.7); await this.wait(0.35); }
+    else await this.jump(t, h, 0.42);
+    sfx.thunk();
+    this.jolt(0.4);
+    if (t.userData.drum) this.voiceOf('drum', true);
+    // the others feel the ground move: a little sway, no fright
+    for (const o of this.things) if (o !== t && o.parent && !physics.has(o)) wiggle(this.s, o, 0.06 / Math.max(0.5, o.userData.size), 0.4);
+    return big;
+  }
+  async bounce(t, h = 0.5) {
+    this.voiceOf(this.kind, false);
+    if (physics.has(t)) { physics.poke(t, 0.5); await this.wait(0.3); }
+    else await this.jump(t, h, 0.36);
   }
 
-  // the others are startled by something big
-  startle(t) {
-    for (const o of this.things) {
-      if (o === t) continue;
-      const f = o.userData.face;
-      if (f) { setFace(f, 'scared'); this.s.wait(0.6).then(() => setFace(f, 'happy')); }
-      this.jump(o, 0.55 / o.userData.size + 0.2, 0.35);
-    }
+  // After the payoff: a few seconds when the big one and the small one answer her finger (heavy stomp / light
+  // bounce), then the one she found walks to its place on the rug line and the others walk off.
+  async afterSuccess() {
+    const t = this.found;
+    this.found = null;
+    const play = this.things.filter((x) => x.parent);
+    for (const x of play) this.pokeable(x, { fn: (o) => { if (o.userData.playing) return; o.userData.playing = true; const p = o.userData.role === 'big' ? this.stomp(o, 0.35) : this.bounce(o, 0.4); p.then(() => { o.userData.playing = false; }); } });
+    await this.wait(0.2); // a short play window (pokes stay live until they leave)
+    this.pokeables = this.pokeables.filter((p) => !play.includes(p.obj));
+    if (this.dead) return;
+    this.leaving = true;
+    this.toLine(t, this.arriveP); // (not awaited: the next round starts while it walks to the rug)
   }
 
-  // ---- big payoffs (each ≤ ~0.7 s) ----
-  async bigPayoff(t) {
-    const k = this.kind;
-    if (k === 'tower') return this.topple(t);
-    if (k === 'gift') return this.burst(t, true);
-    if (k === 'ball' || k === 'beachball') {
-      physics.poke(t, 1.3); sfx.lowBoing(); sfx.whoosh();
-      await this.wait(0.45);
-      sfx.thunk(); this.shake(); this.jolt(1.1); this.startle(t);
-      return this.wait(0.25);
+  // the found one goes to the rug line (sorted biggest to smallest); the others walk off (or settle away)
+  async toLine(t, arrived = null) {
+    for (const x of this.things) {
+      if (x.userData.tap) input.remove(x.userData.tap);
+      this.uncollide(x);
+      if (x === t) continue;
+      physics.remove(x);
+      for (const b of x.userData.blocks || []) physics.remove(b);
+      // (they settle away on the spot: walking off they would cross the next round's things walking in)
+      this.fadeAway(x, 0.4).then(() => this.root.remove(x));
     }
-    if (k === 'drum') {
-      const sk = t.userData.skin;
-      for (let i = 0; i < 2; i++) {
-        sfx.drumLoud();
-        this.s.anim(0.2, (_, p) => { sk.scale.y = 1 - Math.sin(p * Math.PI) * 0.7; t.scale.setScalar(t.userData.size * (1 + Math.sin(p * Math.PI) * 0.08)); });
-        fx.float(this.centre(t).add(new T.Vector3(i ? 0.6 : -0.6, t.userData.hit.r, 0)), 'BOOM', { color: '#d94f3d', size: 6 });
-        this.shake(0.1, 0.25); this.jolt(0.8);
-        await this.wait(0.25);
-      }
-      this.startle(t);
-      return this.wait(0.2);
-    }
-    if (PLANTS.has(k)) {
-      // a big plant sways hard and its fruit tumbles down for real
-      sfx.rustle();
-      await wiggle(this.s, t, 0.18, 0.4);
-      this.drops(t, k === 'tree' ? 4 : 5);
-      sfx.thunk(); this.jolt(0.6);
-      return this.wait(0.3);
-    }
-    // characters, pumpkin, melon: three flavours, rotating
-    const v = this.bigI++ % 3;
-    if (v === 0) {
-      // STOMP
-      await hop(this.s, t, 0.9, 0.45);
-      sfx.thunk(); sfx.lowBoing();
-      this.puffs(t); this.shake(); this.jolt(1); this.startle(t);
-      await this.wait(0.3);
-    } else if (v === 1) {
-      // puff up even bigger, then a mighty bellow that blows the props away
-      const s = t.userData.size;
-      this.voice(t);
-      await this.s.anim(0.35, (e) => t.scale.setScalar(s * (1 + 0.18 * e)), Ease.back);
-      sfx.whoosh();
-      for (const p of this.props) { const dx = p.position.x - t.position.x; physics.impulse(p, { x: Math.sign(dx || 1) * 3.2, y: 2.5, z: 0.6 }); }
-      this.startle(t);
-      fx.float(this.centre(t).add(new T.Vector3(0, t.userData.hit.r, 0)), ANIMALS.has(this.kind) ? 'ROAR' : 'BIG!', { color: '#d94f3d', size: 7 });
-      await this.s.anim(0.3, (e) => t.scale.setScalar(s * (1.18 - 0.18 * e)), Ease.out);
-    } else {
-      // double bounce: each landing rocks the ground
-      for (let i = 0; i < 2; i++) {
-        await hop(this.s, t, 0.55, 0.3);
-        sfx.thunk(); this.shake(0.1, 0.25); this.jolt(0.7); this.puffs(t);
-      }
-      this.startle(t);
-      await this.wait(0.1);
-    }
-  }
-
-  // ---- small payoffs ----
-  async smallPayoff(t) {
-    const k = this.kind;
-    const big = this.things.find((x) => x.userData.role === 'big');
-    if (big && big.userData.head) this.s.tween(big.userData.head.rotation, { x: 0.35 }, 0.25).then(() => this.s.wait(0.4)).then(() => this.s.tween(big.userData.head.rotation, { x: 0 }, 0.25));
-    if (k === 'gift') return this.burst(t, false);
-    if (k === 'tower') {
-      this.uncollide(t);
-      const top = t.userData.blocks[t.userData.blocks.length - 1];
-      physics.add(top, { shape: 'box', bounce: 0.5 });
-      physics.impulse(top, { x: 0, y: 5, z: 0.4 }, { x: 0, y: 0.6, z: 0.3 });
-      sfx.highBoing();
-      await this.wait(0.55); sfx.tick();
-      return this.wait(0.1);
-    }
-    if (k === 'ball' || k === 'beachball') {
-      // a tiny super-bouncy ball: boing boing boing
-      for (let i = 0; i < 3; i++) { physics.poke(t, 0.9 - i * 0.15); sfx.highBoing(); await this.wait(0.22); }
-      return this.wait(0.1);
-    }
-    if (k === 'drum') {
-      const sk = t.userData.skin;
-      for (let i = 0; i < 4; i++) {
-        sfx.drumSoft();
-        this.s.anim(0.12, (_, p) => { sk.scale.y = 1 - Math.sin(p * Math.PI) * 0.5; });
-        fx.float(this.centre(t).add(new T.Vector3((i - 1.5) * 0.4, t.userData.hit.r, 0)), '♪', { color: '#4a90ff', size: 4 });
-        await this.wait(0.15);
-      }
-      return this.wait(0.1);
-    }
-    if (PLANTS.has(k)) {
-      sfx.twinkle();
-      if (k === 'tree' || k === 'sunflower') this.drops(t, 1);
-      if (k === 'mushroom') { this.drops(t, 2); sfx.boing(); }
-      if (k === 'carrot') { sfx.crunch(); this.jump(t, 0.5, 0.3); }
-      await wiggle(this.s, t, 0.3, 0.4);
-      fx.float(this.centre(t).add(new T.Vector3(0, t.userData.hit.r, 0)), '♥', { color: '#ff7aa8', size: 5 });
-      sfx.squeak();
-      return this.wait(0.2);
-    }
-    const v = this.smallI++ % 2;
-    const r0 = t.rotation.y;
-    if (v === 0) {
-      // zippy little hops with a spin
-      for (let i = 0; i < 3; i++) {
-        sfx.highBoing();
-        if (i === 1) this.s.anim(0.22, (e) => { t.rotation.y = r0 + e * Math.PI * 2; }).then(() => { t.rotation.y = r0; });
-        await hop(this.s, t, 0.9 - i * 0.2, 0.22);
-      }
-      sfx.squeak();
-    } else {
-      // a quick zoom in a little circle, leaving sparkles
-      const x0 = t.position.x, z0 = t.position.z;
-      sfx.swoosh();
-      await this.s.anim(0.6, (_, p) => {
-        const a = p * Math.PI * 2;
-        t.position.x = x0 + Math.sin(a) * 0.9;
-        t.position.z = z0 + (1 - Math.cos(a)) * 0.6;
-        t.position.y = Math.abs(Math.sin(a * 2)) * 0.25;
-        t.rotation.y = r0 + a;
-        if (Math.random() < 0.12) fx.float(this.centre(t), '✦', { color: '#ffd23f', size: 3 });
-      });
-      t.position.set(x0, 0, z0); t.rotation.y = r0;
-      sfx.squeak();
-    }
-  }
-
-  // tower topples: every block becomes a rigid body and tumbles across the grass
-  async topple(t) {
-    this.uncollide(t);
-    const dir = t.position.x > 0 ? -1 : 1;
-    sfx.crunch();
-    t.userData.blocks.forEach((b, i) => {
-      physics.add(b, { shape: 'box', bounce: 0.35, friction: 0.6 });
-      physics.impulse(b, { x: dir * (1 + i * 1.6), y: 1 + i * 0.6, z: 0.8 + Math.random() }, { x: (Math.random() - 0.5) * 0.4, y: 0.3, z: -dir * 0.5 });
-    });
-    await this.wait(0.35);
-    sfx.thunk(); this.shake(0.1, 0.3); this.jolt(0.8); this.startle(t);
-    await this.wait(0.3);
-  }
-
-  // a present pops its lid and things burst out
-  async burst(t, big) {
-    this.uncollide(t);
-    const lid = t.userData.lid;
+    for (const p of this.props) { physics.remove(p); this.fadeAway(p, 0.5).then(() => this.root.remove(p)); }
+    this.props = [];
+    this.things = [];
+    if (!t) return;
+    if (arrived) await arrived; // (it may still be walking in)
+    if (this.dead) return;
     physics.remove(t);
-    sfx.pop();
-    physics.add(lid, { shape: 'box', bounce: 0.4 });
-    physics.impulse(lid, { x: (Math.random() - 0.5) * 2, y: big ? 7 : 5, z: 1.2 }, { x: 0.4, y: 0.3, z: 0.5 });
-    const top = this.centre(t).add(new T.Vector3(0, t.userData.hit.r * 0.8, 0.3));
-    if (big) {
-      fx.confetti(top, 40);
-      sfx.twinkle();
-      for (let i = 0; i < 5; i++) {
-        const p = makeScatter(i % 2 ? 'balls' : 'marbles');
-        const { r, shape } = p.userData.scatter;
-        p.position.copy(top).add(new T.Vector3((i - 2) * 0.3, 0.3, 0));
-        this.root.add(p); this.props.push(p);
-        physics.add(p, { shape, r, bounce: 0.65 });
-        physics.impulse(p, { x: (i - 2) * 1.6, y: 5 + Math.random() * 2, z: 1.5 + Math.random() });
-      }
-      await this.wait(0.45);
-      this.startle(t);
-      await this.wait(0.2);
-    } else {
-      // a tiny present holds one tiny star
-      fx.float(top, '⭐', { size: 6 });
-      sfx.chime();
-      await wiggle(this.s, t, 0.2, 0.35);
-      sfx.squeak();
-      await this.wait(0.2);
-    }
+    for (const b of t.userData.blocks || []) physics.remove(b);
+    if (t.userData.lid) physics.remove(t.userData.lid);
+    t.quaternion.identity();
+    if (t.userData.phys === 'ball') t.position.y = t.userData.size * (t.userData.r || 1);
+    t.userData.lineKind = this.kind; t.userData.lineBig = t.userData.role === 'big';
+    if (t.userData.face) setFace(t.userData.face, 'happy');
+    await this.tray.add(t, { walk: ANIMALS.has(this.kind), arc: 0.9 });
+    this.sortLine();
+    // a poke on a thing in the line: its own big or small sound and a little hop
+    this.pokeable(t, { fn: (o) => { input.press(o, 140); this.voiceOf(o.userData.lineKind, o.userData.lineBig); } });
   }
-
-  // dust puffs at the feet
-  puffs(t) {
-    const p = t.getWorldPosition(new T.Vector3());
-    const s = t.userData.size;
-    for (let i = 0; i < 6; i++) {
-      const m = new T.Mesh(geo.sphere(0.28, 10, 8), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
-      const a = (i / 6) * Math.PI * 2;
-      m.position.set(p.x + Math.cos(a) * 0.8 * s, 0.2, p.z + Math.sin(a) * 0.5 * s + 0.3);
-      this.root.add(m);
-      const dx = Math.cos(a) * 1.4 * s, x0 = m.position.x;
-      this.s.anim(0.5, (e) => { m.position.x = x0 + dx * e; m.scale.setScalar(1 + e * 1.5 * s); m.material.opacity = 0.9 * (1 - e); }, Ease.out).then(() => { this.root.remove(m); m.material.dispose(); });
-    }
-  }
-
-  // fruit / seeds fall out of a plant as rigid bodies and bounce on the grass
-  drops(t, n = 3) {
-    const c = this.centre(t), s = t.userData.size;
-    const k = this.kind;
-    for (let i = 0; i < n; i++) {
-      let m, r;
-      if (k === 'tree') { m = makeScatter('apples'); r = 0.24; }
-      else if (k === 'sunflower') { m = mesh(geo.sphere(0.13, 10, 8), 0x5a3a1e, { outline: 0.015 }); r = 0.13; }
-      else if (k === 'mushroom') { m = makeScatter('berries'); r = 0.17; }
-      else { m = makeScatter('acorns'); r = 0.2; }
-      m.position.set(c.x + (i - (n - 1) / 2) * 0.7 * s, c.y + 0.5 * s, c.z + 0.8);
-      this.root.add(m);
-      this.props.push(m);
-      physics.add(m, { shape: 'ball', r, bounce: 0.55 });
-      physics.impulse(m, { x: (Math.random() - 0.5) * 2, y: 1, z: 1 + Math.random() });
-    }
-    sfx.swoosh();
+  // keep the rug line in order of size, biggest on the left: the newcomer (on the last spot) steps out behind the
+  // line and walks along to its place while the ones it passes shuffle one spot to the right, so nobody ever passes
+  // through anybody, at walking pace
+  sortLine() {
+    const slots = this.tray.slots();
+    const fresh = slots[slots.length - 1];
+    const size = (sl) => { const o = sl.children[0]; if (!o) return 0; const b = new T.Box3().setFromObject(o); return b.max.y - b.min.y; };
+    const others = slots.slice(0, -1).sort((a, b) => a.position.x - b.position.x);
+    let k = others.findIndex((sl) => size(sl) < size(fresh));
+    if (k < 0) return; // the smallest so far: it is already in its place at the right end
+    const sp = 1.55, x0 = fresh.position.x, xk = others[k].position.x;
+    for (let j = k; j < others.length; j++) { const sl = others[j], x = sl.position.x + sp; this.s.wait(0.35).then(() => this.s.tween(sl.position, { x }, 0.9, Ease.inOut)); }
+    const z0 = fresh.position.z, dur = Math.max(1.0, Math.abs(x0 - xk) / 2.4);
+    this.s.anim(dur, (e, p) => { fresh.position.x = x0 + (xk - x0) * e; fresh.position.z = z0 - Math.sin(p * Math.PI) * 1.1; }, Ease.inOut).then(() => { fresh.position.z = z0; });
   }
 
   showHint(glow = true) {
@@ -649,10 +445,20 @@ export default class SizesLesson extends Lesson {
     for (const t of this.things) if (t.userData.role !== this.ask) t.userData.tap.enabled = false;
   }
 
+  // ---- the ending: the rug line, biggest to smallest, each hopping with its own sound ----
+  creationView() { const v = this.tray.view(0.8); v.look.y -= 0.3; return v; }
+  creationObjects() { return []; } // (the line's things are already pokeable: each makes its own sound)
   onFinale() {
-    // parade: biggest to smallest hop in turn
-    const sorted = this.things.slice().sort((a, b) => b.userData.size - a.userData.size);
-    sorted.forEach((t, i) => this.s.wait(0.4 + i * 0.35).then(() => { if (t.parent) { this.jump(t, 0.8); this.voice(t); } }));
-    this.s.wait(0.5).then(() => this.jolt(1));
+    // falling leaves would cover the photo
+    for (const o of this.meadow.children) if (o.isInstancedMesh && !o.frustumCulled) o.visible = false;
+    const line = this.tray.slots().slice().sort((a, b) => a.position.x - b.position.x).map((sl) => sl.children[0]).filter(Boolean);
+    line.forEach((o, i) => this.s.wait(1.2 + i * 0.6).then(() => {
+      if (this.dead || !o.parent) return;
+      this.voiceOf(o.userData.lineKind, o.userData.lineBig);
+      const c = o.userData.carrot;
+      const tgt = c || o, y0 = tgt.position.y;
+      this.s.anim(0.45, (_, p) => { tgt.position.y = y0 + Math.sin(p * Math.PI) * 0.35; }).then(() => { tgt.position.y = y0; });
+    }));
+    this.admireTime = 1.2 + line.length * 0.6 + 0.8;
   }
 }

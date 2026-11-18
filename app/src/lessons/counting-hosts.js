@@ -263,10 +263,11 @@ export function makeHost(kind, variant = 0) {
     return {
       kind, obj,
       slots: (n, layout) => Array.from({ length: n }, (_, i) => {
-        const x = (i - (n - 1) / 2) * (n >= 4 ? 2.0 : 2.6) + (layout === 'scatter' ? (i % 2 ? 0.3 : -0.3) : 0);
+        // mounds at least 2.1 apart (centre to centre), so no two ever overlap, and sitting level (no tilt)
+        const x = (i - (n - 1) / 2) * (n >= 4 ? 2.2 : 2.6) + (layout === 'scatter' ? (i % 2 ? 0.12 : -0.12) : 0);
         const z = 6.0 + (layout === 'arc' ? -Math.abs(i - (n - 1) / 2) * 0.4 : (i % 2) * 0.3);
         const pm = prop('prop_m_mound');
-        if (pm) { pm.position.set(x, 0, z - 6.0 - 0.25); pm.rotation.y = (i % 3 - 1) * 0.4; obj.add(pm); return new T.Vector3(x, 0.72, z); }
+        if (pm) { pm.position.set(x, 0, z - 6.0 - 0.25); pm.rotation.set(0, (i % 3 - 1) * 0.25, 0); obj.add(pm); return new T.Vector3(x, 0.72, z); }
         const mound = mesh(geo.sphere(0.75, 14, 8), 0x8a5a3a, { outline: 0.03 });
         mound.scale.set(1, 0.35, 0.8);
         mound.position.set(x, 0.05, z - 6.0 - 0.25);

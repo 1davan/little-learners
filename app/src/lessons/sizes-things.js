@@ -12,7 +12,7 @@ import { makeBeachBall, makeDuck } from '../engine/beach.js';
 import { makeDrum, makeCarrot } from '../engine/farm.js';
 import { propModel } from '../engine/prop-models.js';
 import { toonUnique } from '../engine/toon.js';
-import { prop } from './view-tools.js';
+import { prop, makeMat, retint } from './view-tools.js';
 
 // A Blender prop inside a plain group (the game scales / tweens the group; the model keeps its own fit).
 function wrapped(kind, opts, scale = 1, y = 0) {
@@ -34,7 +34,7 @@ export const NOUN = {
 };
 export const ICON = {
   elephant: '🐘', bunny: '🐰', frog: '🐸', bear: '🐻', cat: '🐱', hedgehog: '🦔', pig: '🐷',
-  ball: '⚽', beachball: '🏐', tower: '🧱', gift: '🎁', duck: '🦆', drum: '🥁',
+  ball: '🔵', beachball: '🏖️', tower: '🧱', gift: '🎁', duck: '🦆', drum: '🥁',
   tree: '🌳', pumpkin: '🎃', sunflower: '🌻', mushroom: '🍄', watermelon: '🍉', carrot: '🥕',
 };
 
@@ -289,14 +289,15 @@ export function makeScatter(type) {
 export function makeStage(level) {
   const g = new T.Group();
   if (level === 1) {
-    const cols = [0xff8fc0, 0xffe066, 0x7fd6ff, 0xb5e48c];
-    for (let i = 0; i < 8; i++) {
-      const s = new T.Mesh(geo.box(2.4, 0.03, 10), toon(cols[i % 4]));
-      s.position.set(-8.4 + i * 2.4, 0.015, 2.3); // reaches the bottom of the (closer) camera's view
-      g.add(s);
-    }
+    // one big soft play rug with a rounded border (it used to be eight flat strips with hard edges)
+    const rug = makeMat(19, 8.4, 0xffd9e6, 0xe58fb0);
+    rug.position.set(0, 0, 1.6);
+    g.add(rug);
+    const inner = makeMat(15.5, 5.6, 0xfff1c9, 0xffd27a);
+    inner.position.set(0, 0.012, 1.6);
+    g.add(inner);
     const tb = prop('prop_m_toybox');
-    if (tb) { tb.position.set(8.6, 0, -3.2); tb.rotation.y = -0.4; g.add(tb); }
+    if (tb) { tb.position.set(7.6, 0, -3.8); tb.rotation.y = -0.4; g.add(tb); } // (inside the closer camera's frame)
     else {
       const box = mesh(geo.box(2.2, 1.4, 1.4), 0xd94f3d, { hull: 1.03 });
       box.position.set(8.6, 0.7, -3.2); box.rotation.y = -0.4;
@@ -314,16 +315,18 @@ export function makeStage(level) {
     }
     if (propModel('prop_fence')) {
       // the shared Blender picket fence (sections 1.7 long), a little lower than a farm fence
-      for (let i = 0; i < 10; i++) { const f = propModel('prop_fence', { tint: 0xd9b07a }); f.scale.setScalar(0.7); f.position.set(-8.5 + i * 1.7, 0, -3); g.add(f); }
+      // wood-coloured (white pickets vanished on the snow), and behind Pip and the line-up rug, never caging Pip
+      for (let i = 0; i < 10; i++) { const f = propModel('prop_fence'); retint(f, 0xc98b4f); f.scale.setScalar(0.7); f.position.set(-8.5 + i * 1.7, 0, -6.3); g.add(f); }
     } else {
       for (let i = 0; i < 9; i++) {
         const p = mesh(geo.cyl(0.06, 0.08, 0.9, 6), 0xc9a06a, { outline: 0.01 });
-        p.position.set(-8 + i * 2, 0.45, -3); g.add(p);
+        p.position.set(-8 + i * 2, 0.45, -6.3); g.add(p);
       }
-      const rail = mesh(geo.box(16.5, 0.12, 0.1), 0xc9a06a, { hull: 0 }); rail.position.set(0, 0.75, -3); g.add(rail);
+      const rail = mesh(geo.box(16.5, 0.12, 0.1), 0xc9a06a, { hull: 0 }); rail.position.set(0, 0.75, -6.3); g.add(rail);
     }
   } else {
-    for (const [x, z, s] of [[-9, -2.8, 1.1], [9.2, -2.6, 1.3], [-1.2, -4.5, 0.9], [6, -4.2, 1]]) {
+    // (none behind Pip's body, none on the line-up rug at the back)
+    for (const [x, z, s] of [[-10.8, -3.6, 1.0], [9.2, -2.6, 1.3], [-2.4, -6.8, 0.9], [7.6, -6.2, 1]]) {
       const pb = prop('prop_m_bush');
       if (pb) { pb.scale.setScalar(s * 0.75); pb.position.set(x, 0, z); pb.rotation.y = x * 0.05; g.add(pb); continue; }
       const b = new T.Group();

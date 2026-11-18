@@ -1,0 +1,1750 @@
+You think it floats!
+You think it sinks!
+Soap!
+Let's cook a soup!
+Pick a veggie!
+Now add another veggie!
+Now the orange one!
+Now the green one!
+Now the yellow one!
+Find the orange one!
+Find the green one!
+Find the yellow one!
+Look at the card! A carrot!
+Now two tomatoes!
+One more tomato!
+Look at the card!
+One!
+Two!
+Pick up the knife!
+Tap to chop!
+Time to scoop it up!
+Hold to scoop it up!
+Take it to the pot!
+Turn on the stove!
+It's cooking!
+Into the soup!
+Stir the soup!
+Stir, stir, stir!
+Fill a bowl for Bear!
+Mmm! Yummy soup!
+Yummy soup!
+Put a veggie on the board!
+Now the carrot!
+Now the tomato!
+Hold the board!
+Tap the knob! Stove on!
+Take the bowl to the pot!
+Scoop!
+Mmm!
+Now a tomato!
+Look what you made!
+You made this!
+Let's make candy music!
+Listen!
+Listen again!
+Now the whole song!
+A new candy!
+Tap the tap for water!
+Rub the soap on Bunny's paws!
+Tap the tap to rinse!
+The tap again!
+Rub the towel on Bunny's paws!
+Wash Bunny's paws! What comes first?
+Put the toothpaste on the brush!
+The toothpaste first!
+Rub the brush on Bunny's teeth!
+Now the brush!
+Give Bunny the cup of water!
+Put the tissue on Bunny's nose!
+The tissue first!
+Put the tissue in the bin!
+The tissue in the bin!
+Tap the tap to fill the bath!
+The bath tap first!
+Pour the bubbles in the bath!
+Now the bubbles!
+Rub the sponge on Bunny's head!
+Rub the big towel on Bunny!
+Now the big towel!
+Brush Bunny's ear!
+Brush the other ear!
+Tap the curtains to open them!
+Put the duvet on the bed!
+Put Teddy on the pillow!
+Tap the curtains to close them!
+The curtains first!
+Give Teddy to Bunny!
+Put the duvet on Bunny!
+The duvet first!
+Tap the lamp! Lights off!
+Now the lamp!
+All aboard the letter train!
+Put them on the train!
+Put it on the train!
+Put mine on the train!
+Not me!
+Try the other one!
+All aboard!
+A! => Ay! / Say only the name of the letter A, like "ay".
+B! => Bee! / Say only the name of the letter B, like "bee".
+C! => See! / Say only the name of the letter C, like "see".
+D! => Dee! / Say only the name of the letter D, like "dee".
+E! => Ee! / Say only the name of the letter E, like "ee".
+F! => Eff! / Say only the name of the letter F, like "eff".
+G! => Jee! / Say only the name of the letter G, like "jee".
+H! => Aitch! / Say only the name of the letter H, like "aitch".
+I! => Eye! / Say only the name of the letter I, like "eye".
+J! => Jay! / Say only the name of the letter J, like "jay".
+K! => Kay! / Say only the name of the letter K, like "kay".
+L! => El! / Say only the name of the letter L, like "el".
+M! => Em! / Say only the name of the letter M, like "em".
+N! => En! / Say only the name of the letter N, like "en".
+O! => Oh! / Say only the name of the letter O, like "oh".
+P! => Pee! / Say only the name of the letter P, like "pee".
+Q! => Cue! / Say only the name of the letter Q, like "cue".
+R! => Ar! / Say only the name of the letter R, like "ar".
+S! => Ess! / Say only the name of the letter S, like "ess".
+T! => Tee! / Say only the name of the letter T, like "tee".
+U! => You! / Say only the name of the letter U, like "you".
+V! => Vee! / Say only the name of the letter V, like "vee".
+W! => Double-you! / Say only the name of the letter W, like "double-you".
+X! => Ex! / Say only the name of the letter X, like "ex".
+Y! => Why! / Say only the name of the letter Y, like "why".
+Z! => Zed! / Say only the name of the letter Z, like "zed".
+a, a, a! => aa, aa, aa / Say the short vowel at the start of "apple", as in "cat", three times. This is the letter SOUND, never the letter name "ay".
+b, b, b! => buh, buh, buh / Say only the b sound at the start of "ball", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "bee".
+c, c, c! => kuh, kuh, kuh / Say only the hard k sound at the start of "cat", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "see".
+d, d, d! => duh, duh, duh / Say only the d sound at the start of "duck", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "dee".
+e, e, e! => eh, eh, eh / Say the short vowel at the start of "egg", as in "bed", three times. This is the letter SOUND, never the letter name "ee".
+fff! => fff / Say only a long, held f sound (held f), with no vowel after it.
+g, g, g! => guh, guh, guh / Say only the hard g sound at the start of "goat", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "jee".
+h, h, h! => huh, huh, huh / Say only the breathy h at the start of "hat", with almost no vowel after it, three times. This is the letter SOUND, never the letter name "aitch".
+i, i, i! => ih, ih, ih / Say the short vowel at the start of "igloo", as in "sit", three times. This is the letter SOUND, never the letter name "eye".
+j, j, j! => juh, juh, juh / Say only the j sound at the start of "jar", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "jay".
+k, k, k! => kuh, kuh, kuh / Say only the k sound at the start of "kite", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "kay".
+lll! => lll / Say only a long, held l sound (held l), with no vowel after it.
+mmm! => mmm / Say only a long, held m sound (held m), with no vowel after it.
+nnn! => nnn / Say only a long, held n sound (held n), with no vowel after it.
+o, o, o! => aw, aw, aw / Say the short vowel at the start of "octopus", as in "hot", short and clipped, three times. This is the letter SOUND, never the letter name "oh".
+p, p, p! => puh, puh, puh / Say only the p sound at the start of "pig", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "pee".
+rrr! => rrr / Say only a long, held r sound (held r), with no vowel after it.
+sss! => sss / Say only a long, held s sound (held s), with no vowel after it.
+t, t, t! => tuh, tuh, tuh / Say only the t sound at the start of "tap", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "tee".
+u, u, u! => uh, uh, uh / Say the short vowel at the start of "umbrella", as in "cup", three times. This is the letter SOUND, never the letter name "you".
+vvv! => vvv / Say only a long, held v sound (held v), with no vowel after it.
+w, w, w! => wuh, wuh, wuh / Say only the w sound at the start of "worm", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "double-you".
+y, y, y! => yuh, yuh, yuh / Say only the y sound at the start of "yo-yo", clipped: the vowel after it as short and quiet as possible, three times. This is the letter SOUND, never the letter name "why".
+zzz! => zzz / Say only a long, held z sound (held z), with no vowel after it.
+Where is A? => Where is Ay? / A is the letter name, said "ay".
+Where is B? => Where is Bee? / B is the letter name, said "bee".
+Where is C? => Where is See? / C is the letter name, said "see".
+Where is D? => Where is Dee? / D is the letter name, said "dee".
+Where is E? => Where is Ee? / E is the letter name, said "ee".
+Where is F? => Where is Eff? / F is the letter name, said "eff".
+Where is G? => Where is Jee? / G is the letter name, said "jee".
+Where is H? => Where is Aitch? / H is the letter name, said "aitch".
+Where is I? => Where is Eye? / I is the letter name, said "eye".
+Where is J? => Where is Jay? / J is the letter name, said "jay".
+Where is K? => Where is Kay? / K is the letter name, said "kay".
+Where is L? => Where is El? / L is the letter name, said "el".
+Where is M? => Where is Em? / M is the letter name, said "em".
+Where is N? => Where is En? / N is the letter name, said "en".
+Where is O? => Where is Oh? / O is the letter name, said "oh".
+Where is P? => Where is Pee? / P is the letter name, said "pee".
+Where is Q? => Where is Cue? / Q is the letter name, said "cue".
+Where is R? => Where is Ar? / R is the letter name, said "ar".
+Where is S? => Where is Ess? / S is the letter name, said "ess".
+Where is T? => Where is Tee? / T is the letter name, said "tee".
+Where is U? => Where is You? / U is the letter name, said "you".
+Where is V? => Where is Vee? / V is the letter name, said "vee".
+Where is W? => Where is Double-you? / W is the letter name, said "double-you".
+Where is X? => Where is Ex? / X is the letter name, said "ex".
+Where is Y? => Where is Why? / Y is the letter name, said "why".
+Where is Z? => Where is Zed? / Z is the letter name, said "zed".
+Apple!
+Ant!
+Ambulance!
+Ball!
+Banana!
+Bear!
+Cat!
+Car!
+Cup!
+Duck!
+Dog!
+Doughnut!
+Egg!
+Elephant!
+Envelope!
+Fish!
+Frog!
+Flower!
+Grapes!
+Goat!
+Glasses!
+Hat!
+Horse!
+House!
+Igloo!
+Insect!
+Ice cream!
+Jellyfish!
+Jar!
+Juice!
+Kite!
+Key!
+Kangaroo!
+Leaf!
+Lemon!
+Ladybug!
+Moon!
+Milk!
+Monkey!
+Nest!
+Noodles!
+Nappy!
+Octopus!
+Orange!
+Owl!
+Pig!
+Pear!
+Pumpkin!
+Queen!
+Quilt!
+Rabbit!
+Rainbow!
+Rocket!
+Sun!
+Sock!
+Snail!
+Tomato!
+Teapot!
+Turtle!
+Umbrella!
+Underpants!
+Van!
+Vase!
+Vegetables!
+Watermelon!
+Worm!
+Window!
+Xylophone!
+X-ray!
+Yogurt!
+Yo-yo!
+Yak!
+Zebra!
+Zip!
+a, a, a... apple! => aa, aa, aa... apple! / First the short vowel at the start of "apple", as in "cat", three times, a little pause, then the word "apple" warmly. Never the letter name "ay".
+a, a, a... ant! => aa, aa, aa... ant! / First the short vowel at the start of "apple", as in "cat", three times, a little pause, then the word "ant" warmly. Never the letter name "ay".
+a, a, a... ambulance! => aa, aa, aa... ambulance! / First the short vowel at the start of "apple", as in "cat", three times, a little pause, then the word "ambulance" warmly. Never the letter name "ay".
+b, b, b... ball! => buh, buh, buh... ball! / First only the b sound at the start of "ball", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "ball" warmly. Never the letter name "bee".
+b, b, b... banana! => buh, buh, buh... banana! / First only the b sound at the start of "ball", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "banana" warmly. Never the letter name "bee".
+b, b, b... bear! => buh, buh, buh... bear! / First only the b sound at the start of "ball", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "bear" warmly. Never the letter name "bee".
+c, c, c... cat! => kuh, kuh, kuh... cat! / First only the hard k sound at the start of "cat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "cat" warmly. Never the letter name "see".
+c, c, c... car! => kuh, kuh, kuh... car! / First only the hard k sound at the start of "cat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "car" warmly. Never the letter name "see".
+c, c, c... cup! => kuh, kuh, kuh... cup! / First only the hard k sound at the start of "cat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "cup" warmly. Never the letter name "see".
+d, d, d... duck! => duh, duh, duh... duck! / First only the d sound at the start of "duck", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "duck" warmly. Never the letter name "dee".
+d, d, d... dog! => duh, duh, duh... dog! / First only the d sound at the start of "duck", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "dog" warmly. Never the letter name "dee".
+d, d, d... doughnut! => duh, duh, duh... doughnut! / First only the d sound at the start of "duck", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "doughnut" warmly. Never the letter name "dee".
+e, e, e... egg! => eh, eh, eh... egg! / First the short vowel at the start of "egg", as in "bed", three times, a little pause, then the word "egg" warmly. Never the letter name "ee".
+e, e, e... elephant! => eh, eh, eh... elephant! / First the short vowel at the start of "egg", as in "bed", three times, a little pause, then the word "elephant" warmly. Never the letter name "ee".
+e, e, e... envelope! => eh, eh, eh... envelope! / First the short vowel at the start of "egg", as in "bed", three times, a little pause, then the word "envelope" warmly. Never the letter name "ee".
+fff... fish! => fff... fish! / First a long held f sound, a little pause, then the word "fish" warmly.
+fff... frog! => fff... frog! / First a long held f sound, a little pause, then the word "frog" warmly.
+fff... flower! => fff... flower! / First a long held f sound, a little pause, then the word "flower" warmly.
+g, g, g... grapes! => guh, guh, guh... grapes! / First only the hard g sound at the start of "goat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "grapes" warmly. Never the letter name "jee".
+g, g, g... goat! => guh, guh, guh... goat! / First only the hard g sound at the start of "goat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "goat" warmly. Never the letter name "jee".
+g, g, g... glasses! => guh, guh, guh... glasses! / First only the hard g sound at the start of "goat", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "glasses" warmly. Never the letter name "jee".
+h, h, h... hat! => huh, huh, huh... hat! / First only the breathy h at the start of "hat", with almost no vowel after it, three times, a little pause, then the word "hat" warmly. Never the letter name "aitch".
+h, h, h... horse! => huh, huh, huh... horse! / First only the breathy h at the start of "hat", with almost no vowel after it, three times, a little pause, then the word "horse" warmly. Never the letter name "aitch".
+h, h, h... house! => huh, huh, huh... house! / First only the breathy h at the start of "hat", with almost no vowel after it, three times, a little pause, then the word "house" warmly. Never the letter name "aitch".
+i, i, i... igloo! => ih, ih, ih... igloo! / First the short vowel at the start of "igloo", as in "sit", three times, a little pause, then the word "igloo" warmly. Never the letter name "eye".
+i, i, i... insect! => ih, ih, ih... insect! / First the short vowel at the start of "igloo", as in "sit", three times, a little pause, then the word "insect" warmly. Never the letter name "eye".
+j, j, j... jellyfish! => juh, juh, juh... jellyfish! / First only the j sound at the start of "jar", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "jellyfish" warmly. Never the letter name "jay".
+j, j, j... jar! => juh, juh, juh... jar! / First only the j sound at the start of "jar", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "jar" warmly. Never the letter name "jay".
+j, j, j... juice! => juh, juh, juh... juice! / First only the j sound at the start of "jar", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "juice" warmly. Never the letter name "jay".
+k, k, k... kite! => kuh, kuh, kuh... kite! / First only the k sound at the start of "kite", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "kite" warmly. Never the letter name "kay".
+k, k, k... key! => kuh, kuh, kuh... key! / First only the k sound at the start of "kite", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "key" warmly. Never the letter name "kay".
+k, k, k... kangaroo! => kuh, kuh, kuh... kangaroo! / First only the k sound at the start of "kite", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "kangaroo" warmly. Never the letter name "kay".
+lll... leaf! => lll... leaf! / First a long held l sound, a little pause, then the word "leaf" warmly.
+lll... lemon! => lll... lemon! / First a long held l sound, a little pause, then the word "lemon" warmly.
+lll... ladybug! => lll... ladybug! / First a long held l sound, a little pause, then the word "ladybug" warmly.
+mmm... moon! => mmm... moon! / First a long held m sound, a little pause, then the word "moon" warmly.
+mmm... milk! => mmm... milk! / First a long held m sound, a little pause, then the word "milk" warmly.
+mmm... monkey! => mmm... monkey! / First a long held m sound, a little pause, then the word "monkey" warmly.
+nnn... nest! => nnn... nest! / First a long held n sound, a little pause, then the word "nest" warmly.
+nnn... noodles! => nnn... noodles! / First a long held n sound, a little pause, then the word "noodles" warmly.
+nnn... nappy! => nnn... nappy! / First a long held n sound, a little pause, then the word "nappy" warmly.
+o, o, o... octopus! => aw, aw, aw... octopus! / First the short vowel at the start of "octopus", as in "hot", short and clipped, three times, a little pause, then the word "octopus" warmly. Never the letter name "oh".
+o, o, o... orange! => aw, aw, aw... orange! / First the short vowel at the start of "octopus", as in "hot", short and clipped, three times, a little pause, then the word "orange" warmly. Never the letter name "oh".
+p, p, p... pig! => puh, puh, puh... pig! / First only the p sound at the start of "pig", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "pig" warmly. Never the letter name "pee".
+p, p, p... pear! => puh, puh, puh... pear! / First only the p sound at the start of "pig", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "pear" warmly. Never the letter name "pee".
+p, p, p... pumpkin! => puh, puh, puh... pumpkin! / First only the p sound at the start of "pig", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "pumpkin" warmly. Never the letter name "pee".
+rrr... rabbit! => rrr... rabbit! / First a long held r sound, a little pause, then the word "rabbit" warmly.
+rrr... rainbow! => rrr... rainbow! / First a long held r sound, a little pause, then the word "rainbow" warmly.
+rrr... rocket! => rrr... rocket! / First a long held r sound, a little pause, then the word "rocket" warmly.
+sss... sun! => sss... sun! / First a long held s sound, a little pause, then the word "sun" warmly.
+sss... sock! => sss... sock! / First a long held s sound, a little pause, then the word "sock" warmly.
+sss... snail! => sss... snail! / First a long held s sound, a little pause, then the word "snail" warmly.
+t, t, t... tomato! => tuh, tuh, tuh... tomato! / First only the t sound at the start of "tap", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "tomato" warmly. Never the letter name "tee".
+t, t, t... teapot! => tuh, tuh, tuh... teapot! / First only the t sound at the start of "tap", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "teapot" warmly. Never the letter name "tee".
+t, t, t... turtle! => tuh, tuh, tuh... turtle! / First only the t sound at the start of "tap", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "turtle" warmly. Never the letter name "tee".
+u, u, u... umbrella! => uh, uh, uh... umbrella! / First the short vowel at the start of "umbrella", as in "cup", three times, a little pause, then the word "umbrella" warmly. Never the letter name "you".
+u, u, u... underpants! => uh, uh, uh... underpants! / First the short vowel at the start of "umbrella", as in "cup", three times, a little pause, then the word "underpants" warmly. Never the letter name "you".
+vvv... van! => vvv... van! / First a long held v sound, a little pause, then the word "van" warmly.
+vvv... vase! => vvv... vase! / First a long held v sound, a little pause, then the word "vase" warmly.
+vvv... vegetables! => vvv... vegetables! / First a long held v sound, a little pause, then the word "vegetables" warmly.
+w, w, w... watermelon! => wuh, wuh, wuh... watermelon! / First only the w sound at the start of "worm", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "watermelon" warmly. Never the letter name "double-you".
+w, w, w... worm! => wuh, wuh, wuh... worm! / First only the w sound at the start of "worm", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "worm" warmly. Never the letter name "double-you".
+w, w, w... window! => wuh, wuh, wuh... window! / First only the w sound at the start of "worm", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "window" warmly. Never the letter name "double-you".
+y, y, y... yogurt! => yuh, yuh, yuh... yogurt! / First only the y sound at the start of "yo-yo", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "yogurt" warmly. Never the letter name "why".
+y, y, y... yo-yo! => yuh, yuh, yuh... yo-yo! / First only the y sound at the start of "yo-yo", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "yo-yo" warmly. Never the letter name "why".
+y, y, y... yak! => yuh, yuh, yuh... yak! / First only the y sound at the start of "yo-yo", clipped: the vowel after it as short and quiet as possible, three times, a little pause, then the word "yak" warmly. Never the letter name "why".
+zzz... zebra! => zzz... zebra! / First a long held z sound, a little pause, then the word "zebra" warmly.
+zzz... zip! => zzz... zip! / First a long held z sound, a little pause, then the word "zip" warmly.
+Let's paint!
+Touch the paint!
+Rub the ball!
+Hang it up!
+More paint!
+Tap, tap, tap!
+Which one?
+Paint it!
+Red!
+Yellow!
+Blue!
+Green!
+Pink!
+Orange!
+White!
+Purple!
+Look what you made!
+Paint the star!
+Paint the heart!
+Paint the boat!
+Paint the butterfly!
+Paint the duck yellow!
+Paint the frog green!
+Paint the pig pink!
+Paint the crab red!
+Paint the apple red!
+Now the leaf. Green!
+Paint the flower pink!
+Now the stem. Green!
+Paint the top red!
+One.
+Two.
+Three!
+Paint Pip yellow!
+Now the beak. Orange!
+Duck is yellow!
+Frog is green!
+Pig is pink!
+Crab is red!
+The apple is red!
+The leaf is green!
+The flower is pink!
+The stem is green!
+The top is red!
+Pip is yellow!
+The beak is orange!
+Stir!
+Red and yellow make orange!
+Blue and yellow make green!
+Red and blue make purple!
+Red and white make pink!
+Paint the fish orange!
+Paint the grapes purple!
+Paint the turtle green!
+Paint the pumpkin orange!
+Paint the carrot orange!
+Now the top. Make green!
+Paint the top green!
+Paint a rainbow!
+The fish is orange!
+The grapes are purple!
+The turtle is green!
+The pumpkin is orange!
+The carrot is orange!
+The top is green!
+Let's roll home!
+Help the baby roll home!
+Tap the yellow block!
+Tap it again!
+Press the red button!
+Push the box into the hole!
+Push the ramp to the step!
+Tap the yellow bridge!
+Tap the block. Watch the cart!
+Press the purple button!
+Press the green button!
+Open the door first!
+Push the box off the see-saw!
+Push the ramp. It pushes the box!
+Uh-oh! A block is in the way.
+Uh-oh! A hole!
+Uh-oh! The door is shut.
+Uh-oh! Too high!
+Uh-oh! A long way down!
+Down it rolls!
+Up the ramp!
+Over the bridge!
+Under the door!
+In it goes!
+Down goes the lift!
+Up goes the lift!
+Wheels roll!
+The see-saw tips!
+Try the yellow one!
+Try the blue one!
+Try the button!
+Fill the hole first!
+Hello, snail! Try the green one!
+One!
+Two!
+Three!
+Four!
+Five!
+Six!
+Seven!
+Eight!
+Nine!
+Ten!
+Eleven!
+Twelve!
+Everyone is home!
+Let's make a picture!
+Where did it go?
+Open the box!
+Circle!
+Square!
+Triangle!
+Rectangle!
+Star!
+Heart!
+A big star!
+A small star!
+A big circle!
+A small circle!
+Too big!
+Try another hole!
+Not in here!
+Here it is!
+The sun!
+A crate!
+A tent!
+A tree!
+A bird house!
+A roof!
+A ladybird!
+A kite!
+A sail!
+A ball!
+The moon!
+A rocket!
+The Earth!
+A flag!
+A planet!
+A satellite!
+A robot!
+A party hat!
+A balloon!
+A big ball!
+A small ball!
+A wagon!
+A present!
+You made a garden!
+You made a rocket!
+You made a robot!
+What's that?
+Come and see!
+Let's take pictures!
+Tidy-up time!
+Here comes the train!
+Take it home!
+Pop them in your book!
+Let's go to the farm!
+Let's go home!
+Let's find some food!
+Let's go and play!
+Let's see what goes!
+Let's get dressed!
+Hello, Bear!
+Let's go outside!
+Let's say hello!
+Let's find some words!
+Let's look at me!
+Animals go in the barn.
+Where do animals go?
+Food goes in the basket.
+Where does food go?
+Toys go in the toy box.
+Where do toys go?
+Clothes go in the wardrobe.
+Where do clothes go?
+Things that go, go in the garage.
+Where do things that go, go?
+A dog!
+The dog says woof.
+Where's the dog?
+A cat!
+The cat says miaow.
+Where's the cat?
+A cow!
+The cow says moo.
+Where's the cow?
+A duck!
+The duck says quack.
+Where's the duck?
+A pig!
+The pig says oink.
+Where's the pig?
+A sheep!
+The sheep says baa.
+Where's the sheep?
+A horse!
+The horse says neigh.
+Where's the horse?
+A hen!
+The hen says cluck.
+Where's the hen?
+A chick!
+Cheep, cheep!
+Where's the chick?
+A goat!
+The goat has horns.
+Where's the goat?
+A donkey!
+Hee-haw!
+Where's the donkey?
+A goose!
+Honk, honk!
+Where's the goose?
+A bird!
+Tweet, tweet!
+Where's the bird?
+A bunny!
+Hop, hop, hop!
+Where's the bunny?
+A bee!
+Buzz, buzz!
+Where's the bee?
+A butterfly!
+Flutter, flutter!
+Where's the butterfly?
+A frog!
+Ribbit!
+Where's the frog?
+A ladybug!
+Red with black spots.
+Where's the ladybug?
+A snail!
+Slow, slow snail.
+Where's the snail?
+A worm!
+Wiggle, wiggle!
+Where's the worm?
+A mouse!
+Squeak, squeak!
+Where's the mouse?
+A spider!
+Eight little legs.
+Where's the spider?
+A caterpillar!
+Munch, munch!
+Where's the caterpillar?
+An ant!
+A tiny, tiny ant.
+Where's the ant?
+A bear!
+A big, soft bear.
+Where's the bear?
+An owl!
+Twit-twoo!
+Where's the owl?
+A squirrel!
+Up the tree!
+Where's the squirrel?
+A fox!
+A bushy tail.
+Where's the fox?
+A deer!
+Little antlers.
+Where's the deer?
+A hedgehog!
+Prickly, prickly!
+Where's the hedgehog?
+A snake!
+Hiss!
+Where's the snake?
+A turkey!
+Gobble, gobble!
+Where's the turkey?
+An elephant!
+A long, long trunk.
+Where's the elephant?
+A monkey!
+Ooh, ooh, aah!
+Where's the monkey?
+A lion!
+Roar!
+Where's the lion?
+A tiger!
+Stripy tiger!
+Where's the tiger?
+A zebra!
+Black and white stripes.
+Where's the zebra?
+A giraffe!
+A long, long neck.
+Where's the giraffe?
+A hippo!
+A great big mouth.
+Where's the hippo?
+A penguin!
+Waddle, waddle!
+Where's the penguin?
+A kangaroo!
+Jump, jump!
+Where's the kangaroo?
+A koala!
+Hug the tree.
+Where's the koala?
+A panda!
+Munch the bamboo.
+Where's the panda?
+A crocodile!
+Snap, snap!
+Where's the crocodile?
+A fish!
+Swim, swim, swim!
+Where's the fish?
+A crab!
+Snip, snap!
+Where's the crab?
+A turtle!
+A hard, round shell.
+Where's the turtle?
+A whale!
+A great big whale.
+Where's the whale?
+A dolphin!
+Jump and splash!
+Where's the dolphin?
+A shark!
+Swish, swish!
+Where's the shark?
+An octopus!
+Eight wiggly arms.
+Where's the octopus?
+A seal!
+Clap your flippers!
+Where's the seal?
+A jellyfish!
+Float, float!
+Where's the jellyfish?
+A starfish!
+Five little arms.
+Where's the starfish?
+A parrot!
+Hello, hello!
+Where's the parrot?
+A flamingo!
+Stand on one leg.
+Where's the flamingo?
+A camel!
+Two big humps.
+Where's the camel?
+A yak!
+A shaggy coat.
+Where's the yak?
+A dinosaur!
+Stomp, stomp!
+Where's the dinosaur?
+A unicorn!
+A magic horn.
+Where's the unicorn?
+An apple!
+Crunch, crunch!
+Where's the apple?
+A banana!
+Peel the banana.
+Where's the banana?
+An orange!
+A juicy orange.
+Where's the orange?
+A strawberry!
+Sweet and red.
+Where's the strawberry?
+Lots of little grapes.
+Where are the grapes?
+A pear!
+A soft, sweet pear.
+Where's the pear?
+A blueberry!
+Tiny and blue.
+Where's the blueberry?
+A watermelon!
+Big and green.
+Where's the watermelon?
+A cherry!
+Red and round.
+Where's the cherry?
+A lemon!
+Ooh, sour!
+Where's the lemon?
+A plum!
+A purple plum.
+Where's the plum?
+A peach!
+Soft and fuzzy.
+Where's the peach?
+Glug, glug, glug!
+Where's the milk?
+Bread!
+Soft, warm bread.
+Where's the bread?
+An egg!
+Tap, tap, crack!
+Where's the egg?
+Cheese!
+Yellow cheese.
+Where's the cheese?
+Sip, sip, sip!
+Where's the juice?
+Water!
+A drink of water.
+Where's the water?
+Creamy yogurt.
+Where's the yogurt?
+Cereal!
+Crunchy breakfast.
+Where's the cereal?
+Toast!
+Warm and crunchy.
+Where's the toast?
+Jam!
+Red jam on toast.
+Where's the jam?
+Honey!
+Sticky, sweet honey.
+Where's the honey?
+A pancake!
+Flip the pancake!
+Where's the pancake?
+A carrot!
+Crunchy carrot!
+Where's the carrot?
+Peas!
+Little green peas.
+Where are the peas?
+A tomato!
+Round and red.
+Where's the tomato?
+A potato!
+A lumpy potato.
+Where's the potato?
+Corn!
+Yellow corn.
+Where's the corn?
+Broccoli!
+Like a little tree.
+Where's the broccoli?
+A cucumber!
+Long and green.
+Where's the cucumber?
+A pumpkin!
+Big and orange.
+Where's the pumpkin?
+A mushroom!
+Like a little umbrella.
+Where's the mushroom?
+An onion!
+Lots of layers.
+Where's the onion?
+A pepper!
+A shiny pepper.
+Where's the pepper?
+A cabbage!
+Leafy and green.
+Where's the cabbage?
+Pasta!
+Yummy pasta.
+Where's the pasta?
+Pizza!
+A slice of pizza.
+Where's the pizza?
+Soup!
+Hot soup. Blow!
+Where's the soup?
+A sandwich!
+Bread and cheese.
+Where's the sandwich?
+A sausage!
+Sizzle, sizzle!
+Where's the sausage?
+Chips!
+Hot, yummy chips.
+Where are the chips?
+Long, long noodles.
+Where are the noodles?
+Rice!
+A bowl of rice.
+Where's the rice?
+Ice!
+Cold, cold ice.
+Where's the ice?
+A cookie!
+Snap!
+Where's the cookie?
+A cake!
+Happy birthday cake.
+Where's the cake?
+An ice cream!
+Cold, cold, lick!
+Where's the ice cream?
+A cracker!
+Crunch!
+Where's the cracker?
+A lolly!
+Lick, lick!
+Where's the lolly?
+Chocolate!
+Yummy chocolate.
+Where's the chocolate?
+A doughnut!
+Round with a hole.
+Where's the doughnut?
+Popcorn!
+Crunchy popcorn.
+Where's the popcorn?
+Jelly!
+Wibble, wobble!
+Where's the jelly?
+A pineapple!
+Spiky leaves on top.
+Where's the pineapple?
+A kiwi!
+Green inside.
+Where's the kiwi?
+A raspberry!
+Bumpy and pink.
+Where's the raspberry?
+An avocado!
+A big round stone.
+Where's the avocado?
+Lettuce!
+Crunchy leaves.
+Where's the lettuce?
+Yummy and good.
+Where are the vegetables?
+Roll the ball.
+Where's the ball?
+A teddy!
+Cuddle teddy.
+Where's the teddy?
+Blocks!
+Build them up high.
+Where are the blocks?
+A doll!
+Rock-a-bye, dolly.
+Where's the doll?
+A puzzle!
+The pieces fit.
+Where's the puzzle?
+Beep, boop!
+Where's the robot?
+A top!
+Spin, spin, spin!
+Where's the top?
+A yo-yo!
+Down and up again.
+Where's the yo-yo?
+A rattle!
+Shake, shake!
+Where's the rattle?
+What's inside?
+Where's the present?
+Whoosh, up high!
+Where's the rocket?
+Up, up, up!
+Where's the balloon?
+A slide!
+Whee, down we go!
+Where's the slide?
+A swing!
+Back and forth.
+Where's the swing?
+A bucket!
+Fill it up.
+Where's the bucket?
+A spade!
+Dig, dig, dig!
+Where's the spade?
+High in the sky.
+Where's the kite?
+A seesaw!
+Up and down.
+Where's the seesaw?
+A castle!
+Made of sand.
+Where's the castle?
+Peep inside!
+Where's the tent?
+A drum!
+Bang, bang!
+Where's the drum?
+A bell!
+Ding, ding!
+Where's the bell?
+A xylophone!
+Tap the bars.
+Where's the xylophone?
+A piano!
+Play a tune.
+Where's the piano?
+A guitar!
+Strum, strum!
+Where's the guitar?
+A violin!
+Play it with a bow.
+Where's the violin?
+A book!
+Turn the page.
+Where's the book?
+A crayon!
+Scribble, scribble!
+Where's the crayon?
+Paint!
+Splish, splosh!
+Where's the paint?
+A pencil!
+Draw a line.
+Where's the pencil?
+A coat!
+Warm and cosy.
+Where's the coat?
+A T-shirt!
+Arms in!
+Where's the T-shirt?
+Trousers!
+One leg, two legs.
+Where are the trousers?
+A dress!
+Twirl, twirl!
+Where's the dress?
+A jumper!
+Soft and woolly.
+Where's the jumper?
+Pyjamas!
+Time for bed.
+Where are the pyjamas?
+A nappy!
+A clean, dry nappy.
+Where's the nappy?
+Shorts!
+For sunny days.
+Where are the shorts?
+A bib!
+Catch the crumbs.
+Where's the bib?
+A shoe!
+On your foot.
+Where's the shoe?
+A sock!
+Pull it on.
+Where's the sock?
+Boots!
+Splash in puddles!
+Where are the boots?
+A hat!
+On your head.
+Where's the hat?
+A bag!
+Put things in.
+Where's the bag?
+Gloves!
+Warm fingers.
+Where are the gloves?
+A scarf!
+Round and round.
+Where's the scarf?
+An umbrella!
+Pop it open!
+Where's the umbrella?
+Help us see.
+Where are the glasses?
+A button!
+Push it through.
+Where's the button?
+A zip!
+Zip it up. Zzzip!
+Where's the zip?
+A necklace!
+Pretty beads.
+Where's the necklace?
+Bear's nose!
+Sniff, sniff!
+Where's Bear's nose?
+Bear's eye!
+Blink, blink!
+Where's Bear's eye?
+Bear's cheek!
+Puff!
+Where's Bear's cheek?
+Bear's head!
+Nod, nod.
+Where's Bear's head?
+Bear's tummy!
+Pat, pat!
+Where's Bear's tummy?
+Bear's arm!
+Up high!
+Where's Bear's arm?
+Bear's leg!
+Kick, kick!
+Where's Bear's leg?
+A hand!
+Wave hello!
+Where's the hand?
+A foot!
+Stamp, stamp!
+Where's the foot?
+A mouth!
+Open wide!
+Where's the mouth?
+A finger!
+Wiggle your finger.
+Where's the finger?
+Toes!
+Wiggle your toes.
+Where are the toes?
+Teeth!
+Brush your teeth.
+Where are the teeth?
+A tongue!
+Aah!
+Where's the tongue?
+Bunny's ear!
+Flop, flop!
+Where's Bunny's ear?
+The girl's hair!
+Bouncy bunches!
+Where's the girl's hair?
+The boy's elbow!
+Bend, bend.
+Where's the boy's elbow?
+The boy's knee!
+Bend your knee.
+Where's the boy's knee?
+A cup!
+Have a drink.
+Where's the cup?
+A spoon!
+Scoop it up.
+Where's the spoon?
+A bowl!
+A round bowl.
+Where's the bowl?
+A plate!
+Food goes on top.
+Where's the plate?
+A bottle!
+Milk for baby.
+Where's the bottle?
+A fork!
+Poke, poke!
+Where's the fork?
+A fridge!
+Brrr, it's cold!
+Where's the fridge?
+An oven!
+Hot! Don't touch.
+Where's the oven?
+A kettle!
+Whistle, whistle!
+Where's the kettle?
+A pot!
+Where's the pot?
+A jug!
+Pour it out.
+Where's the jug?
+A teapot!
+Tea for two.
+Where's the teapot?
+A bath!
+Splish, splash!
+Where's the bath?
+Rub, rub, bubbles!
+Where's the soap?
+A towel!
+Rub-a-dub dry.
+Where's the towel?
+A toothbrush!
+Brush, brush, brush!
+Where's the toothbrush?
+A potty!
+Sit on the potty.
+Where's the potty?
+A sink!
+Wash your hands.
+Where's the sink?
+A toilet!
+Flush! Whoosh!
+Where's the toilet?
+Toothpaste!
+Squeeze a little.
+Where's the toothpaste?
+A sponge!
+Squeeze the sponge.
+Where's the sponge?
+A comb!
+Comb your hair.
+Where's the comb?
+A brush!
+Brush your hair.
+Where's the brush?
+Bubbles!
+Pop, pop, pop!
+Where are the bubbles?
+A bed!
+Night night!
+Where's the bed?
+A blanket!
+Snuggle up warm.
+Where's the blanket?
+A pillow!
+Soft for your head.
+Where's the pillow?
+A lamp!
+Click! Light on.
+Where's the lamp?
+A clock!
+Tick, tock!
+Where's the clock?
+A quilt!
+Lots of colours.
+Where's the quilt?
+A mirror!
+Who can you see?
+Where's the mirror?
+A tissue!
+Atishoo! Blow.
+Where's the tissue?
+A plaster!
+Better now.
+Where's the plaster?
+A watch!
+On your wrist.
+Where's the watch?
+A chair!
+Sit down.
+Where's the chair?
+A table!
+Things go on top.
+Where's the table?
+A sofa!
+A comfy sofa.
+Where's the sofa?
+A phone!
+Ring, ring! Hello?
+Where's the phone?
+A TV!
+Click! It's on.
+Where's the TV?
+A box!
+What's in the box?
+Where's the box?
+A basket!
+Carry it along.
+Where's the basket?
+A picture!
+Hang it on the wall.
+Where's the picture?
+A vase!
+Flowers go in.
+Where's the vase?
+A candle!
+Blow it out!
+Where's the candle?
+A key!
+Open the door.
+Where's the key?
+A torch!
+Shine the light.
+Where's the torch?
+A broom!
+Sweep, sweep!
+Where's the broom?
+A vacuum!
+Vroom, vroom!
+Where's the vacuum?
+A bin!
+Rubbish goes in.
+Where's the bin?
+A jar!
+Lid on, lid off.
+Where's the jar?
+Scissors!
+Snip, snip!
+Where are the scissors?
+A hammer!
+Where's the hammer?
+Money!
+Clink, clink!
+Where's the money?
+A knife!
+Chop, chop!
+Where's the knife?
+A door!
+Knock, knock!
+Where's the door?
+A window!
+Look outside.
+Where's the window?
+Stairs!
+Step, step, step!
+Where are the stairs?
+A car!
+Beep, beep!
+Where's the car?
+A bus!
+The wheels go round.
+Where's the bus?
+A bike!
+Pedal, pedal!
+Where's the bike?
+A truck!
+A big load.
+Where's the truck?
+A tractor!
+Chug, chug, chug!
+Where's the tractor?
+A fire engine!
+Nee-naw, nee-naw!
+Where's the fire engine?
+A digger!
+Scoop and dump.
+Where's the digger?
+An ambulance!
+It helps poorly people.
+Where's the ambulance?
+A van!
+Parcels for you!
+Where's the van?
+A scooter!
+Push and go!
+Where's the scooter?
+A pushchair!
+Push the baby.
+Where's the pushchair?
+A train!
+Choo, choo!
+Where's the train?
+A plane!
+Zoom, up high!
+Where's the plane?
+A boat!
+Bobbing on the water.
+Where's the boat?
+A helicopter!
+Whirr, whirr!
+Where's the helicopter?
+Warm and bright.
+Where's the sun?
+Night night, moon.
+Where's the moon?
+A star!
+Twinkle, twinkle!
+Where's the star?
+A cloud!
+Fluffy white cloud.
+Where's the cloud?
+Rain!
+Pitter, patter!
+Where's the rain?
+A rainbow!
+So many colours.
+Where's the rainbow?
+Tall, tall tree.
+Where's the tree?
+A flower!
+Sniff. Mmm!
+Where's the flower?
+A leaf!
+It floats down.
+Where's the leaf?
+Grass!
+Green and tickly.
+Where's the grass?
+A stone!
+Hard and heavy.
+Where's the stone?
+A stick!
+A long, thin stick.
+Where's the stick?
+A nest!
+A bed for birds.
+Where's the nest?
+A watering can!
+Sprinkle, sprinkle!
+Where's the watering can?
+A ladder!
+Climb up, up.
+Where's the ladder?
+A puddle!
+Splash!
+Where's the puddle?
+Mud!
+Squelch, squelch!
+Where's the mud?
+Sand!
+Dig in the sand.
+Where's the sand?
+A shell!
+Listen. Swoosh!
+Where's the shell?
+A snowman!
+Brrr! Hello, snowman.
+Where's the snowman?
+A mountain!
+Very, very high.
+Where's the mountain?
+A fire!
+Hot! Stay back.
+Where's the fire?
+A house!
+Home, sweet home.
+Where's the house?
+A shop!
+Let's buy some food.
+Where's the shop?
+A barn!
+Animals sleep here.
+Where's the barn?
+A bridge!
+Over we go.
+Where's the bridge?
+A zoo!
+Lots of animals!
+Where's the zoo?
+An igloo!
+A house of snow.
+Where's the igloo?
+An island!
+Water all around.
+Where's the island?
+Mummy!
+Mummy gives a cuddle.
+Where's Mummy?
+Daddy!
+Daddy waves hello.
+Where's Daddy?
+A baby!
+Shh. Baby is little.
+Where's the baby?
+Grandma!
+Grandma reads a story.
+Where's Grandma?
+Grandpa!
+Grandpa has a hat.
+Where's Grandpa?
+A girl!
+She likes to jump.
+Where's the girl?
+A boy!
+He likes to run.
+Where's the boy?
+A doctor!
+The doctor helps us.
+Where's the doctor?
+A queen!
+A big gold crown.
+Where's the queen?
+An X-ray!
+See the bones!
+Where's the X-ray?
+Tap a picture!
+Where does it go?
+Let's find animals!
+Let's find clothes!
+Let's find things that go!
+The garage is for things that go!
+Uh-oh! A cookie wall!
+Uh-oh! Water!
+Tap the cookie!
+Yum!
+Tap the jelly!
+Try the green one!
+Up it jumps!
+Tap the balloon!
+Up, up, up!
+Push the crate into the water!
+It floats!
+It sinks!
+Which baby next?
+Thirteen!
+Fourteen!
+Paint it all!
+Put the sun in its hole!
+Put the moon in its hole!
+Put the robot in its hole!
+Find its hole!
+Take the lid off!
+Pull the plug out!
+Where's the star? Open the box!
+Where's the triangle? Open a box!
+Pull the string down!
+Where's the star? Lift a cup!
+Put the key in the lock!
+Pull the peg up!
+Where's the key? Lift the cup!
+Lift the cup!
+A rocket nose!
+A wing!
+A robot tummy!
+Uh-oh! A block!
+Uh-oh! A box!
+Uh-oh! A cart!
+Uh-oh! A big step!
+Uh-oh! Cookies!
+Push the ramp!
+Pop the balloon!
+Hello, snail!
+Push the stone in!
+Tap a baby!
+Tap the stamp!
+Stamp, stamp, stamp!
+Stamp three white spots!
+Let's make orange!
+Let's make green!
+Let's make purple!
+Let's make pink!
+Let's find nose and toes!
+Hello Bunny!
+Hello Froggy!
+Nose!
+Eyes!
+Ears!
+Mouth!
+Tummy!
+Hands!
+Feet!
+That's the nose!
+Those are the eyes!
+Those are the ears!
+That's the mouth!
+That's the tummy!
+Those are the hands!
+Those are the feet!
+Touch the nose!
+Touch the eyes!
+Touch the ears!
+Touch the mouth!
+Touch the tummy!
+Touch the hands!
+Touch the feet!
+Sunglasses on the eyes!
+Sun cream on the nose!
+Flowers on the ears!
+Lolly for the mouth!
+Swim ring on the tummy!
+Spade in the hands!
+Flippers on the feet!
+Chick is hiding!
+Bunny is hiding!
+Piglet is hiding!
+Kitten is hiding!
+Hedgehog is hiding!
+Listen to Pip!
+Your turn! One bang!
+Your turn! Two bangs!
+Your turn! Three bangs!
+Big pot! Loud!
+Little pot! Quiet!
+Little bell! Quiet!
+Big milk can! Loud!
+Too loud! Tap the little one!
+Too quiet! Tap the big one!
+Tap a brick!
+Let's make B!
+Let's make C!
+Let's make D!
+Let's make E!
+Let's make F!
+Let's make G!
+Let's make I!
+Let's make J!
+Let's make K!
+Let's make L!
+Let's make M!
+Let's make N!
+Let's make P!
+Let's make Q!
+Let's make R!
+Let's make S!
+Let's make T!
+B is for Ball!
+C is for Cat!
+D is for Duck!
+E is for Egg!
+F is for Fish!
+G is for Grapes!
+H is for Hat!
+I is for Ice cream!
+J is for Jellyfish!
+K is for Kite!
+L is for Leaf!
+M is for Moon!
+N is for Nest!
+O is for Octopus!
+P is for Pig!
+Q is for Queen!
+R is for Rabbit!
+S is for Sun!
+T is for Tree!
+Let's build a tree like this!
+Let's build a big house like this!
+Let's build a bridge with towers like this!
+Put the blocks on the white shapes!
+First the cube!
+First the long block!
+First the cylinder!
+First the arch!
+Put a block on the tower!
+Knock it down?
+The cube goes there!
+The long block goes there!
+The cylinder goes there!
+The cone goes there!
+The roof goes there!
+The arch goes there!
+The ball goes there!
+A cube!
+A long block!
+A cylinder!
+A cone!
+An arch!
+We don't need a cube!
+We don't need a long block!
+We don't need a cone!
+We don't need a roof!
+We don't need an arch!
+We don't need a ball!
+The cylinder rolls!
+Make the see-saw flat!
+Make it flat with water!
+Make it flat again!
+Pour the little one in the big one!
+Pour the tall one in the wide one!
+Pour the big one in the little one!
+The little one holds less!
+Too much! Tap the bucket!
+That's the light one!
+That's the heavy one!
+Fill it half way! To the line!
+Fill it to the star!
+Tip them out!
+Give each bunny a carrot!
+Give each piggy an apple!
+Give each hen some corn!
+Give each kitty a fish!
+Give each friend a cookie!
+Two apples each!
+Two carrots each!
+Two fish each!
+Two corn each!
+Three carrots each!
+Three fish each!
+That bunny is waiting!
+That piggy is waiting!
+That hen is waiting!
+That kitty is waiting!
+That friend is waiting!
+The same! One each!
+The same! Two each!
+The same! Three each!
+It floats! Put it in the blue tub!
+It sinks! Put it in the orange tub!
+It floats! The blue tub!
+It sinks! The orange tub!
+Tap a tub!
+Where does it go? Tap a tub!
+Which one rolls? Tap one!
+Which one bounces? Tap one!
+The block can't roll! Try the other one!
+Thud! The rock can't bounce! Try the other one!
+In the blue tub!
+In the orange tub!
+The orange rolls!
+The ball bounces!
+Shoes! Put them on Monkey!
+Shoes on!
+Oops! On Monkey's tummy!
+Oops! On Monkey's feet!
+Oops! Round Monkey's neck!
+Oops! On Monkey's head!
+Oops! On Monkey's hands!
+Oops! On Monkey's eyes!
+Tap the one that comes next!
+Tap the one that's missing!
+That's the shell!
+That's the starfish!
+That's the crab!
+That's the beach ball!
+That's the bucket!
+Find the shell!
+Find the starfish!
+Find the crab!
+Find the beach ball!
+Find the bucket!
+Let's play on the beach!
+Oops, that's IN!
+Oops, that's ON!
+Oops, that's UNDER!
+In the bucket!
+On the castle!
+In the ring!
+On the towel!
+In the basket!
+On the chair!
+Under the umbrella!
+In the boat!
+On the treasure chest!
+Under the chair!
+In the box!
+Under the hat!
+Under the bucket!
+On the umbrella!
+In the treasure chest!
+Under the box!
+On the hat!
+On the bucket!
+Put the gull ON the treasure chest!
+Put the baby crab IN the treasure chest!
+Cow says moo!
+Hen says cluck cluck!
+Horse says neigh!
+Brush Bunny's teeth!
+Rub the hands!
+Rub the hands first!
+Tap the towel!
+Fill up the plate!
+Dry dry dry!
+Crack, crack!
+Who comes out?
+A little seed!
+A tiny sprout!
+What grows?
+It goes to sleep!
+An apple tree!
+The apple falls!
+Who eats it?
+What comes now?
+A mud puddle!
+Muddy piggy!
+What does piggy need?
+Like this!
+Tap the one with more fish!
+Tap the one with more shells!
+Tap the one with more stars!
+Tap the one with more ice creams!
+Tap the one with more balls!
+Tap the one with more cookies!
+Not that one! Find more!
+Feed Gull! Tap Gull!
+Feed Duck! Tap Duck!
+Feed Crab! Tap Crab!
+Red! Put it in the red one!
+Blue! Put it in the blue one!
+Yellow! Put it in the yellow one!
+Green! Put it in the green one!
+That's yellow. Find red!
+That's green. Find red!
+That's red. Find blue!
+That's yellow. Find blue!
+That's green. Find blue!
+That's red. Find yellow!
+That's blue. Find yellow!
+That's green. Find yellow!
+That's blue. Find green!
+That's yellow. Find green!
+Look! So much yellow!
+Tap the apple!
+One apple!
+Two apples!
+Three pears!
+Two oranges!
+Three plums!
+Three apples!
+Two strawberries!
+Three blueberries!
+Three cherries!
+Four strawberries!
+Three lemons!
+Three cookies!
+Four cupcakes!
+Three donuts!
+Four cookies!
+Five cupcakes!
+Four sweets!
+Circle! Put it in the circle window!
+Square! Put it in the square window!
+Triangle! Put it in the triangle window!
+Rectangle! Put it in the rectangle window!
+That's the triangle. Find the circle!
+That's the rectangle. Find the circle!
+That's the circle. Find the square!
+That's the triangle. Find the square!
+That's the rectangle. Find the square!
+That's the circle. Find the triangle!
+That's the square. Find the triangle!
+That's the rectangle. Find the triangle!
+That's the circle. Find the rectangle!
+That's the square. Find the rectangle!
+That's the triangle. Find the rectangle!
+Pip is happy.
+Pip is sad.
+Pip is angry.
+Pip is scared.
+Find a happy friend!
+Find a sad friend!
+Find an angry friend!
+Find a scared friend!
+Give Pip a hug!
+Big breath with Pip!
+Tap Pip! Happy dance!
+That one is happy. Find a sad friend!
+That one is happy. Find an angry friend!
+That one is happy. Find a scared friend!
+That one is sad. Find a happy friend!
+That one is sad. Find an angry friend!
+That one is sad. Find a scared friend!
+That one is angry. Find a happy friend!
+That one is angry. Find a sad friend!
+That one is angry. Find a scared friend!
+That one is scared. Find a happy friend!
+That one is scared. Find a sad friend!
+That one is scared. Find an angry friend!
+That one is small. Find the BIG one!
+That one is big. Find the small one!
+BIG elephant!
+Small bunny!
+BIG bear!
+BIG hedgehog!
+Small frog!
+BIG kitty!
+Small ball!
+BIG tower!
+Small present!
+BIG duck!
+Small drum!
+BIG beach ball!
+Small tree!
+BIG pumpkin!
+Small mushroom!
+BIG melon!
+Small flower!
+Small carrot!

@@ -42,13 +42,17 @@ class CrispProp(Prop):
         return skin
 
 
-p = CrispProp('prop_brick', base=0xffffff)
+p = CrispProp('prop_brick', base=0xf1f1f1)
 p.paint_refine = 0
 # the body: one bevelled box (4-segment round edges)
 p.box((0, 0, 0), (L0 / 2, W / 2, D / 2), bevel=R_BEV)
 # one stud on the front face, a short rounded cylinder standing along +z (sunk 0.03 into the face)
-p.layer('stud', base=0xffffff)
+# soft highlight along the top front edge and a slightly darker underside (the game tints the whole brick)
+p.paint_fn(lambda q, n: n.y > 0.35 and n.z > 0.35, 0xffffff)
+p.paint_fn(lambda q, n: n.y < -0.5, 0xdcdcdc)
+p.layer('stud', base=0xf1f1f1)
 p.cyl((0, 0, D / 2 - 0.03), SR, SH, bevel=SB, rot=(90, 0, 0), seg=22)
+p.paint_fn(lambda q, n: n.z > 0.3 and n.y > 0.3, 0xffffff)            # glint on the stud's top edge
 p.layer('skin')
 p.bone('body', (0, -0.3, 0), (0, 0.3, 0))
 p.extras['outline'] = 0.02

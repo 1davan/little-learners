@@ -11,6 +11,9 @@
 //   physics.remove(obj); physics.removeStatic(body); physics.clear()
 //   physics.moveStatic(body, pos, rotY); physics.add(obj, { rot: [false, false, true] }); toss(..., { angvel })
 //   physics.add(obj, { planar: true })        // only moves in its z plane (piles that never hide each other)
+//   physics.slab(pos, size, quat)             // a static cuboid with any rotation (e.g. a slope tilted about z)
+//   physics.kinematic(obj, { size }); physics.moveKinematic(obj)   // code-moved bodies that push dynamic ones
+//   physics.hinge(obj, anchor); physics.freeze(obj)                // a revolute joint; turn a body fixed in place
 //
 // Bounces and landings play soft sounds automatically (sfx.land / thunk), throttled.
 import * as T from '../three.js';
@@ -20,6 +23,7 @@ import { sfx } from './audio.js';
 
 let R = null, world = null;
 const bodies = new Map(); // obj -> { body, collider, prevVy }
+const kins = new Map();   // obj -> { body, world } kinematic bodies moved by code (see physics.kinematic)
 let statics = [];
 const _v = new T.Vector3(), _q = new T.Quaternion(), _pq = new T.Quaternion(), _ps = new T.Vector3();
 
@@ -171,6 +175,73 @@ export const physics = {
     });
   },
 
+  // ---- additions (Roll & push); purely additive: nothing above behaves differently ----
+  // The Rapier module itself (enums such as CoefficientCombineRule, RigidBodyType), or null before ready().
+  get rapier() { return R; },
+  // A static cuboid with a full rotation (e.g. a slope tilted about z). quat: THREE.Quaternion or {x, y, z, w}.
+  slab(pos, size, quat = null, { friction = 0.8, bounce = 0.3 } = {}) {
+    if (!world) return null;
+    const q = quat || { x: 0, y: 0, z: 0, w: 1 };
+    const b = world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(pos.x, pos.y, pos.z).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }));
+    statics.push(b);
+    world.createCollider(R.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2).setFriction(friction).setRestitution(bounce), b);
+    return b;
+  },
+  // A kinematic (position-based) body that follows obj: code moves obj (tweens), then calls moveKinematic(obj) so the
+  // body follows and pushes / carries the dynamic bodies it meets. size: cuboid [x, y, z] (centred on obj + offset),
+  // or points: a convex hull (in obj's frame). Not part of the dynamic sync loop (no landing sounds, no squash).
+  kinematic(obj, { size = null, points = null, offset = null, friction = 0.8, bounce = 0.1 } = {}) {
+    if (!world) return null;
+    physics.removeKinematic(obj);
+    obj.updateMatrixWorld(true);
+    obj.getWorldPosition(_v); obj.getWorldQuaternion(_q);
+    const body = world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(_v.x, _v.y, _v.z).setRotation(_q));
+    let cd;
+    if (points) cd = R.ColliderDesc.convexHull(points instanceof Float32Array ? points : new Float32Array(points));
+    if (!cd) { const s = size || [1, 1, 1]; cd = R.ColliderDesc.cuboid(s[0] / 2, s[1] / 2, s[2] / 2); }
+    if (offset) cd.setTranslation(offset[0], offset[1], offset[2]);
+    cd.setFriction(friction).setRestitution(bounce);
+    world.createCollider(cd, body);
+    kins.set(obj, { body, world });
+    return body;
+  },
+  // Move a kinematic body to obj's current world pose (or to pos / quat when given); it gets there on the next step.
+  moveKinematic(obj, pos = null, quat = null) {
+    const k = kins.get(obj);
+    if (!k || k.world !== world) return;
+    if (!pos || !quat) { obj.updateMatrixWorld(true); obj.getWorldPosition(_v); obj.getWorldQuaternion(_q); }
+    const p = pos || _v, q = quat || _q;
+    k.body.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z });
+    k.body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
+  },
+  removeKinematic(obj) {
+    const k = kins.get(obj);
+    if (!k) return;
+    kins.delete(obj);
+    if (k.world === world && world) world.removeRigidBody(k.body);
+  },
+  kinematicBody(obj) { const k = kins.get(obj); return k && k.world === world ? k.body : null; },
+  // A hinge: obj's dynamic body (physics.add it first) turns about a fixed world point `anchor` around `axis`
+  // (default z, for things that stay in the picture plane). Returns the Rapier joint (null without physics).
+  hinge(obj, anchor, { axis = { x: 0, y: 0, z: 1 } } = {}) {
+    const e = bodies.get(obj);
+    if (!world || !e) return null;
+    const fixedB = world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(anchor.x, anchor.y, anchor.z));
+    statics.push(fixedB);
+    const t = e.body.translation(), r = e.body.rotation();
+    const inv = new T.Quaternion(r.x, r.y, r.z, r.w).invert();
+    const local = new T.Vector3(anchor.x - t.x, anchor.y - t.y, anchor.z - t.z).applyQuaternion(inv);
+    const ax = new T.Vector3(axis.x, axis.y, axis.z).applyQuaternion(inv).normalize();
+    const jd = R.JointData.revolute({ x: 0, y: 0, z: 0 }, { x: local.x, y: local.y, z: local.z }, { x: ax.x, y: ax.y, z: ax.z });
+    return world.createImpulseJoint(jd, fixedB, e.body, true);
+  },
+  // Turn a simulated body into a fixed one where it is (it stays in place, others land on it), or back (on = false).
+  freeze(obj, on = true) {
+    const e = bodies.get(obj);
+    if (!e || !world) return;
+    e.body.setBodyType(on ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true);
+  },
+
   clear() {
     if (!world) return;
     bodies.clear();
@@ -235,7 +306,7 @@ onFrame((dt) => {
       e.lastSnd = now;
       if (!e.noSquash) { e.squashT = 0.0001; e.squashAmp = Math.min(1, -e.prevVy / 8); }
       const hard = Math.min(1, -e.prevVy / 9);
-      if (hard > 0.5) sfx.thunk ? sfx.thunk() : sfx.land(); else sfx.land && sfx.land();
+      if (!obj.userData.quiet) { if (hard > 0.5) sfx.thunk ? sfx.thunk() : sfx.land(); else if (hard > 0.3) sfx.land && sfx.land(); } // soft landings stay silent
       if (e.soft) { const v = e.body.linvel(); e.body.setLinvel({ x: v.x * 0.3, y: v.y, z: v.z * 0.3 }, true); e.soft = false; }
     }
     e.prevVy = vy;

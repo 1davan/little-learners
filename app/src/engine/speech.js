@@ -68,14 +68,21 @@ export const speech = {
     if (synth) synth.cancel();
   },
   // Speak text. Resolves when finished (or after a safety timeout). Interrupts by default.
-  say(text, { interrupt = true, rate = 0.92, pitch = 1.12 } = {}) {
+  say(text, { interrupt = true, rate = 0.92, pitch = 1.12, voice = true, repeat = false } = {}) {
     if (window.__collectSay) console.log('SAY>' + text);
     // A pre-recorded voice clip (fal.ai, app/assets/voice) for this exact line plays with the caption.
-    const clip = voiceClip(text);
+    // Voice rules (so it never nags): the same line is spoken at most once every 30 s (repeats show the
+    // caption only); a line never cuts off one that is still being spoken (it waits its turn, latest wins).
+    // repeat: true skips the 30 s rule, for speech the child asked for herself (tap a thing to hear its name);
+    // the game keeps its own minimum gap between repeats.
+    const k = voiceKey(text), now = performance.now();
+    const fresh = voice && (repeat || (now - (spokenAt.get(k) || -1e9)) > 30000);
+    const clip = fresh ? voiceClip(text) : null;
     if (clip) {
+      spokenAt.set(k, now);
       return new Promise((resolve) => {
         caption(text);
-        playVoice(clip).then((dur) => {
+        queueVoice(clip).then((dur) => {
           const ms = Math.max(900, (dur || 1.2) * 1000 + 150);
           setTimeout(() => { setTimeout(() => caption(null, text), 700); resolve(); }, ms);
         });
@@ -112,3 +119,43 @@ export async function loadVoice() {
   try { voiceIndex = await (await fetch('assets/voice/index.json')).json(); } catch (e) { voiceIndex = {}; }
 }
 function voiceClip(text) { return voiceIndex && voiceIndex[voiceKey(text)]; }
+
+const spokenAt = new Map();
+let voiceBusyUntil = 0, starting = false;
+const waitQ = []; // lines waiting their turn, oldest first; at most 2 wait (an older one is dropped, caption only)
+let waiting = null; // truthy while anything waits (kept for voiceBusy/voiceIdle)
+// A clip counts as busy from the moment it is asked for (while it loads), so two lines started in the same
+// instant never cut each other off: later lines wait for the one playing to finish (max 5 s each), in order.
+function startVoice(clip) {
+  starting = true;
+  return playVoice(clip).then((d) => { starting = false; voiceBusyUntil = performance.now() + (d || 0) * 1000 + 250; return d; },
+    () => { starting = false; return 0; });
+}
+function pump() {
+  if (!waitQ.length) { waiting = null; return; }
+  const head = waitQ[0];
+  if ((!starting && performance.now() >= voiceBusyUntil) || performance.now() - head.t0 > 5000) {
+    waitQ.shift();
+    waiting = waitQ.length ? true : null;
+    startVoice(head.clip).then(head.res);
+    if (waitQ.length) { waitQ[0].t0 = performance.now(); setTimeout(pump, 60); }
+    return;
+  }
+  setTimeout(pump, 60);
+}
+function queueVoice(clip) {
+  if (!starting && !waitQ.length && performance.now() >= voiceBusyUntil) return startVoice(clip);
+  return new Promise((res) => {
+    if (waitQ.length >= 2) waitQ.shift().res(0); // too much backlog: the oldest waiting line stays caption-only
+    waitQ.push({ clip, res, t0: performance.now() });
+    waiting = true;
+    if (waitQ.length === 1) setTimeout(pump, 60);
+  });
+}
+
+// Resolves once no voice line is playing (so a melody/beat the child must copy never plays over the narrator).
+export function voiceIdle(extra = 0.15) {
+  return new Promise((res) => { const t = () => (!starting && performance.now() >= voiceBusyUntil && !waiting ? setTimeout(res, extra * 1000) : setTimeout(t, 80)); t(); });
+}
+
+export function voiceBusy() { return starting || performance.now() < voiceBusyUntil || !!waiting; }

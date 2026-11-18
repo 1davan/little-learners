@@ -74,8 +74,9 @@ export function makeRoom() {
   g.add(floor);
   // skirting board and a dado rail
   g.add(box(44, 0.35, 0.12, 0xffffff, 0, 0.17, WALL_Z + 0.06));
-  const rail = box(44, 0.12, 0.08, 0xffc8a8, 0, 2.6, WALL_Z + 0.04);
-  g.add(rail);
+  // (in two pieces: it must not run across the mirror's glass)
+  const rx0 = M.x - M.hw - 0.3, rx1 = M.x + M.hw + 0.3;
+  g.add(box(rx0 - W0, 0.12, 0.08, 0xffc8a8, (W0 + rx0) / 2, 2.6, WALL_Z + 0.04), box(W1 - rx1, 0.12, 0.08, 0xffc8a8, (rx1 + W1) / 2, 2.6, WALL_Z + 0.04));
   // rug under Monkey
   const rug = new T.Mesh(new T.CircleGeometry(2.6, 48), flat(rugTex()));
   rug.rotation.x = -Math.PI / 2; rug.scale.set(1.25, 0.85, 1); rug.position.set(-2.6, 0.02, 1.2);
@@ -259,62 +260,56 @@ function updateWeather(room, dt, t) {
   room.curtains.forEach((c, i) => { c.rotation.z = Math.sin(t * (room.kind === 'windy' ? 3 : 1) + i) * k; });
 }
 
-// ---------------- picture bubble: a little monkey with the body part glowing, plus an icon ----------------
-const PART_DRAW = {
-  head: (g) => { g.beginPath(); g.ellipse(128, 70, 46, 30, 0, Math.PI, 0); g.fill(); },
-  body: (g) => { g.beginPath(); g.ellipse(128, 160, 44, 42, 0, 0, Math.PI * 2); g.fill(); },
-  feet: (g) => { for (const x of [104, 152]) { g.beginPath(); g.ellipse(x, 214, 20, 12, 0, 0, Math.PI * 2); g.fill(); } },
-  legs: (g) => { g.beginPath(); g.ellipse(128, 190, 46, 20, 0, 0, Math.PI * 2); g.fill(); },
-  eyes: (g) => { for (const x of [113, 143]) { g.beginPath(); g.arc(x, 88, 13, 0, Math.PI * 2); g.fill(); } },
-  neck: (g) => { g.beginPath(); g.ellipse(128, 124, 32, 11, 0, 0, Math.PI * 2); g.fill(); },
-  hands: (g) => { for (const x of [76, 180]) { g.beginPath(); g.arc(x, 186, 16, 0, Math.PI * 2); g.fill(); } },
-};
-// where the part is on the picture monkey: a dashed ring goes round it (no colour fill: a yellow fill read as
-// "yellow boots"), with little sparkles, so the picture says "this part" without suggesting a garment.
-const PART_RING = {
-  head: [[128, 50, 58, 26]], body: [[128, 160, 52, 50]], feet: [[104, 214, 26, 18], [152, 214, 26, 18]],
-  legs: [[128, 192, 54, 26]], eyes: [[113, 88, 20, 20], [143, 88, 20, 20]], neck: [[128, 126, 40, 16]],
-  hands: [[76, 186, 22, 22], [180, 186, 22, 22]],
-};
+// ---------------- picture bubble: one design at every level ----------------
+// A plain thought bubble; the wanted garment itself sits in it as a small turning 3-D model (dress.js). On the weather
+// level a little round weather badge sits on the bubble's rim, clear of the garment. The trail of dots runs down-left
+// toward Monkey's head and ends beside it, never on it.
+function drawBadge(g, kind, x, y) {
+  if (kind !== 'snowy' && kind !== 'sunny' && kind !== 'rainy') return;
+  g.save();
+  g.translate(x, y);
+  g.fillStyle = kind === 'snowy' ? '#dff0ff' : kind === 'sunny' ? '#fff3c4' : '#e3ecf7';
+  g.strokeStyle = '#3a2838'; g.lineWidth = 5;
+  g.beginPath(); g.arc(0, 0, 30, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.lineCap = 'round';
+  if (kind === 'snowy') {
+    // a chunky six-armed snowflake
+    g.strokeStyle = '#4a90ff'; g.lineWidth = 5;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2, cx = Math.sin(a), cy = -Math.cos(a);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(cx * 19, cy * 19); g.stroke();
+      for (const s of [-1, 1]) {
+        const b = a + s * 0.7;
+        g.beginPath(); g.moveTo(cx * 11, cy * 11); g.lineTo(cx * 11 + Math.sin(b) * 7, cy * 11 - Math.cos(b) * 7); g.stroke();
+      }
+    }
+    g.fillStyle = '#4a90ff'; g.beginPath(); g.arc(0, 0, 4.5, 0, Math.PI * 2); g.fill();
+  } else if (kind === 'sunny') {
+    g.strokeStyle = '#ffb020'; g.lineWidth = 4;
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; g.beginPath(); g.moveTo(Math.sin(a) * 14, Math.cos(a) * 14); g.lineTo(Math.sin(a) * 21, Math.cos(a) * 21); g.stroke(); }
+    g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(0, 0, 11, 0, Math.PI * 2); g.fill();
+  } else {
+    g.fillStyle = '#9aa6bd';
+    for (const [dx, dy, r] of [[-8, -3, 9], [3, -8, 11], [12, -2, 8]]) { g.beginPath(); g.arc(dx, dy, r, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = '#4a90ff'; g.lineWidth = 3.5;
+    for (const dx of [-8, 2, 12]) { g.beginPath(); g.moveTo(dx, 8); g.lineTo(dx - 3, 16); g.stroke(); }
+  }
+  g.restore();
+}
 const bubbleCache = {};
-function bubbleTex(part, icon, plain) {
-  const key = part + icon + plain;
+function bubbleTex(badge) {
+  const key = badge || '-';
   if (bubbleCache[key]) return bubbleCache[key];
   bubbleCache[key] = canvasTex(256, 256, (g) => {
     g.fillStyle = '#ffffff'; g.strokeStyle = '#3a2838'; g.lineWidth = 7;
-    g.beginPath(); g.arc(128, 124, 114, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.arc(30, 238, 12, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.arc(14, 252, 6, 0, Math.PI * 2); g.fill(); g.stroke();
-    if (plain) {
-      // the wanted garment itself is shown as a little 3-D model in front of the bubble; a soft backing disc
-      g.fillStyle = '#fff1f6'; g.beginPath(); g.arc(128, 124, 92, 0, Math.PI * 2); g.fill();
-    } else {
-      // monkey icon
-      const fur = '#b8784a', peach = '#ffd9b8';
-      g.fillStyle = fur;
-      g.beginPath(); g.ellipse(128, 160, 40, 42, 0, 0, Math.PI * 2); g.fill();                 // body
-      for (const s of [-1, 1]) { g.save(); g.translate(128 + s * 42, 150); g.rotate(s * -0.35); g.fillRect(-9, 0, 18, 38); g.restore(); }
-      for (const x of [104, 152]) { g.beginPath(); g.ellipse(x, 212, 17, 10, 0, 0, Math.PI * 2); g.fill(); }
-      for (const x of [72, 184]) { g.beginPath(); g.arc(x, 90, 15, 0, Math.PI * 2); g.fill(); }
-      g.beginPath(); g.arc(128, 92, 46, 0, Math.PI * 2); g.fill();                                // head
-      g.fillStyle = peach;
-      for (const x of [113, 143]) { g.beginPath(); g.arc(x, 88, 17, 0, Math.PI * 2); g.fill(); }
-      g.beginPath(); g.ellipse(128, 108, 26, 17, 0, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.ellipse(128, 164, 22, 25, 0, 0, Math.PI * 2); g.fill();
-      for (const x of [76, 180]) { g.beginPath(); g.arc(x, 186, 10, 0, Math.PI * 2); g.fill(); }
-      g.fillStyle = '#3a2838';
-      for (const x of [113, 143]) { g.beginPath(); g.arc(x, 88, 5, 0, Math.PI * 2); g.fill(); }
-      // the part: a dashed ring round it plus two sparkles
-      g.strokeStyle = '#ff3d7f'; g.lineWidth = 6; g.setLineDash([12, 8]); g.lineCap = 'round';
-      for (const [x, y, rx, ry] of PART_RING[part]) { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.stroke(); }
-      g.setLineDash([]);
-      const [x, y, rx, ry] = PART_RING[part][0];
-      g.fillStyle = '#ff3d7f';
-      const star = (cx, cy, r) => { g.beginPath(); for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2, rr = i % 2 ? r * 0.35 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); };
-      star(x - rx - 6, y - ry - 2, 11); star(x + rx + 4, y + ry * 0.4, 8);
-    }
-    // the icon in the corner
-    if (icon) { g.font = '46px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(icon, plain ? 196 : 184, plain ? 52 : 70); }
+    g.beginPath(); g.arc(128, 110, 100, 0, Math.PI * 2); g.fill(); g.stroke();
+    // trail dots, down and to the left (toward Monkey's head)
+    g.lineWidth = 5;
+    g.beginPath(); g.arc(46, 214, 12, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.arc(24, 240, 6, 0, Math.PI * 2); g.fill(); g.stroke();
+    // a soft blush backing behind the little garment
+    g.fillStyle = '#fff1f6'; g.beginPath(); g.arc(128, 110, 81, 0, Math.PI * 2); g.fill();
+    if (badge) drawBadge(g, badge, 205, 36);
   });
   return bubbleCache[key];
 }
@@ -323,42 +318,55 @@ export function makeBubble() {
   const sp = new T.Sprite(new T.SpriteMaterial({ transparent: true, depthWrite: false, fog: false }));
   sp.renderOrder = 10;
   sp.visible = false;
-  sp.userData.size = 2.3;
+  sp.userData.size = 1.95;
+  sp.userData.centre = new T.Vector2(0, (128 - 110) / 256);   // the round part's centre (sprite units)
   return sp;
 }
-export function setBubble(sp, part, icon, plain = false) {
-  sp.material.map = bubbleTex(part, icon, plain);
+// badge: a weather kind ('snowy', ...) for a small badge on the rim, or null
+export function setBubble(sp, badge = null) {
+  sp.material.map = bubbleTex(badge);
   sp.material.needsUpdate = true;
 }
 
-// ---------------- the clothes rail: the choices hang here, each on a light backing disc ----------------
-export const RAIL = { x0: 1.0, x1: 7.45, y: 4.6, z: 1.6, disc: 0.9 };
+// ---------------- the clothes rail: a Blender rail; each garment hangs from it on a real hanger ----------------
+// RAIL.cx: the rail's centre; posts at cx +- hw; the bar at y. A coat hanger / trouser hanger hooks over the bar.
+export const RAIL = { cx: 4.5, hw: 2.9, y: 4.6, z: 1.6 };
+const RK = 'prop_dress_rail';
 export function makeRail() {
   const g = new T.Group();
-  const { x0, x1, y } = RAIL;
-  const bar = mesh(geo.cyl(0.07, 0.07, x1 - x0 + 0.6, 14), 0xffc531, { outline: 0.02 });
-  bar.rotation.z = Math.PI / 2; bar.position.set((x0 + x1) / 2, y, 0);
+  const frame = scProp(RK, { gold: {} }, { ink: 0.022 });
+  if (frame) { frame.position.x = RAIL.cx; g.add(frame); return g; }
+  // fallback (model not built): plain bar and posts
+  const { cx, hw, y } = RAIL;
+  const bar = mesh(geo.cyl(0.07, 0.07, hw * 2 + 0.2, 14), 0xffc531, { outline: 0.02 });
+  bar.rotation.z = Math.PI / 2; bar.position.set(cx, y, 0);
   g.add(bar);
-  for (const x of [x0 - 0.3, x1 + 0.3]) {
+  for (const x of [cx - hw, cx + hw]) {
     const pole = mesh(geo.cyl(0.08, 0.08, y, 12), 0xff9ec4, { outline: 0.02 }); pole.position.set(x, y / 2, 0);
-    const knob = mesh(geo.sphere(0.17, 14, 10), 0xffc531, { outline: 0.02 }); knob.position.set(x, y + 0.04, 0);
-    const foot = mesh(geo.sphere(0.32, 14, 10), 0xff9ec4, { outline: 0.02 }); foot.scale.set(1, 0.32, 0.8); foot.position.set(x, 0.06, 0);
-    g.add(pole, knob, foot);
+    g.add(pole);
   }
   return g;
 }
-// a backing card hanging from the rail by a ribbon; the group origin is the hook on the bar, the disc centre is at -drop
-export function makeCard(drop) {
+// A hanger hooked on the bar (group origin = where the hook rests on the bar). kind 'coat' (tops) or 'clip'.
+// Geometry (unscaled): coat shoulders at y -0.42, 1.56 wide; clip bar at y -0.34, 1.6 wide; a clip hangs 0.34 below it.
+export const HANGER = { coatY: -0.42, clipY: -0.34, clipLen: 0.34 };
+export function makeHanger(kind) {
   const g = new T.Group();
-  const r = RAIL.disc;
-  const discMat = basic(0xfffaf2, { fog: false }), rimMat = basic(0xffc2d9, { fog: false }), inkMat = basic(0x3a2838, { fog: false });
-  const ink = new T.Mesh(geo.circle(r + 0.1, 40), inkMat); ink.position.set(0, -drop, -0.02);
-  const rim = new T.Mesh(geo.circle(r + 0.06, 40), rimMat); rim.position.set(0, -drop, -0.01);
-  const disc = new T.Mesh(geo.circle(r - 0.06, 40), discMat); disc.position.set(0, -drop, 0);
-  const rib = mesh(geo.cyl(0.035, 0.035, drop - r, 8), 0xff6fa8, { outline: 0 }); rib.position.set(0, -(drop - r) / 2, -0.03);
-  const hook = mesh(geo.torus(0.1, 0.03, Math.PI * 2, 8, 16), 0xffc531, { outline: 0.012 }); hook.position.set(0, 0.02, 0);
-  g.add(ink, rim, disc, rib, hook);
+  const l = kind === 'coat' ? 'hanger' : 'clipbar';
+  const body = scMesh(RK, l, { ink: 0.016 }), hook = scMesh(RK, l + 'hook', { ink: 0.014 });
+  if (body) g.add(body);
+  if (hook) g.add(hook);
+  if (!body) {   // fallback: a simple wooden bar and hook
+    const b = mesh(geo.cyl(0.05, 0.05, 1.5, 10), 0xe0a66a, { outline: 0.014 }); b.rotation.z = Math.PI / 2; b.position.y = kind === 'coat' ? HANGER.coatY : HANGER.clipY; g.add(b);
+    const h = mesh(geo.cyl(0.025, 0.025, 0.35, 8), 0xffc531, { outline: 0.01 }); h.position.y = -0.15; g.add(h);
+  }
   return g;
+}
+export function makeClip() {
+  const m = scMesh(RK, 'clip', { ink: 0.012 });
+  if (m) return m;
+  const b = mesh(geo.box(0.15, 0.34, 0.1), 0xf3c993, { outline: 0.01 }); b.position.y = -0.17;
+  const g = new T.Group(); g.add(b); return g;
 }
 
 // ---------------- a soft yellow glow sprite (marks the body part on Monkey) ----------------
@@ -372,20 +380,4 @@ export function makeGlow() {
   const sp = new T.Sprite(new T.SpriteMaterial({ map: glowTex, transparent: true, depthTest: false, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
   sp.renderOrder = 9;
   return sp;
-}
-
-// ---------------- magic puff: white cloud balls burst out and fade ----------------
-export function puff(s, root, pos, k = 1) {
-  for (let i = 0; i < 9; i++) {
-    const m = new T.Mesh(geo.sphere(0.22, 10, 8), new T.MeshToonMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 }));
-    m.position.copy(pos);
-    root.add(m);
-    const a = (i / 9) * Math.PI * 2, v = new T.Vector3(Math.cos(a) * 1.4, Math.sin(a) * 1.1 + 0.3, 0.5).multiplyScalar(k);
-    const p0 = pos.clone();
-    s.anim(0.45, (e, p) => {
-      m.position.copy(p0).addScaledVector(v, e);
-      m.scale.setScalar((0.6 + e * 0.9) * k);
-      m.material.opacity = 0.95 * (1 - p);
-    }, (x) => 1 - (1 - x) ** 2).then(() => { root.remove(m); m.material.dispose(); });
-  }
 }

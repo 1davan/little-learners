@@ -35,7 +35,7 @@ p.paint_fn(lambda q, n: q.z < -0.54 and FY + 0.1 < q.y < FY + 2.2 and n.z > 0.5 
 p.layer('trim', base=WHITE, target_faces=2600)
 for i in range(1, NS, 2):
     stripe(i)
-p.box((0, FY + 0.06, 0.6), (HW + 0.02, 0.1, 0.06), bevel=0.05)              # lip
+p.box((0, FY - 0.02, 0.6), (HW + 0.02, 0.07, 0.06), bevel=0.04)              # lip (low: it never hides the front of what stands on the counter)
 for s in (-1, 1):
     p.box((s * (W / 2 + 0.1), FY + 0.22, 0), (0.06, 0.25, 0.6), bevel=0.05)  # side rails
     p.box((s * (W / 2 + 0.1), FY + 0.47, 0), (0.08, 0.04, 0.64), bevel=0.035)

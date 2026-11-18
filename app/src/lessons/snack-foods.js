@@ -4,18 +4,18 @@ import { prop } from './view-tools.js';
 
 // model, tint (undefined = painted colours), longest side in game units, resting rotation, caption name (+ plural)
 export const FOOD = {
-  strawberry: { model: 'prop_m_strawberry', tint: 0xff3b4e, group: 'fruit', size: 0.62, name: 'strawberry', many: 'strawberries' },
-  banana: { model: 'prop_m_banana', tint: 0xffd23f, group: 'fruit', size: 0.85, name: 'banana', many: 'bananas' },
+  strawberry: { model: 'prop_m_strawberry', tint: 0xff3b4e, group: 'fruit', size: 0.62, rz: 1.25, name: 'strawberry', many: 'strawberries' },
+  banana: { model: 'prop_m_banana', tint: 0xffd23f, group: 'fruit', size: 0.85, rx: Math.PI / 2, name: 'banana', many: 'bananas' },
   apple: { model: 'prop_m_apple', tint: 0xff4b4b, group: 'fruit', size: 0.62, name: 'apple', many: 'apples' },
   orange: { model: 'prop_m_orange', tint: 0xff9a2e, group: 'fruit', size: 0.62, name: 'orange', many: 'oranges' },
   pear: { model: 'prop_m_pear', tint: 0x9ed64a, group: 'fruit', size: 0.68, name: 'pear', many: 'pears' },
-  carrot: { model: 'prop_carrot', group: 'veg', size: 0.95, rz: -Math.PI / 2, name: 'carrot', many: 'carrots' },
-  cucumber: { model: 'prop_k_cucumber', group: 'veg', size: 0.9, ry: 0.35, name: 'cucumber', many: 'cucumbers' },
+  carrot: { model: 'prop_carrot', group: 'veg', size: 0.9, rz: -Math.PI / 2, across: true, name: 'carrot', many: 'carrots' },
+  cucumber: { model: 'prop_k_cucumber', group: 'veg', size: 0.88, across: true, name: 'cucumber', many: 'cucumbers' },
   broccoli: { model: 'prop_k_broccoli', group: 'veg', size: 0.72, name: 'broccoli', many: 'broccoli' },
-  peas: { model: 'prop_k_peapod', group: 'veg', size: 0.85, ry: 0.25, name: 'peas', many: 'peas' },
-  corn: { model: 'prop_corn', group: 'veg', size: 0.9, rz: Math.PI / 2, name: 'corn', many: 'corn' },
+  peas: { model: 'prop_k_peapod', group: 'veg', size: 0.85, across: true, name: 'peas', many: 'peas' },
+  corn: { model: 'prop_corn', group: 'veg', size: 0.88, rz: Math.PI / 2, across: true, name: 'corn', many: 'corn' },
   bread: { model: 'prop_bread', group: 'grain', size: 0.7, name: 'bread', many: 'bread' },
-  cracker: { model: 'prop_k_cracker', group: 'grain', size: 0.62, rx: 0.5, ry: 0.3, name: 'cracker', many: 'crackers' },
+  cracker: { model: 'prop_k_cracker', group: 'grain', size: 0.62, rx: Math.PI / 2 - 0.1, ry: 0.3, name: 'cracker', many: 'crackers' },
   cheese: { model: 'prop_k_cheese', group: 'dairy', size: 0.72, ry: 0.4, name: 'cheese', many: 'cheese' },
   milk: { model: 'prop_k_milk', group: 'dairy', size: 0.7, name: 'milk', many: 'milk' },
   yogurt: { model: 'prop_k_yogurt', group: 'dairy', size: 0.62, name: 'yogurt', many: 'yogurt' },
@@ -31,12 +31,13 @@ export const GROUPS = {
 export const NUM_COL = ['#ff4f4f', '#ff9a2e', '#ffc531', '#4cc75a', '#3f8cff', '#9b6dff'];
 
 // One level = three snacks. Each snack: a hungry friend washes hands at the sink, then gets a plate.
-//   wash: the hand-washing steps the child does (Level 1 just turns the tap on, the friend does the rest)
+//   wash: the hand-washing steps the child does (Level 1: the tap, then the friend soaps itself; she rubs; the rinse
+//         plays by itself (autoRinse))
 //   L1 foods: three of one fruit to count onto a plain plate
 //   L2/L3 foods: the choices laid out on the boards; want: one food from each of these groups
 export const PLANS = [
   {
-    plate: 'plain', wash: ['tap'], look: 'morning',
+    plate: 'plain', wash: ['tap', 'rub'], autoRinse: true, look: 'morning',
     snacks: [
       { friend: 'bear', foods: ['strawberry', 'strawberry', 'strawberry'] },
       { friend: 'bunny', foods: ['banana', 'banana', 'banana'] },

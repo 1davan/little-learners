@@ -14,18 +14,34 @@ export const CAMS = {
   bath: { pos: new T.Vector3(-5.4, 3.7, 12.8), look: new T.Vector3(-5.4, 2.65, 0) },
   bed: { pos: new T.Vector3(7.2, 3.7, 12.8), look: new T.Vector3(7.2, 2.65, 0) },
 };
-export const SINK = new T.Vector3(-4.3, 0, -1.0);
+export const SINK = new T.Vector3(-4.3, 0, -0.84);
 export const BATH = new T.Vector3(-10.6, 0, -1.9);
 export const BED = new T.Vector3(7.4, 0, -2.2);
-export const STOOL_TOP = 0.94;
+export const CAB = new T.Vector3(-1.4, 0, -3.6);        // the little bathroom cabinet (tissues, hairbrush), back right
+export const BIN = new T.Vector3(-0.3, 0, -2.45);        // the pedal bin, in the back corner by the doorway wall
+export const TISSUE_HOME = new T.Vector3(CAB.x - 0.3, 2.12, CAB.z + 0.1);   // (the box sits on the cabinet's left half)
+export const STOOL_TOP = 0.6;                      // a little step stool: Bunny leans its tummy on the basin's back rim
+// Bunny's walkways: every walk goes node to node along these. Each straight leg keeps Bunny's body (radius ~0.75) and
+// its big head (radius ~1.1, from 1.6 up) clear of the furniture, so it never squeezes past or cuts through anything.
+// The doorway nodes sit back from the front (z -0.9) so Bunny never comes up close to the camera.
+export const PATH_NODES = {
+  bathDoor: new T.Vector3(-0.2, 0, -0.9), bedDoor: new T.Vector3(1.7, 0, -0.9),
+  sinkR: new T.Vector3(-3.1, 0, -2.5),             // beside the stool, right (one small hop up onto it)
+  sinkL: new T.Vector3(-5.6, 0, -2.5),             // beside the stool, left
+  mat: new T.Vector3(-8.35, 0, -1.1),              // on the bath mat, right beside the tub (one hop over its rim, in or out)
+  bedside: new T.Vector3(3.7, 0, -0.45), bedsideA: new T.Vector3(4.3, 0, 0.35),
+  bedFront: new T.Vector3(6.4, 0, 0.3), rugA: new T.Vector3(10.4, 0, 0.45), rug: new T.Vector3(10.9, 0, -0.25),
+};
+export const PATH_EDGES = [['bathDoor', 'sinkR'], ['bathDoor', 'bedDoor'], ['sinkL', 'mat'],
+  ['bedDoor', 'bedside'], ['bedDoor', 'bedsideA'], ['bedside', 'bedsideA'], ['bedsideA', 'bedFront'], ['bedFront', 'rugA'], ['rugA', 'rug']];
 export const SPOTS = {
-  sink: new T.Vector3(-4.3, STOOL_TOP, -2.1),      // on the step stool behind the basin
-  bath: new T.Vector3(-10.4, 0.05, -1.9),         // sitting in the bath (feet hidden by the tub)
-  mat: new T.Vector3(-7.3, 0, -1.2),              // on the bath mat, out of the bath
-  bathDoor: new T.Vector3(-1.2, 0, 0.6),          // by the doorway, bathroom side
-  bedDoor: new T.Vector3(2.0, 0, 0.6),            // by the doorway, bedroom side
-  rug: new T.Vector3(9.9, 0, -0.1),               // on the bedroom rug
-  bedside: new T.Vector3(4.0, 0, -0.4),           // beside the bed, ready to climb in
+  sink: new T.Vector3(-4.3, STOOL_TOP, -2.6),      // on the step stool right behind the basin, tummy at its back rim
+  bath: new T.Vector3(-9.85, 0.05, -1.95),        // standing in the bath, at its tap-free end (floor height found in game)
+  mat: PATH_NODES.mat,                            // on the bath mat, beside the tub
+  bathDoor: PATH_NODES.bathDoor,
+  bedDoor: PATH_NODES.bedDoor,
+  rug: new T.Vector3(10.9, 0, -0.25),             // on the bedroom rug, past the foot of the bed
+  bedside: new T.Vector3(3.7, 0, -0.45),          // by the head of the bed (clear of the bed and the table)
 };
 const DAY = ['day', 'dawn', 'dusk'];
 
@@ -57,8 +73,8 @@ function tiles() {
 }
 function bathPaper() {
   return canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = '#e8f7ff'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = '#d2ecfb'; g.lineWidth = 3;
+    g.fillStyle = '#d9eff9'; g.fillRect(0, 0, w, h);      // a soft pastel (white Bunny still stands out against it)
+    g.strokeStyle = '#c3e3f4'; g.lineWidth = 3;
     for (const [x, y, r] of [[30, 34, 9], [96, 92, 7], [92, 30, 4], [26, 100, 5]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke(); }
     g.fillStyle = '#ffffff';
     for (const [x, y] of [[27, 31], [94, 89]]) { g.beginPath(); g.arc(x, y, 2, 0, Math.PI * 2); g.fill(); }
@@ -151,7 +167,7 @@ export function makeHouse(level) {
   };
   const bathWin = win(-10.6, 5.6, day);
   const bathMat = new T.Mesh(new T.CircleGeometry(1.2, 40), flat(rugTex(['#7fd0ff', '#ffffff', '#7fd0ff', '#ffffff', '#ffd23f'])));
-  bathMat.rotation.x = -Math.PI / 2; bathMat.scale.set(1.6, 0.8, 1); bathMat.position.set(-8.5, 0.015, -0.45); g.add(bathMat);
+  bathMat.rotation.x = -Math.PI / 2; bathMat.scale.set(1.3, 0.8, 1); bathMat.position.set(-8.1, 0.015, -0.75); g.add(bathMat);
   const shelf = scProp('prop_shelf', { toys: false }, { ink: 0.022 });
   if (shelf) { shelf.position.set(-4.3, 5.9, WALL_Z + 0.25); g.add(shelf); }
   const duckS = propModel('prop_duckie', { size: 0.42 });
@@ -160,16 +176,16 @@ export function makeHouse(level) {
     const b = propModel('prop_md_bottle', { tint: col, size: s }); if (b) { b.position.set(x, 5.97, WALL_Z + 0.35); g.add(b); }
   }
   const plant = scProp('prop_plant', { leaves: { ink: 0.016 } }, { ink: 0.02 });
-  if (plant) { plant.position.set(-13.3, 0, -3.4); g.add(plant); }
+  if (plant) { plant.position.set(-15.2, 0, -3.6); g.add(plant); }   // (clear of the tub and of Pip)
   const frame = scProp('prop_frame', { canvas: { tint: 0xbfe8ff, ink: 0 }, art: { ink: 0.012 } }, { ink: 0.02 });
   if (frame) { frame.position.set(-1.6, 5.4, WALL_Z); g.add(frame); }
 
   const sink = propModel('prop_md_sink'); sink.position.copy(SINK); g.add(sink);
-  const stool = propModel('prop_md_stool', { size: [1.15, 1.85, 1.0] }); stool.position.set(SINK.x, 0, -2.1); g.add(stool);
+  const stool = propModel('prop_md_stool', { size: [1.0, STOOL_TOP / 0.508, 1.0] }); stool.position.set(SINK.x, 0, -2.6); g.add(stool);
   const bath = propModel('prop_md_bath'); bath.position.copy(BATH); g.add(bath);
-  const cab = propModel('prop_md_table'); cab.position.set(-1.6, 0, -3.1); g.add(cab);
-  const bin = propModel('prop_md_bin', { tint: 0x7fd8b0 }); bin.position.set(-0.4, 0, -1.3); g.add(bin);
-  const lid = propModel('prop_md_binlid', { tint: 0x7fd8b0 }); lid.position.set(-0.4, 0.95, -1.3 - 0.52); bin.userData.lid = lid; g.add(lid);
+  const cab = propModel('prop_md_table'); cab.position.set(CAB.x, 0, CAB.z); g.add(cab);   // (clear of Bunny's way to the stool)
+  const bin = propModel('prop_md_bin', { tint: 0x7fd8b0 }); bin.position.copy(BIN); g.add(bin);
+  const lid = propModel('prop_md_binlid', { tint: 0x7fd8b0 }); lid.position.set(BIN.x, 0.95, BIN.z - 0.52); bin.userData.lid = lid; g.add(lid);
   const sh = blobShadow(1.5); sh.position.set(SINK.x, 0.02, SINK.z); g.add(sh);
 
   // ---- bedroom ----
@@ -177,13 +193,13 @@ export function makeHouse(level) {
   const drapes = [];
   for (const s of [-1, 1]) {
     const d = propModel('prop_md_drape', { tint: 0x9fd0ff });
-    d.position.set(BED.x + s * 1.75, 3.35, WALL_Z + 0.35);
+    d.position.set(BED.x + s * 1.75, 3.35, WALL_Z + 0.55);     // in front of the window sill (never through it)
     d.userData.side = s;
     g.add(d); drapes.push(d);
   }
   const rod = mesh(geo.cyl(0.07, 0.07, 5.0, 12), 0xffc531, { outline: 0.018 }); rod.rotation.z = Math.PI / 2;
-  rod.position.set(BED.x, 6.95, WALL_Z + 0.4); g.add(rod);
-  for (const s of [-1, 1]) { const k = mesh(geo.sphere(0.15, 14, 10), 0xffc531, { outline: 0.018 }); k.position.set(BED.x + s * 2.55, 6.95, WALL_Z + 0.4); g.add(k); }
+  rod.position.set(BED.x, 6.95, WALL_Z + 0.55); g.add(rod);
+  for (const s of [-1, 1]) { const k = mesh(geo.sphere(0.15, 14, 10), 0xffc531, { outline: 0.018 }); k.position.set(BED.x + s * 2.55, 6.95, WALL_Z + 0.55); g.add(k); }
   const bshelf = scProp('prop_shelf', { toys: {} }, { ink: 0.022 });
   if (bshelf) { bshelf.position.set(12.6, 5.2, WALL_Z + 0.25); g.add(bshelf); }
   const pic = scProp('prop_frame', { canvas: { tint: 0xffd6e8, ink: 0 }, art: { ink: 0.012 } }, { ink: 0.02 });
@@ -191,9 +207,10 @@ export function makeHouse(level) {
   const rug = new T.Mesh(new T.CircleGeometry(2.4, 48), flat(rugTex(['#ff9ec4', '#fff2f7', '#b99cf0', '#fff2f7', '#8fe0cf', '#fff2f7'])));
   rug.rotation.x = -Math.PI / 2; rug.scale.set(1.45, 0.75, 1); rug.position.set(10.6, 0.015, -0.4); g.add(rug);
   const bed = propModel('prop_md_bed'); bed.position.copy(BED); g.add(bed);
-  const table = propModel('prop_md_table'); table.position.set(2.75, 0, -3.3); g.add(table);
-  const lamp = propModel('prop_md_lamp'); lamp.position.set(2.45, 1.4, -3.45); g.add(lamp);
-  const clock = propModel('prop_md_clock'); clock.position.set(3.05, 1.4, -3.05); clock.rotation.y = -0.15; g.add(clock);
+  const table = propModel('prop_md_table', { size: [1.4, 1, 1] }); table.position.set(2.75, 0, -3.3); g.add(table);
+  // the lamp at the front right of the table, the clock at the back left: both whole on screen (never one behind the other)
+  const lamp = propModel('prop_md_lamp'); lamp.position.set(3.27, 1.4, -3.15); g.add(lamp);
+  const clock = propModel('prop_md_clock'); clock.position.set(2.2, 1.4, -3.5); clock.rotation.y = 0.15; g.add(clock);
   const bplant = scProp('prop_plant', { leaves: { ink: 0.016 } }, { ink: 0.02 });
   if (bplant) { bplant.position.set(13.6, 0, -3.4); g.add(bplant); }
   // the lamp's shade glows (unlit, warm); its light pool on the wall
@@ -206,7 +223,7 @@ export function makeHouse(level) {
   gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
   const glowTex = new T.CanvasTexture(glow); glowTex.colorSpace = T.SRGBColorSpace;
   const pool = new T.Mesh(new T.PlaneGeometry(4.2, 4.2), new T.MeshBasicMaterial({ color: 0xffe9a8, map: glowTex, transparent: true, opacity: level === 2 ? 0.45 : 0.16, depthWrite: false, fog: false }));
-  pool.position.set(2.45, 2.6, WALL_Z + 0.03); g.add(pool);
+  pool.position.set(3.27, 2.6, WALL_Z + 0.03); g.add(pool);
 
   return { group: g, bathWin, sink, stool, bath, cab, bin, lid, bed, table, lamp, clock, drapes, bedWin, shade, pool };
 }
@@ -233,22 +250,35 @@ export function makeItems(h, level) {
   add('paste', propModel('prop_md_paste', { size: 1.4 }), cupAt.clone().add(new T.Vector3(-0.13, 0.62, -0.05)), [Math.PI / 2, 0, Math.PI / 2 + 0.3, 'ZYX']);
   const ub = out.brush.obj.userData.model.userData.layers.paste;
   if (ub) { ub.mesh.visible = false; ub.outline.visible = false; }
-  // the hand towel hangs on the bar under the basin; the big bath towel is draped over the side of the bath
-  add('towel', propModel('prop_md_towel', { tint: [0x5fc8a8, 0xff9ec4, 0x7fb8ff][level], size: 0.85 }), at(h.sink, 'towel'), [0, 0, 0]);
-  add('bigtowel', propModel('prop_md_towel', { tint: 0xffa64a, size: 0.95 }), new T.Vector3(-9.05, 1.47, -1.22), [0, -0.45, 0]);
-  add('sponge', propModel('prop_sponge', { tint: 0xffd23f, size: 0.55 }), new T.Vector3(-9.6, 0.02, -0.2), [0, 0.3, 0]);
-  add('bottle', propModel('prop_md_bottle', { tint: 0xff8fc0, size: 1.0 }), new T.Vector3(-10.6, 0, -0.45), [0, 0.2, 0]);
-  const tb = propModel('prop_md_tissues', { tint: 0xb99cf0 }); tb.position.set(-1.6, 1.4, -3.1); tb.rotation.y = -0.2; h.group.add(tb);
+  // the hand towel hangs on the bar under the basin; the big bath towel is draped over the front rim of the bath, at the
+  // tap end (clear of where Bunny hops in)
+  add('towel', propModel('prop_md_towel', { tint: [0x5fc8a8, 0xff9ec4, 0x7fb8ff][level], size: 0.75 }), at(h.sink, 'towel'), [0, 0, 0]);
+  add('bigtowel', propModel('prop_md_bigtowel', { tint: 0xffa64a }), new T.Vector3(-11.65, 1.47, -1.08), [0, -0.26, 0]);
+  for (const k of ['towel', 'bigtowel']) { const L = out[k].obj.userData.model?.userData.layers?.stitch; if (L) L.outline.visible = false; }
+  add('sponge', propModel('prop_sponge', { tint: 0xffd23f, size: 0.55 }), new T.Vector3(-12.75, 0.02, -0.3), [0, 0.3, 0]);
+  add('bottle', propModel('prop_md_bottle', { tint: 0xff8fc0, size: 1.0 }), new T.Vector3(-10.75, 0, -0.4), [0, 0.2, 0]);
+  const tb = propModel('prop_md_tissues', { tint: 0xb99cf0 }); tb.position.set(CAB.x - 0.28, 1.4, CAB.z); tb.rotation.y = -0.1; h.group.add(tb);
   const tl = tb.userData.model.userData.layers.tissue; if (tl) { tl.mesh.visible = false; tl.outline.visible = false; }
   h.tissueBox = tb;
-  add('tissue', propModel('prop_md_tissue', { size: 1.0 }), new T.Vector3(-1.62, 2.12, -3.0), [-0.25, -0.2, 0.15]);
-  // the hairbrush lies flat along the front of the cabinet top, in front of the tissues (it used to lean out over the sink)
-  add('hairbrush', propModel('prop_md_hairbrush', { tint: 0xffb020, size: 1.12 }), new T.Vector3(-1.45, 1.47, -2.62), [-Math.PI / 2, 0, 0.1]);
+  add('tissue', propModel('prop_md_tissue', { size: 1.0 }), TISSUE_HOME.clone(), [-0.25, -0.2, 0.15]);
+  // the hairbrush lies flat on the cabinet's right half, its handle toward us (well apart from the tissues, so a finger
+  // on one never picks up the other)
+  add('hairbrush', propModel('prop_md_hairbrush', { tint: 0xffb020, size: 1.0 }), new T.Vector3(CAB.x + 0.45, 1.47, CAB.z + 0.05), [-Math.PI / 2, 0, -Math.PI / 2, "YXZ"]);
   // bedroom
-  add('duvet', propModel('prop_md_duvet', { tint: 0x8fc7ff }), new T.Vector3(BED.x + 0.6, 1.05, BED.z), [0, 0, 0]);
+  // the duvet: one thing with four shapes (each its own model, never stretched): spread on the bed, tucked over Bunny,
+  // folded at the foot of the bed, kicked off in a heap on the floor. The game shows one at a time.
+  const duvet = new T.Group(), dshape = new T.Group();
+  duvet.add(dshape); duvet.userData.model = dshape;
+  const parts = {};
+  for (const [k, kind] of [['made', 'prop_md_duvet'], ['over', 'prop_md_duvetover'], ['folded', 'prop_md_duvetfold'], ['floor', 'prop_md_duvetheap']]) {
+    const m = propModel(kind, { tint: 0x8fc7ff }) || propModel('prop_md_duvet', { tint: 0x8fc7ff });
+    m.visible = k === 'made'; dshape.add(m); parts[k] = m;
+  }
+  add('duvet', duvet, new T.Vector3(BED.x + 0.45, 1.02, BED.z), [0, 0, 0]);
+  out.duvet.parts = parts;
   const teddy = makeAnimal('bear');
   teddy.userData.noWalk = true;
-  add('teddy', teddy, new T.Vector3(12.3, 0, -1.4), [0, -0.35, 0], { scale: 0.42 });
+  add('teddy', teddy, new T.Vector3(13.1, 0, -0.6), [0, -0.5, 0], { scale: 0.42 });   // beside the rug, never behind Bunny
   teddy.scale.setScalar(0.42);
   teddy.userData.baseScale = 0.42;
   return out;

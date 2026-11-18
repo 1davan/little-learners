@@ -3,9 +3,9 @@
 floor / under the middle unless noted. Tintable models (argMode 'tint') are painted white / light grey where the
 game's colour should show.
 
-  prop_md_sink      pedestal washbasin (bowl rim y 1.84, 2.55 x 1.6), a soap dish ear (x +1.42) and a cup ear (x -1.42),
-                    a chrome pillar tap on the back rim with its spout curving forward over the bowl, a towel bar under
-                    the front. Anchors: spout (water leaves here), knob (where prop_md_knob sits), soap, cup, towel.
+  prop_md_sink      pedestal washbasin (bowl rim y 1.84, 2.5 x 1.9, floor y 1.38, steep thin back wall so Bunny's paws
+                    reach inside), a soap dish ear (x +1.46) and a cup ear (x -1.46), a chrome pillar tap on the back-right
+                    corner with a low spout reaching to the back-middle of the bowl, a towel bar under the front. Anchors: spout (water leaves here), knob (where prop_md_knob sits), soap, cup, towel.
   prop_md_knob      the chrome cross-head tap handle with a blue cap (origin = its foot; the game spins it about y)
   prop_md_stool     a little wooden step stool (top y 0.5) with a yellow star on the front
   prop_md_soap      a chunky bar of soap with a heart pressed in it (tint)
@@ -13,7 +13,9 @@ game's colour should show.
                     toothpaste on the bristles (the game shows it)
   prop_md_paste     a toothpaste tube lying along x, cap at +x
   prop_md_cup       a tooth mug (r 0.27, 0.55 tall, tint) with a handle
-  prop_md_towel     a hand towel folded over a bar: origin on the fold (the bar), hangs 1.3 down (tint) with white bands
+  prop_md_towel     a thick terry hand towel folded over a bar: origin on the fold (the bar), hangs 1.3 down (tint), rolled
+                    hems, a stitched woven band across the front (layer 'hem'), a hanging loop (layer 'loop')
+  prop_md_towelwrap the same towel bundled round two paws (drying), origin in the middle of the bundle (tint)
   prop_md_bath      a clawfoot bath 4.3 x 1.9, rim y 1.42, hollow (floor inside y 0.6), gold feet, a chrome tap at -x.
                     Anchors: spout, knob
   prop_md_bottle    a bubble-bath bottle (tint) with a bubbly label
@@ -84,64 +86,76 @@ def in_star(x, y, r):
 
 # ------------------------------------------------------------------ bathroom
 def sink():
-    SZ = 0.62
-    p = Prop('prop_md_sink', base=CERAMIC, target_faces=2600, voxel=0.018)
+    """Rebuilt for the washing pose: a toddler-height basin whose BACK wall is thin and nearly upright, so Bunny on its
+    step stool can lean its tummy on the back rim and put both paws right down inside the bowl, under the water. The tap
+    stands on the back-right corner and its low spout reaches across to just above the paws (clear of Bunny's chin)."""
+    SZ = 0.77                            # the bowl's depth (z) vs its width (x)
+    TX, TZ = 1.02, -0.46                 # the tap's pillar (back-right corner of the rim)
+    SPX, SPZ = 0.0, -0.6                 # where the spout pours (over the paws, near the back)
+    p = Prop('prop_md_sink', base=CERAMIC, target_faces=2800, voxel=0.017)
     # pedestal: a waisted column flaring into the bowl
-    p.lathe(rounded([(0, 0), (0.55, 0), (0.55, 0.08), (0.4, 0.2), (0.31, 0.7), (0.32, 1.05), (0.5, 1.15), (0, 1.15)], 0.06, n=3), seg=40)
-    # the bowl: one revolved section from the underside, over the rim and down inside to the plughole
-    bowl = rounded([(0, 1.08), (0.5, 1.1), (0.92, 1.22), (1.17, 1.42), (1.27, 1.64), (1.28, 1.76), (1.22, 1.84), (1.06, 1.84),
-                    (1.0, 1.72), (0.86, 1.48), (0.5, 1.33), (0, 1.31)], 0.07, n=4)
-    p.lathe(bowl, scale=(1, SZ), seg=72)
+    p.lathe(rounded([(0, 0), (0.55, 0), (0.55, 0.08), (0.4, 0.2), (0.31, 0.7), (0.32, 1.02), (0.5, 1.12), (0, 1.12)], 0.06, n=3), seg=40)
+    # the bowl: underside, over a slim rolled rim and straight down a steep inner wall to a flat floor and the plughole
+    bowl = rounded([(0, 1.08), (0.5, 1.1), (0.9, 1.2), (1.12, 1.38), (1.21, 1.58), (1.24, 1.76), (1.2, 1.84), (1.13, 1.84),
+                    (1.1, 1.74), (1.07, 1.56), (0.96, 1.44), (0.6, 1.39), (0, 1.38)], 0.05, n=4)
+    p.lathe(bowl, scale=(1, SZ), seg=80)
     # a dish 'ear' each side: soap (+x) and cup (-x)
     for s in (-1, 1):
         p.lathe(rounded([(0, 1.6), (0.22, 1.62), (0.33, 1.75), (0.32, 1.8), (0.25, 1.8), (0.21, 1.73), (0, 1.71)], 0.03, n=3),
-                pos=(s * 1.42, 0, 0.05), seg=36)
-    # a raised pad on the back rim for the tap
-    p.cyl((0, 1.76, -0.72), 0.2, 0.09, r2=0.18, bevel=0.04, scale=(1.3, 0.8), seg=28)
+                pos=(s * 1.46, 0, 0.05), seg=36)
+    # a raised pad on the back-right corner of the rim for the tap
+    p.cyl((TX, 1.76, TZ), 0.19, 0.09, r2=0.17, bevel=0.04, scale=(1.0, 0.9), seg=28)
     # paint: a soft blue inside the bowl and the dishes (depth), a chrome plughole
     def inside(q, n):
         r = math.hypot(q.x, q.z / SZ)
-        return q.y > 1.28 and q.y < 1.83 and r < 1.03 and n.y > -0.2 and (n.x * q.x + n.z * q.z / SZ) < 0.3
+        return q.y > 1.34 and q.y < 1.83 and r < 1.11 and n.y > -0.2 and (n.x * q.x + n.z * q.z / SZ) < 0.3
     p.paint_fn(inside, CER_D)
-    p.paint_fn(lambda q, n: any(q.y > 1.64 and q.y < 1.785 and math.hypot(q.x - s * 1.42, q.z - 0.05) < 0.23 and n.y > 0.2 for s in (-1, 1)), CER_D)
-    p.paint_fn(lambda q, n: math.hypot(q.x, q.z) < 0.11 and q.y < 1.4 and q.y > 1.25 and n.y > 0.4, CHROME_D)
-    p.paint_fn(lambda q, n: math.hypot(q.x, q.z) < 0.065 and q.y < 1.4 and q.y > 1.25 and n.y > 0.4, 0x6f7a8a)
+    p.paint_fn(lambda q, n: any(q.y > 1.64 and q.y < 1.785 and math.hypot(q.x - s * 1.46, q.z - 0.05) < 0.23 and n.y > 0.2 for s in (-1, 1)), CER_D)
     p.paint_fn(lambda q, n: q.y < 0.09, CER_D)
-    # chrome tap on the back rim (by the child): pillar + spout arching forward over the bowl
-    p.layer('chrome', base=CHROME, target_faces=900, voxel=0.012)
-    p.cyl((0, 1.83, -0.72), 0.13, 0.06, r2=0.12, bevel=0.025, seg=28)
-    p.cyl((0, 1.86, -0.72), 0.09, 0.34, bevel=0.02, seg=24)
-    spout = rounded([(0, 2.04, -0.72), (0, 2.16, -0.6), (0, 2.16, -0.31), (0, 2.03, -0.22)], 0.09, n=6)
-    p.tube(spout, 0.062, rseg=14)
-    p.cyl((0, 1.99, -0.22), 0.07, 0.06, r2=0.075, bevel=0.015, seg=18)
+    # chrome tap on the back-right corner: a short pillar and a low spout reaching across to the middle-back of the bowl
+    p.layer('chrome', base=CHROME, target_faces=1000, voxel=0.011)
+    # (and a neat round chrome plughole on the bowl's floor, with a dark middle)
+    p.cyl((0, 1.37, 0.0), 0.12, 0.045, bevel=0.015, seg=28)
+    p.cyl((TX, 1.83, TZ), 0.12, 0.06, r2=0.11, bevel=0.025, seg=28)
+    p.cyl((TX, 1.86, TZ), 0.085, 0.24, bevel=0.02, seg=24)
+    spout = rounded([(TX, 2.0, TZ), (TX - 0.1, 2.1, TZ - 0.02), (0.55, 2.12, (TZ + SPZ) / 2), (SPX + 0.12, 2.08, SPZ), (SPX, 1.98, SPZ)], 0.12, n=6)
+    p.tube(spout, 0.055, rseg=14)
+    p.cyl((SPX, 1.93, SPZ), 0.065, 0.07, r2=0.07, bevel=0.015, seg=18)
     # a towel bar across the front, under the bowl (the hand towel hangs on it)
-    p.tube(rounded([(-0.62, 1.3, 0.42), (-0.62, 1.2, 0.95), (0.62, 1.2, 0.95), (0.62, 1.3, 0.42)], 0.1, n=5), 0.042, rseg=10)
+    FZ = 1.0
+    p.tube(rounded([(-0.62, 1.3, 0.55), (-0.62, 1.22, FZ), (0.62, 1.22, FZ), (0.62, 1.3, 0.55)], 0.1, n=5), 0.042, rseg=10)
     for s in (-1, 1):
-        p.cyl((s * 0.62, 1.27, 0.42), 0.07, 0.08, bevel=0.02, seg=14)
-    p.paint_fn(lambda q, n: n.y < -0.35 or (n.x * n.x > 0.6 and q.y < 1.99), CHROME_D)
-    p.paint_fn(lambda q, n: n.y > 0.75 and q.y > 2.15, CHROME_L)
+        p.cyl((s * 0.62, 1.27, 0.55), 0.07, 0.08, bevel=0.02, seg=14)
+    p.paint_fn(lambda q, n: n.y < -0.35 or (n.x * n.x > 0.6 and q.y < 1.99 and q.y > 1.5), CHROME_D)
+    p.paint_fn(lambda q, n: n.y > 0.75 and q.y > 2.06, CHROME_L)
+    p.layer('drain', base=0x5f6878, target_faces=200, voxel=0.006)
+    p.cyl((0, 1.405, 0.0), 0.06, 0.012, bevel=0.005, seg=24)
     p.layer('skin')
-    p.anchor('spout', (0, 1.97, -0.22), 'body')
-    p.anchor('knob', (0, 2.2, -0.72), 'body')
-    p.anchor('soap', (1.42, 1.74, 0.05), 'body')
-    p.anchor('towel', (0, 1.2, 0.95), 'body')
-    p.anchor('cup', (-1.42, 1.74, 0.05), 'body')
+    p.anchor('spout', (SPX, 1.92, SPZ), 'body')
+    p.anchor('knob', (TX, 2.1, TZ), 'body')
+    p.anchor('soap', (1.46, 1.74, 0.05), 'body')
+    p.anchor('towel', (0, 1.22, FZ), 'body')
+    p.anchor('cup', (-1.46, 1.74, 0.05), 'body')
     done(p, 1.84, 0.022)
 
 
 def knob():
-    p = Prop('prop_md_knob', base=CHROME, target_faces=900, voxel=0.01)
-    p.cyl((0, 0, 0), 0.06, 0.08, bevel=0.02, seg=16)
+    # a fat chrome cross-head: a flared foot, four plump arms ending in round balls, a domed centre and a big round
+    # blue 'cold' cap on top (chunky parts so the ink stays a normal weight round them)
+    p = Prop('prop_md_knob', base=CHROME, target_faces=2600, voxel=0.006)
+    p.cyl((0, 0, 0), 0.075, 0.07, r2=0.06, bevel=0.025, seg=24)
     for a in (0, 90):
         r = math.radians(a)
-        p.tube([(-0.2 * math.cos(r), 0.07, -0.2 * math.sin(r)), (0.2 * math.cos(r), 0.07, 0.2 * math.sin(r))], 0.032, rseg=8)
+        p.capsule((-0.17 * math.cos(r), 0.085, -0.17 * math.sin(r)), (0.17 * math.cos(r), 0.085, 0.17 * math.sin(r)), 0.045, group='arm%d' % a)
         for s in (-1, 1):
-            p.blob((s * 0.21 * math.cos(r), 0.07, s * 0.21 * math.sin(r)), (0.05, 0.045, 0.05), group='end%d%d' % (a, s))
-    p.cyl((0, 0.05, 0), 0.085, 0.07, r2=0.075, bevel=0.03, seg=20)
+            p.blob((s * 0.2 * math.cos(r), 0.085, s * 0.2 * math.sin(r)), (0.065, 0.06, 0.065), group='end%d%d' % (a, s))
+    p.lathe(rounded([(0, 0.05), (0.1, 0.05), (0.1, 0.11), (0.07, 0.15), (0, 0.155)], 0.03, n=3), seg=28)
     p.paint_fn(lambda q, n: n.y < -0.3, CHROME_D)
-    p.layer('cap', base=0x4a9bff, target_faces=150, voxel=0.006)
-    p.cyl((0, 0.115, 0), 0.05, 0.012, bevel=0.006, seg=16)
-    done(p, 0.15, 0.014)
+    p.paint_fn(lambda q, n: n.y > 0.6 and q.y > 0.1 and math.hypot(q.x, q.z) > 0.15, CHROME_L)
+    p.layer('cap', base=0x4a9bff, target_faces=400, voxel=0.005)
+    p.lathe(rounded([(0, 0.145), (0.065, 0.145), (0.065, 0.16), (0.04, 0.18), (0, 0.183)], 0.012, n=3), seg=24)
+    p.paint_fn(lambda q, n: n.y > 0.5 and math.hypot(q.x + 0.02, q.z - 0.02) < 0.016, 0xcfe6ff)       # little glint
+    done(p, 0.18, 0.008)
 
 
 def stool():
@@ -164,12 +178,20 @@ def stool():
 
 
 def soap():
-    p = Prop('prop_md_soap', base=WHITE, target_faces=900, voxel=0.01)
+    # a rounded bar of soap with a raised oval rim embossed on top, a heart pressed into the oval, and two bubbles
+    p = Prop('prop_md_soap', base=WHITE, target_faces=2400, voxel=0.008)
     p.box((0, 0.11, 0), (0.29, 0.11, 0.19), bevel=0.1)
     p.blob((0, 0.12, 0), (0.25, 0.1, 0.16), group='puff')
-    H = heart_poly(0.12)
-    p.paint_fn(lambda q, n: n.y > 0.7 and in_poly(q.x, -q.z + 0.01, H), 0xe6e6e6)
+    p.ring((0, 0.215, 0), 0.17, 0.018, seg=48, rseg=8, scale=(1.0, 0.62))           # embossed oval
+    H = heart_poly(0.08)
+    p.paint_fn(lambda q, n: n.y > 0.7 and in_poly(q.x, -q.z + 0.008, H), 0xe2e2e2)
+    p.paint_fn(lambda q, n: n.y > 0.4 and abs(math.hypot(q.x / 1.0, q.z / 0.62) - 0.17) < 0.022 and q.y > 0.2, 0xf6f6f6)
     p.paint_fn(lambda q, n: n.y < -0.5, 0xe0e0e0)
+    p.layer('bubbles', base=0xf4fbff, target_faces=700, voxel=0.006)
+    for (x, y, z, r) in ((0.22, 0.27, 0.1, 0.06), (0.3, 0.2, -0.02, 0.04)):
+        p.blob((x, y, z), (r, r, r), group='b%d' % int(r * 100))
+    p.paint_fn(lambda q, n: n.x < -0.2 and n.y > 0.4, 0xffffff)
+    p.layer('skin')
     tinted(p, 0xff9ec8, 0.016)
     done(p, 0.22)
 
@@ -221,67 +243,190 @@ def cup():
     p.lathe(rounded([(0, 0), (R - 0.03, 0), (R, 0.05), (R + 0.01, H), (R - T, H), (R - T, 0.07), (0, 0.07)], 0.025, n=3), seg=40)
     p.tube(rounded([(R - 0.01, 0.42, 0), (R + 0.17, 0.42, 0), (R + 0.17, 0.16, 0), (R - 0.01, 0.16, 0)], 0.08, n=4), 0.04, rseg=10)
     p.paint_fn(lambda q, n: math.hypot(q.x, q.z) < R - T + 0.02 and q.y > 0.06 and q.y < H - 0.02, 0xd8d8d8)
-    p.layer('deco', base=0xffffff, target_faces=300, voxel=0.006)
-    p.sticker(star_poly(0.11, inner=0.5), 0.27, lambda y: R + 0.01 * y / H, thick=0.03, lift=0.006)
+    p.layer('deco', base=0xffffff, target_faces=1400, voxel=0.0028)                 # a clean, finely meshed star sticker
+    p.sticker(star_poly(0.11, inner=0.52, soft=4), 0.27, lambda y: R + 0.01 * y / H, thick=0.016, lift=0.004)
     tinted(p, 0xffb020, 0.016)
     done(p, H)
 
 
-def towel():
-    p = Prop('prop_md_towel', base=WHITE, target_faces=1400, voxel=0.012)
-    W, L = 0.5, 1.3
-    # folded over a bar at the origin: the front panel hangs a little longer than the back one, soft wavy hems
-    def panel(z0, length, k):
-        verts, faces = [], []
-        nx, ny = 10, 12
-        for side, dz in ((0, -0.03), (1, 0.03)):
-            for i in range(nx + 1):
-                for j in range(ny + 1):
-                    x = -W + 2 * W * i / nx
-                    y = -length * j / ny
-                    wob = 0.02 * math.sin(x * 9 + j * 0.6) * (j / ny)
-                    verts.append((x * (1 + 0.04 * j / ny), y - 0.03 * math.sin(x * 4) * (j / ny), z0 * (1 + 0.15 * j / ny) + dz + wob))
-        idx = lambda s, i, j: s * (nx + 1) * (ny + 1) + i * (ny + 1) + j
-        for i in range(nx):
-            for j in range(ny):
-                faces.append((idx(1, i, j), idx(1, i + 1, j), idx(1, i + 1, j + 1), idx(1, i, j + 1)))
-                faces.append((idx(0, i, j), idx(0, i, j + 1), idx(0, i + 1, j + 1), idx(0, i + 1, j)))
-        for i in range(nx):
-            faces.append((idx(0, i, ny), idx(0, i + 1, ny), idx(1, i + 1, ny), idx(1, i, ny)))
-            faces.append((idx(0, i + 1, 0), idx(0, i, 0), idx(1, i, 0), idx(1, i + 1, 0)))
-        for j in range(ny):
-            faces.append((idx(0, 0, j + 1), idx(0, 0, j), idx(1, 0, j), idx(1, 0, j + 1)))
-            faces.append((idx(0, nx, j), idx(0, nx, j + 1), idx(1, nx, j + 1), idx(1, nx, j)))
-        p.mesh(verts, faces, bevel=0.025)
-    panel(0.09, L, 1)
-    panel(-0.09, L * 0.8, -1)
-    p.tube([(-W - 0.02, -0.02, 0), (W + 0.02, -0.02, 0)], 0.1, rseg=12)   # the soft fold over the bar
-    p.paint_fn(lambda q, n: n.z < -0.6 and q.z < 0, 0xe8e8e8)
-    p.layer('bands', base=0xffffff, target_faces=500, voxel=0.01)
-    p.quadriflow = False
-    for y0, h in ((-L + 0.3, 0.07), (-L + 0.15, 0.035)):
-        verts, faces = [], []
-        nx = 12
-        for side, dz in ((0, 0.0), (1, 0.03)):
-            for i in range(nx + 1):
-                for yy in (y0 - h, y0 + h):
-                    x = -W + 2 * W * i / nx
-                    jf = -yy / L
-                    wob = 0.02 * math.sin(x * 9 + jf * 12 * 0.6) * jf
-                    verts.append((x * (1 + 0.04 * jf) * 1.01, yy - 0.03 * math.sin(x * 4) * jf, 0.09 * (1 + 0.15 * jf) + 0.035 + dz + wob))
-        idx = lambda s_, i, k: s_ * (nx + 1) * 2 + i * 2 + k
-        for i in range(nx):
-            faces.append((idx(1, i, 0), idx(1, i + 1, 0), idx(1, i + 1, 1), idx(1, i, 1)))
-            faces.append((idx(0, i, 0), idx(0, i, 1), idx(0, i + 1, 1), idx(0, i + 1, 0)))
-            faces.append((idx(0, i, 0), idx(0, i + 1, 0), idx(1, i + 1, 0), idx(1, i, 0)))
-            faces.append((idx(0, i + 1, 1), idx(0, i, 1), idx(1, i, 1), idx(1, i + 1, 1)))
-        faces.append((idx(0, 0, 1), idx(0, 0, 0), idx(1, 0, 0), idx(1, 0, 1)))
-        faces.append((idx(0, nx, 0), idx(0, nx, 1), idx(1, nx, 1), idx(1, nx, 0)))
-        p.mesh(verts, faces, bevel=0.008)
-    tinted(p, 0x5fc8a8, 0.018)
-    p.extras['white'] = 1
-    done(p, 0.1)
+def sheet(p, F, nu=16, nv=16, thick=0.08, hem=None, bevel=0):
+    """A soft thick cloth sheet: F(u, v) -> (x, y, z) for u, v in 0..1 gives the middle surface; the sheet is offset
+    +-thick/2 along its normal and closed round the edge (the voxel remesh rounds it into a pillowy hem). hem: a list
+    of edges ('u0', 'u1', 'v0', 'v1') that get a soft rolled tube (thick * 0.62)."""
+    def nrm(u, v):
+        e = 1e-3
+        a = F(min(1, u + e), v); b = F(max(0, u - e), v)
+        c = F(u, min(1, v + e)); d = F(u, max(0, v - e))
+        du = [a[i] - b[i] for i in range(3)]; dv = [c[i] - d[i] for i in range(3)]
+        n = (du[1] * dv[2] - du[2] * dv[1], du[2] * dv[0] - du[0] * dv[2], du[0] * dv[1] - du[1] * dv[0])
+        L = math.sqrt(sum(x * x for x in n)) or 1
+        return [x / L for x in n]
+    verts = []
+    for side in (-1, 1):
+        for i in range(nu + 1):
+            for j in range(nv + 1):
+                u, v = i / nu, j / nv
+                q = F(u, v); n = nrm(u, v)
+                verts.append(tuple(q[k] + side * n[k] * thick / 2 for k in range(3)))
+    idx = lambda s_, i, j: s_ * (nu + 1) * (nv + 1) + i * (nv + 1) + j
+    faces = []
+    for i in range(nu):
+        for j in range(nv):
+            faces.append((idx(1, i, j), idx(1, i + 1, j), idx(1, i + 1, j + 1), idx(1, i, j + 1)))
+            faces.append((idx(0, i, j), idx(0, i, j + 1), idx(0, i + 1, j + 1), idx(0, i + 1, j)))
+    for i in range(nu):
+        faces.append((idx(0, i, nv), idx(0, i + 1, nv), idx(1, i + 1, nv), idx(1, i, nv)))
+        faces.append((idx(0, i + 1, 0), idx(0, i, 0), idx(1, i, 0), idx(1, i + 1, 0)))
+    for j in range(nv):
+        faces.append((idx(0, 0, j + 1), idx(0, 0, j), idx(1, 0, j), idx(1, 0, j + 1)))
+        faces.append((idx(0, nu, j), idx(0, nu, j + 1), idx(1, nu, j + 1), idx(1, nu, j)))
+    p.mesh(verts, faces, bevel=bevel)
+    for e in hem or ():
+        if e[0] == 'u':
+            u = 0.0 if e == 'u0' else 1.0
+            path = [F(u, j / nv) for j in range(nv + 1)]
+        else:
+            v = 0.0 if e == 'v0' else 1.0
+            path = [F(i / nu, v) for i in range(nu + 1)]
+        p.tube(path, thick * 0.62, rseg=10)
 
+
+def hanging(W, Lf, Lb, R=0.1, folds=0.055, flare=0.04):
+    """The middle surface of a towel folded over a round bar (origin on the bar): u runs across (x), v runs from the
+    bottom of the back panel (0) up over the bar and down to the bottom of the front panel (1). Soft vertical S-folds
+    that deepen toward the hems, a slightly curved bottom hem, the front panel longer than the back."""
+    Ltot = Lb + math.pi * R + Lf
+    def F(u, v):
+        x0 = -W + 2 * W * u
+        s = v * Ltot
+        if s < Lb:                                  # back panel, hanging down behind the bar
+            d = Lb - s; y = -d; z = -R
+            f = d / Lb
+            side = -1
+        elif s < Lb + math.pi * R:                  # round over the bar
+            a = (s - Lb) / R                        # 0..pi, from the back over the top to the front
+            y = R * math.sin(a) * 0.9; z = -R * math.cos(a)
+            f = 0; side = 0
+        else:                                       # front panel
+            d = s - Lb - math.pi * R; y = -d; z = R
+            f = d / Lf
+            side = 1
+        # folds: soft waves across, deepening down the panel; the hem dips a touch in the middle
+        w = folds * (0.35 + f) * math.sin(x0 / W * math.pi * 2.2 + 0.6 * side) + folds * 0.5 * f * math.sin(x0 / W * math.pi * 4.1 + 1.3)
+        z += side * (w + flare * f * f) if side else 0
+        y -= 0.05 * f * math.cos(x0 / W * math.pi / 2)
+        x = x0 * (1 - 0.05 * (1 - f) + 0.03 * f)          # bunched a little at the bar, opening toward the hem
+        return (x, y, z)
+    return F
+
+
+def towel():
+    """A thick terry hand towel folded over a bar (origin on the bar): front panel longer than the back, soft S-folds
+    that deepen toward the rolled hem, a woven cream band with stitching across the front near the bottom."""
+    p = Prop('prop_md_towel', base=WHITE, target_faces=2800, voxel=0.011)
+    W, Lf, Lb = 0.5, 0.95, 0.62
+    F = hanging(W, Lf, Lb, R=0.07, folds=0.08, flare=0.05)
+    sheet(p, F, nu=18, nv=40, thick=0.085, hem=('u0', 'u1', 'v0', 'v1'))
+    p.paint_fn(lambda q, n: q.z < -0.03 and n.z < -0.3, 0xe6e6e6)       # the back panel's inside a shade darker
+    # the woven band near the bottom of the front panel (cream, untinted), following the folds
+    Ltot = Lb + math.pi * 0.07 + Lf
+    v0 = (Lb + math.pi * 0.07 + Lf * 0.72) / Ltot; v1 = (Lb + math.pi * 0.07 + Lf * 0.84) / Ltot
+    p.layer('hem', base=0xfffaf0, target_faces=700, voxel=0.009)
+    p.quadriflow = False
+    def B(u, v):
+        x, y, z = F(-0.01 + 1.02 * u, v0 + (v1 - v0) * v)
+        return (x, y, z + 0.05)
+    sheet(p, B, nu=18, nv=3, thick=0.03)
+    tinted(p, 0x5fc8a8, 0.016)
+    done(p, 0.2, 0.016)
+
+
+def bigtowel():
+    """The big bath towel folded over the bath's rolled rim (origin on the rim): wide, front drop longer than the back,
+    deep soft folds, a cream band with stitching near the bottom."""
+    p = Prop('prop_md_bigtowel', base=WHITE, target_faces=3200, voxel=0.013)
+    W, Lf, Lb = 0.62, 0.95, 0.5
+    F = hanging(W, Lf, Lb, R=0.1, folds=0.1, flare=0.07)
+    sheet(p, F, nu=20, nv=40, thick=0.1, hem=('u0', 'u1', 'v0', 'v1'))
+    p.paint_fn(lambda q, n: q.z < -0.04 and n.z < -0.3, 0xe6e6e6)
+    Ltot = Lb + math.pi * 0.1 + Lf
+    v0 = (Lb + math.pi * 0.1 + Lf * 0.7) / Ltot; v1 = (Lb + math.pi * 0.1 + Lf * 0.83) / Ltot
+    p.layer('hem', base=0xfffaf0, target_faces=800, voxel=0.01)
+    p.quadriflow = False
+    def B(u, v):
+        x, y, z = F(-0.01 + 1.02 * u, v0 + (v1 - v0) * v)
+        return (x, y, z + 0.06)
+    sheet(p, B, nu=20, nv=3, thick=0.035)
+    tinted(p, 0xffa64a, 0.018)
+    done(p, 0.2, 0.018)
+
+
+def bathcape():
+    """The big bath towel wrapped round Bunny's shoulders while drying (origin at Bunny's feet, Bunny's size 1.45): it
+    goes round the back from shoulder to shoulder at the neck, falls in soft folds to the knees, and the two front edges
+    hang down either side of the tummy (the tummy and paws stay out in front)."""
+    p = Prop('prop_md_bathcape', base=WHITE, target_faces=3200, voxel=0.013)
+    TOP, BOT = 1.52, 0.34                     # at the neck, at the hem
+    SH = 0.3                                  # the share of the length that goes over the shoulders
+    def F(u, v):
+        a = math.radians(-140 + 280 * u)      # round the body; 0 = straight back, +-140 = the two front edges
+        if v < SH:                            # over the rounded shoulders, from the neck out and down
+            t = v / SH
+            r = 0.46 + 0.42 * math.sin(t * math.pi / 2)
+            y = TOP - 0.34 * (1 - math.cos(t * math.pi / 2))
+        else:                                 # then falling in soft folds, flaring a little to the hem
+            t = (v - SH) / (1 - SH)
+            r = 0.88 + 0.1 * t + 0.06 * t * math.sin(a * 6 + 0.5)
+            y = TOP - 0.34 - (TOP - 0.34 - BOT) * t
+        front = max(0.0, (abs(a) - math.radians(95)) / math.radians(45))   # 0..1 toward the front edges
+        y -= 0.08 * v * math.cos(a)           # the hem dips at the back
+        y += 0.1 * front * front * v          # and the front corners lift a touch
+        x = r * math.sin(a) * 1.05
+        z = -r * math.cos(a) * 0.92 + 0.04
+        return (x, y, z)
+    sheet(p, F, nu=44, nv=20, thick=0.1, hem=('u0', 'u1', 'v1'))
+    p.tube([F(i / 44, 0) for i in range(45)], 0.085, rseg=10)            # the towel bunched round the neck
+    p.paint_fn(lambda q, n: (q.x * n.x + (q.z - 0.02) * n.z) < 0 and q.y < TOP - 0.06, 0xe6e6e6)
+    p.layer('hem', base=0xfffaf0, target_faces=900, voxel=0.01)
+    p.quadriflow = False
+    def B(u, v):
+        x, y, z = F(u, 0.8 + 0.08 * v)
+        a = math.radians(-140 + 280 * u)
+        return (x + 0.05 * math.sin(a), y, z - 0.05 * math.cos(a))
+    sheet(p, B, nu=44, nv=3, thick=0.035)
+    tinted(p, 0xffa64a, 0.018)
+    done(p, 1.6, 0.018)
+
+
+def towelwrap():
+    """The hand towel wrapped round both paws while drying (origin in the middle of the bundle): a soft roll along x,
+    the cloth going round about one and a half times so its outer edge lies across the front, both ends open (the
+    paw tips show), the loose corner hanging down a little, the woven band across it."""
+    p = Prop('prop_md_towelwrap', base=WHITE, target_faces=2600, voxel=0.01)
+    Lh = 0.36
+    def F(u, v):
+        x = -Lh + 2 * Lh * u
+        a = math.radians(-60 + 520 * v)        # spiral: starts inside at the front, ends outside over the front
+        r = 0.2 + 0.07 * v + 0.012 * math.sin(x * 18) * v
+        y = r * math.cos(a) * 0.9
+        z = r * math.sin(a)
+        # the last part of the outer turn hangs down as a soft flap
+        if v > 0.82:
+            k = (v - 0.82) / 0.18
+            y -= 0.18 * k * k
+            z += 0.05 * k
+        e = abs(x) / Lh
+        return (x * (1 - 0.06 * (1 - v)), y * (1 + 0.08 * e * e), z * (1 + 0.08 * e * e))
+    sheet(p, F, nu=14, nv=46, thick=0.055, hem=('v1', 'u0', 'u1'))
+    p.paint_fn(lambda q, n: math.hypot(q.y, q.z) < 0.19, 0xe2e2e2)
+    p.layer('hem', base=0xfffaf0, target_faces=500, voxel=0.008)
+    p.quadriflow = False
+    def B(u, v):
+        x, y, z = F(0.02 + 0.96 * u, 0.9 + 0.04 * v)
+        return (x, y, z + 0.035)
+    sheet(p, B, nu=14, nv=3, thick=0.025)
+    tinted(p, 0x5fc8a8, 0.016)
+    done(p, 0.4, 0.016)
 
 def bath():
     p = Prop('prop_md_bath', base=WHITE, target_faces=2600, voxel=0.02)
@@ -293,7 +438,6 @@ def bath():
     def outer(q, n):
         return (n.x * q.x / SX ** 2 + n.z * q.z / SZ ** 2) > 0.05 and q.y < 1.36 and math.hypot(q.x / SX, q.z / SZ) > 0.9
     p.paint_fn(outer, 0x8fd6f2)
-    p.paint_fn(lambda q, n: outer(q, n) and q.y < 0.62, 0x72c2e6)
     p.paint_fn(lambda q, n: (not outer(q, n)) and q.y < 1.35 and n.y < 0.95 and math.hypot(q.x / SX, q.z / SZ) < 0.95, 0xe9f3fa)
     # gold claw feet
     p.layer('feet', base=GOLD, target_faces=600, voxel=0.012)
@@ -366,46 +510,59 @@ def bottle():
 
 
 def tissues():
-    p = Prop('prop_md_tissues', base=WHITE, target_faces=1300, voxel=0.014)
-    p.box((0, 0.3, 0), (0.45, 0.3, 0.32), bevel=0.08)
-    p.paint_fn(lambda q, n: n.y > 0.8 and abs(q.x) < 0.24 and abs(q.z) < 0.08, 0xd0d0d0)
+    # a tissue box (tint) with a soft oval slot in a white top plate, white polka dots on the sides, a white band round
+    # the bottom (layer 'band') and a tissue pulled up out of the slot in a soft peak with folds (layer 'tissue')
+    p = Prop('prop_md_tissues', base=WHITE, target_faces=2600, voxel=0.01)
+    p.box((0, 0.3, 0), (0.45, 0.3, 0.32), bevel=0.07)
+    p.blob((0, 0.6, 0), (0.25, 0.06, 0.1), group='slot', negative=True)                 # the slot dips in
+    SLOT = lambda q: (q.x / 0.25) ** 2 + (q.z / 0.095) ** 2
+    p.paint_fn(lambda q, n: q.y > 0.5 and SLOT(q) < 1.0, 0x8a7aa8)                       # dark oval opening
     p.paint_fn(lambda q, n: n.y < -0.5, 0xe2e2e2)
-    p.layer('band', base=0xffffff, target_faces=500, voxel=0.01)
-    p.box((0, 0.24, 0), (0.478, 0.075, 0.348), bevel=0.06)
-    p.layer('tissue', base=0xffffff, target_faces=500, voxel=0.012)
-    p.blob((0, 0.66, 0), (0.17, 0.1, 0.08), group='t')
-    p.blob((-0.06, 0.74, 0.01), (0.09, 0.09, 0.05), rot=(0, 0, 25), group='t')
-    p.blob((0.08, 0.77, -0.01), (0.07, 0.1, 0.045), rot=(0, 0, -30), group='t')
-    p.blob((0.0, 0.84, 0.0), (0.05, 0.06, 0.035), group='t')
+    # untinted white trim (layer 'band'): the bottom band, a top plate round the slot and polka dots on every side
+    p.layer('band', base=0xffffff, target_faces=1600, voxel=0.007)
+    p.box((0, 0.11, 0), (0.465, 0.06, 0.335), bevel=0.05)
+    for s in (1, -1):                         # two halves of a plate with an oval hole
+        half = [(0.34, 0.0), (0.34, s * 0.22), (-0.34, s * 0.22), (-0.34, 0.0)]
+        half += [(0.26 * math.cos(a), s * 0.105 * math.sin(a)) for a in [math.pi * (1 - k / 12) for k in range(13)]]
+        m = len(half)
+        p.mesh([(x, y, z) for y in (0.598, 0.618) for x, z in half],
+               [tuple(range(m)), tuple(range(2 * m - 1, m - 1, -1))] + [(i, (i + 1) % m, m + (i + 1) % m, m + i) for i in range(m)])
+    for y, xs in ((0.28, (-0.3, -0.1, 0.1, 0.3)), (0.44, (-0.2, 0.0, 0.2))):
+        for x in xs:
+            for s in (-1, 1):
+                p.cyl((x, y, s * 0.315), 0.048, 0.02, rot=(s * 90, 0, 0), bevel=0.008, seg=18)
+    for z in (-0.13, 0.13):
+        for y in (0.3, 0.46):
+            for s in (-1, 1):
+                p.cyl((s * 0.445, y, z), 0.048, 0.02, rot=(0, 0, -s * 90), bevel=0.008, seg=18)
+    p.layer('tissue', base=0xffffff, target_faces=1200, voxel=0.008)
+    # a soft folded sheet rising out of the slot to a peak: three overlapping flattened lobes and a pinched tip
+    p.blob((0, 0.64, 0), (0.2, 0.09, 0.05), group='t')
+    p.blob((-0.07, 0.74, 0.01), (0.12, 0.11, 0.04), rot=(0, 0, 28), group='t')
+    p.blob((0.07, 0.76, -0.01), (0.1, 0.12, 0.04), rot=(0, 0, -30), group='t')
+    p.blob((0.0, 0.86, 0.0), (0.06, 0.08, 0.03), rot=(0, 0, 8), group='t')
     p.paint_fn(lambda q, n: n.z < -0.4, 0xeef3fa)
+    p.paint_fn(lambda q, n: q.y < 0.62, 0xe8edf5)
     tinted(p, 0xb99cf0, 0.018)
     done(p, 0.6)
 
 
 def tissue():
-    p = Prop('prop_md_tissue', base=0xffffff, target_faces=700, voxel=0.008)
+    """One soft paper tissue (centre on the origin, facing +z): a puffy square with soft crumples, its corners curling
+    forward, about 0.7 across."""
+    p = Prop('prop_md_tissue', base=0xffffff, target_faces=1400, voxel=0.008)
     p.quadriflow = False
-    N, Hs = 10, 0.24
-    verts, faces = [], []
-    for side, dz in ((0, -0.012), (1, 0.012)):
-        for i in range(N + 1):
-            for j in range(N + 1):
-                u, v = -1 + 2 * i / N, -1 + 2 * j / N
-                z = 0.05 * (u * u + v * v) * (0.6 + 0.4 * math.sin(u * 3 + v * 2)) - 0.035 * math.cos(u * 2.4) + dz
-                verts.append((u * Hs * (1 - 0.06 * v * v), v * Hs * (1 - 0.05 * u * u), z))
-    idx = lambda s_, i, j: s_ * (N + 1) ** 2 + i * (N + 1) + j
-    for i in range(N):
-        for j in range(N):
-            faces.append((idx(1, i, j), idx(1, i + 1, j), idx(1, i + 1, j + 1), idx(1, i, j + 1)))
-            faces.append((idx(0, i, j), idx(0, i, j + 1), idx(0, i + 1, j + 1), idx(0, i + 1, j)))
-    for i in range(N):
-        faces.append((idx(0, i, 0), idx(0, i + 1, 0), idx(1, i + 1, 0), idx(1, i, 0)))
-        faces.append((idx(0, i + 1, N), idx(0, i, N), idx(1, i, N), idx(1, i + 1, N)))
-        faces.append((idx(0, 0, i + 1), idx(0, 0, i), idx(1, 0, i), idx(1, 0, i + 1)))
-        faces.append((idx(0, N, i), idx(0, N, i + 1), idx(1, N, i + 1), idx(1, N, i)))
-    p.mesh(verts, faces, bevel=0.01)
-    p.paint_fn(lambda q, n: n.z < -0.3, 0xe8eef7)
-    p.paint_fn(lambda q, n: abs(q.x + q.y * 0.15) < 0.012 and n.z > 0.3, 0xdde6f2)
+    Hs = 0.34
+    def F(u, v):
+        a, b = 2 * u - 1, 2 * v - 1
+        r2 = a * a + b * b
+        z = 0.1 * (1 - 0.6 * r2) + 0.07 * r2 * r2            # puffed in the middle, corners curling forward
+        z += 0.035 * math.sin(a * 7.0 + b * 2.0) * (0.4 + r2) + 0.025 * math.sin(b * 8.5 - a * 3.0) * (0.3 + r2)
+        x = a * Hs * (1 - 0.08 * b * b) + 0.02 * math.sin(b * 6)
+        y = b * Hs * (1 - 0.07 * a * a) + 0.02 * math.sin(a * 5)
+        return (x, y, z)
+    sheet(p, F, nu=22, nv=22, thick=0.03)
+    p.paint_fn(lambda q, n: n.z < -0.3, 0xe9eef6)
     p.extras['outline'] = 0.012
     p.layer('skin')
     p.bone('body', (0, -0.2, 0), (0, 0.2, 0))
@@ -503,47 +660,188 @@ def bed():
     slab(cres, -1.2, 0.55, FZ - 0.02, FZ + 0.03)
     for cx, r in ((-0.35, 0.13), (0.55, 0.1), (1.4, 0.13)):
         slab([(x * r, y * r) for x, y in STAR], cx, 0.55, FZ - 0.02, FZ + 0.03)
-    # mattress
-    p.layer('mattress', base=0xffffff, target_faces=700, voxel=0.02)
+    # mattress: a fitted sheet with a soft piped edge round the top
+    p.layer('mattress', base=0xffffff, target_faces=1400, voxel=0.018)
     p.box((0.0, 0.85, 0), (hx - 0.12, 0.2, D / 2 - 0.06), bevel=0.14)
     p.paint_fn(lambda q, n: n.y < -0.5, 0xe6eef5)
-    # pillow
-    p.layer('pillow', base=0xffffff, target_faces=500, voxel=0.016)
-    p.blob((-hx + 0.75, 1.17, 0), (0.48, 0.17, 0.8), group='pillow')
-    for s in (-1, 1):
-        p.blob((-hx + 0.75, 1.15, s * 0.72), (0.4, 0.13, 0.18), group='pillow')
-    p.paint_fn(lambda q, n: abs(q.z) > 0.82, 0xffc2d8)
+    p.paint_fn(lambda q, n: n.y < 0.3 and q.y < 0.84, 0xeef4fb)        # the sheet's side a shade cooler
+    p.layer('piping', base=0xbfe4ff, target_faces=900, voxel=0.012)
+    px, pz, py = hx - 0.2, D / 2 - 0.12, 1.02
+    ring = rounded([(-px, py, -pz), (px, py, -pz), (px, py, pz), (-px, py, pz)], 0.14, n=5, closed=True)
+    p.tube(ring + [ring[0]], 0.035, rseg=8)
+    # pillow: plump, with a soft crease across the middle and pink piped ends
+    p.layer('pillow', base=0xffffff, target_faces=900, voxel=0.014)
+    for s_ in (-1, 1):
+        p.blob((-hx + 0.75, 1.18, s_ * 0.34), (0.46, 0.18, 0.46), group='pillow')
+    p.blob((-hx + 0.75, 1.13, 0), (0.42, 0.14, 0.7), group='pillow')
+    p.paint_fn(lambda q, n: abs(q.z) > 0.74, 0xffc2d8)
     p.paint_fn(lambda q, n: n.y < -0.3, 0xe9eef6)
     p.layer('skin')
     p.anchor('pillow', (-hx + 0.75, 1.3, 0), 'body')
     done(p, 3.0, 0.024)
 
 
-def duvet():
-    p = Prop('prop_md_duvet', base=WHITE, target_faces=1800, voxel=0.02)
-    W, D, Hh = 1.7, 1.15, 0.13
-    # a soft quilted slab: rows of puffy squares melted together
-    for i in range(6):
-        for j in range(4):
-            x = -W + (i + 0.5) * (2 * W / 6)
-            z = -D + (j + 0.5) * (2 * D / 4)
-            p.blob((x, Hh, z), (W / 6 + 0.06, Hh, D / 4 + 0.06), group='q')
-    p.paint_fn(lambda q, n: n.y < 0.2, 0xe2e2e2)
-    p.layer('stars', base=0xffe27a, target_faces=700, voxel=0.008)
-    for i in range(6):
-        for j in range(4):
-            if (i + j) % 2:
-                continue
-            x = -W + (i + 0.5) * (2 * W / 6)
-            z = -D + (j + 0.5) * (2 * D / 4)
-            poly = [(x + a * 0.17, z - b * 0.17) for a, b in STAR]
-            n = len(poly)
-            v = [(a, y, b) for y in (2 * Hh - 0.02, 2 * Hh + 0.025) for a, b in poly]
-            f = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))] + [(i_, (i_ + 1) % n, n + (i_ + 1) % n, n + i_) for i_ in range(n)]
-            p.mesh(v, f, bevel=0.008)
+DUV_X0, DUV_X1, DUV_Z = -1.6, 1.95, 1.36       # head end, foot end (bed-local, from the duvet's origin), half width
+
+
+def duvet_top(hump=None, nu=44, nv=26):
+    """the duvet's middle surface: lying on the mattress (local y 0 = mattress top), puffed into soft quilted squares,
+    falling over both sides of the bed; hump(x, z) adds Bunny underneath"""
+    X0 = DUV_X0
+    def F(u, v):
+        x = X0 + (DUV_X1 - X0) * u
+        z = -DUV_Z + 2 * DUV_Z * v
+        y = 0.1 + 0.025 * math.cos(x * math.pi / 0.62) * math.cos(z * math.pi / 0.62)
+        ez = abs(z) - 1.08                                   # over the mattress edge, then hanging down the side
+        if hump:
+            y += hump(x, z) * max(0.0, min(1.0, -ez * 4))
+        if ez > 0:
+            t = min(1.0, ez / 0.28)
+            y -= 0.35 * math.sin(t * math.pi / 2) + 0.75 * max(0.0, ez - 0.28)
+            z = math.copysign(1.08 + 0.2 * math.sin(t * math.pi / 2) + 0.05 * max(0.0, ez - 0.28), z)
+        return (x, y, z)
+    return F
+
+
+def duvet_paint(p, F, X0=None):
+    """printed stars: crisp yellow star patches lying on the duvet's top (their own untinted layer, following its
+    shape), and the underside a shade darker"""
+    X0 = DUV_X0 if X0 is None else X0
+    p.paint_fn(lambda q, n: n.y < -0.3, 0xe2e2e2)
+    stars = []
+    for i in range(7):
+        for j in range(3):
+            x = X0 + 0.42 + i * 0.58 + (0.29 if j % 2 else 0)
+            z = -0.72 + j * 0.72
+            if x < DUV_X1 - 0.25:
+                stars.append((x, z))
+    def at(x, z, lift):
+        u = (x - X0) / (DUV_X1 - X0); v = (z + DUV_Z) / (2 * DUV_Z)
+        e = 1e-3
+        q = F(u, v); a = F(u + e, v); b = F(u, v + e)
+        du = [a[k] - q[k] for k in range(3)]; dv = [b[k] - q[k] for k in range(3)]
+        n = (du[1] * dv[2] - du[2] * dv[1], du[2] * dv[0] - du[0] * dv[2], du[0] * dv[1] - du[1] * dv[0])
+        L = math.sqrt(sum(c * c for c in n)) or 1
+        n = [c / L for c in n]
+        if n[1] < 0:
+            n = [-c for c in n]
+        return tuple(q[k] + n[k] * lift for k in range(3))
+    p.layer('stars', base=0xfff0a0, target_faces=1600, voxel=0.008)
+    p.quadriflow = False
+    poly = star_poly(0.16, inner=0.5)
+    for (x, z) in stars:
+        top = [at(x + px, z - py, 0.085) for px, py in poly]
+        bot = [at(x + px, z - py, 0.05) for px, py in poly]
+        ct, cb = at(x, z, 0.085), at(x, z, 0.05)
+        n = len(poly)
+        verts = [ct, cb] + top + bot
+        faces = []
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append((0, 2 + i, 2 + j))
+            faces.append((1, 2 + n + j, 2 + n + i))
+            faces.append((2 + i, 2 + n + i, 2 + n + j, 2 + j))
+        p.mesh(verts, faces)
     p.layer('skin')
+
+
+def duvet():
+    """The star duvet spread on the bed (origin on the mattress top, under the duvet's middle): soft quilted puffs,
+    falling over both sides, printed stars, a rolled cream edge at the head end."""
+    p = Prop('prop_md_duvet', base=WHITE, target_faces=3200, voxel=0.018)
+    p.quadriflow = False
+    F = duvet_top()
+    sheet(p, F, nu=44, nv=26, thick=0.12, hem=('u1', 'v0', 'v1'))
+    duvet_paint(p, F)
+    p.layer('turn', base=0xfff6e0, target_faces=900, voxel=0.014)
+    p.tube([(lambda q: (q[0] + 0.06, q[1] + 0.05, q[2]))(F(0.0, j / 26)) for j in range(27)], 0.11, rseg=12)
     tinted(p, 0x8fc7ff, 0.02)
-    done(p, 0.3)
+    done(p, 0.4, 0.02)
+
+
+def bunny_hump_fn(ox, oz, x0):
+    """Bunny lying in bed, as sampled in the game (tools/blender/creatures/myday_bunny_lying.json: the top of the posed
+    Bunny, world heights on a 0.1 grid). Returns hump(x, z) in duvet-local units: how far above the duvet's flat height
+    it must rise to lie over Bunny (padded and softened like a real quilt), zero toward the head end past the chin."""
+    import json
+    J = json.load(open(os.path.join(os.path.dirname(__file__), 'myday_bunny_lying.json')))
+    H, X0, Z0, st = J['H'], J['x0'], J['z0'], J['step']
+    nx, nz = len(H), len(H[0])
+    M = [[max(1.02, v) for v in row] for row in H]
+    # pad (a max filter) then soften (a box blur, twice)
+    def filt(A, r, fn):
+        return [[fn([A[a][b] for a in range(max(0, i - r), min(nx, i + r + 1)) for b in range(max(0, j - r), min(nz, j + r + 1))]) for j in range(nz)] for i in range(nx)]
+    M = filt(M, 1, max)
+    M = filt(M, 2, lambda v: sum(v) / len(v))
+    M = filt(M, 2, lambda v: sum(v) / len(v))
+    def top(xw, zw):
+        fi, fj = (xw - X0) / st, (zw - Z0) / st
+        if fi < 0 or fj < 0 or fi >= nx - 1 or fj >= nz - 1:
+            return 1.02
+        i, j = int(fi), int(fj); a, b = fi - i, fj - j
+        return (M[i][j] * (1 - a) * (1 - b) + M[i + 1][j] * a * (1 - b) + M[i][j + 1] * (1 - a) * b + M[i + 1][j + 1] * a * b)
+    def hump(x, z):
+        xw = max(ox + x, 7.12)                                   # (the head is not under the duvet)
+        h = max(0.0, top(xw, oz + z) + 0.1 - 1.02 - 0.1)
+        return 1.15 * math.tanh(h / 1.15)                        # a soft cap: a quilt, not a tent
+    return hump
+
+
+def duvetover():
+    """The duvet tucked over Bunny lying in bed (origin on the mattress top, BED.x + 0.9): it rises softly over Bunny's
+    tummy and up-turned feet (shaped from the real lying pose) and stops across the chest, under the chin, with the
+    rolled cream edge."""
+    global DUV_X0, DUV_X1
+    keep = (DUV_X0, DUV_X1)
+    DUV_X0, DUV_X1 = -1.18, 1.65
+    p = Prop('prop_md_duvetover', base=WHITE, target_faces=3800, voxel=0.018)
+    p.quadriflow = False
+    F = duvet_top(bunny_hump_fn(7.4 + 0.9, -2.2, DUV_X0), nu=48, nv=30)
+    sheet(p, F, nu=48, nv=30, thick=0.12, hem=('u1', 'v0', 'v1'))
+    duvet_paint(p, F, DUV_X0)
+    p.layer('turn', base=0xfff6e0, target_faces=900, voxel=0.014)
+    p.tube([(lambda q: (q[0] + 0.05, q[1] + 0.06, q[2]))(F(0.0, j / 30)) for j in range(31)], 0.11, rseg=12)
+    DUV_X0, DUV_X1 = keep
+    tinted(p, 0x8fc7ff, 0.02)
+    done(p, 1.4, 0.02)
+
+
+def duvetfold():
+    """The duvet folded up in three at the foot of the bed (origin on the mattress top, in its middle): a soft stack of
+    three layers with rounded folded edges, stars on top."""
+    p = Prop('prop_md_duvetfold', base=WHITE, target_faces=2400, voxel=0.016)
+    W, D, th = 0.45, 1.12, 0.12
+    for k in range(3):
+        y = 0.07 + k * th
+        p.box((0.02 * (k % 2), y, 0), (W - 0.02 * k, th * 0.5, D - 0.03 * k), bevel=0.055)
+    for k in range(2):   # the rounded folds, alternating ends
+        sx = 1 if k % 2 == 0 else -1
+        p.tube([(sx * (W - 0.02), 0.07 + (k + 0.5) * th, -D + 0.08 + 2 * (D - 0.08) * i / 10) for i in range(11)], th * 0.62, rseg=10)
+    stars = [(-0.2, -0.6), (0.2, 0.0), (-0.2, 0.6)]
+    p.paint_fn(lambda q, n: n.y > 0.6 and q.y > 0.3 and any(in_star(q.x - x, -(q.z - z), 0.15) for x, z in stars), 0xfff2a8)
+    p.paint_fn(lambda q, n: n.y < -0.3, 0xe2e2e2)
+    tinted(p, 0x8fc7ff, 0.02)
+    done(p, 0.45, 0.02)
+
+
+def duvetheap():
+    """The duvet kicked off onto the floor in a soft crumpled heap (origin on the floor in its middle)."""
+    p = Prop('prop_md_duvetheap', base=WHITE, target_faces=2600, voxel=0.018)
+    p.quadriflow = False
+    def F(u, v):
+        a, b = 2 * u - 1, 2 * v - 1
+        r = math.hypot(a, b)
+        x = a * 0.95 + 0.05 * math.sin(b * 5)
+        z = b * 0.7 + 0.04 * math.sin(a * 6)
+        y = 0.06 + 0.42 * max(0.0, 1 - r) ** 1.3 + 0.07 * math.sin(a * 5.5 + b * 3) * (1 - min(1, r)) + 0.05 * max(0.0, math.sin(a * 9 - b * 4)) * (1 - min(1, r))
+        return (x, y, z)
+    sheet(p, F, nu=30, nv=24, thick=0.12, hem=('u0', 'u1', 'v0', 'v1'))
+    p.blob((0.25, 0.32, -0.1), (0.3, 0.16, 0.25), group='fold')
+    p.blob((-0.3, 0.26, 0.15), (0.26, 0.12, 0.2), group='fold')
+    p.paint_fn(lambda q, n: n.y > 0.5 and any(in_star(q.x - x, -(q.z - z), 0.15) for x, z in ((-0.45, -0.2), (0.35, 0.3), (0.1, -0.45))), 0xfff2a8)
+    p.paint_fn(lambda q, n: n.y < -0.3, 0xe2e2e2)
+    tinted(p, 0x8fc7ff, 0.02)
+    done(p, 0.6, 0.02)
 
 
 def table():
@@ -605,39 +903,37 @@ def lamp():
 
 
 def drape():
-    p = Prop('prop_md_drape', base=WHITE, target_faces=1600, voxel=0.01)
+    """A pleated curtain panel at its real size: hangs from y 3.55 (its heading on the rod) down to 0, x -0.5..0.5
+    (the game narrows it in x to open it, gathering the pleats). Deep soft pleats, a gathered heading, a clean
+    scalloped hem with a cream band (tint)."""
+    p = Prop('prop_md_drape', base=WHITE, target_faces=2600, voxel=0.012)
     p.quadriflow = False
-    nx, ny = 48, 10
-    verts, faces = [], []
-    for side, dz in ((0, -0.03), (1, 0.03)):
-        for i in range(nx + 1):
-            for j in range(ny + 1):
-                x = -0.5 + i / nx
-                y = j / ny
-                z = 0.07 * math.sin(i / nx * TAU * 5) * (1 + 0.25 * (1 - y)) + dz
-                verts.append((x, y, z))
-    idx = lambda s, i, j: s * (nx + 1) * (ny + 1) + i * (ny + 1) + j
-    for i in range(nx):
-        for j in range(ny):
-            faces.append((idx(1, i, j), idx(1, i + 1, j), idx(1, i + 1, j + 1), idx(1, i, j + 1)))
-            faces.append((idx(0, i, j), idx(0, i, j + 1), idx(0, i + 1, j + 1), idx(0, i + 1, j)))
-    for i in range(nx):
-        faces.append((idx(0, i, 0), idx(0, i + 1, 0), idx(1, i + 1, 0), idx(1, i, 0)))
-        faces.append((idx(0, i + 1, ny), idx(0, i, ny), idx(1, i, ny), idx(1, i + 1, ny)))
-    for j in range(ny):
-        faces.append((idx(0, 0, j), idx(0, 0, j + 1), idx(1, 0, j + 1), idx(1, 0, j)))
-        faces.append((idx(0, nx, j + 1), idx(0, nx, j), idx(1, nx, j), idx(1, nx, j + 1)))
-    p.mesh(verts, faces)
-    p.paint_fn(lambda q, n: math.sin(((q.x + 0.5) * 5 + 0.25) * TAU) < -0.55, 0xe4e4e4)
-    p.paint_fn(lambda q, n: q.y > 0.9, 0xf2f2f2)
+    H, NP = 3.55, 5
+    def F(u, v):
+        x = -0.5 + u
+        y = H * (1 - v)
+        ph = u * NP * TAU
+        z = 0.085 * math.sin(ph) * (0.75 + 0.35 * v)
+        if v > 0.97:   # the scalloped hem: each pleat ends in a soft round dip
+            y -= 0.07 * (1 - abs(math.cos(ph / 2))) * (v - 0.97) / 0.03
+        return (x, y, z)
+    sheet(p, F, nu=60, nv=30, thick=0.05, hem=('v1',))
+    p.paint_fn(lambda q, n: n.z < -0.4, 0xe6e6e6)
+    # gathered heading under the rod
+    p.tube([(-0.5 + i / 40, H - 0.06, 0.09 * math.sin(i / 40 * NP * TAU)) for i in range(41)], 0.05, rseg=8)
+    p.layer('band', base=0xfffaf0, target_faces=900, voxel=0.01)
+    def B(u, v):
+        x, y, z = F(u, 0.9 + 0.045 * v)
+        return (x, y, z + 0.03)
+    sheet(p, B, nu=60, nv=2, thick=0.03)
     tinted(p, 0x8fd0ff, 0.012)
-    done(p, 1.0)
+    done(p, H)
 
 
 MODELS = dict(prop_md_sink=sink, prop_md_knob=knob, prop_md_stool=stool, prop_md_soap=soap, prop_md_brush=brush,
-              prop_md_paste=paste, prop_md_cup=cup, prop_md_towel=towel, prop_md_bath=bath,
+              prop_md_paste=paste, prop_md_cup=cup, prop_md_towel=towel, prop_md_towelwrap=towelwrap, prop_md_bigtowel=bigtowel, prop_md_bathcape=bathcape, prop_md_bath=bath,
               prop_md_bottle=bottle, prop_md_tissues=tissues, prop_md_tissue=tissue, prop_md_bin=bin_, prop_md_binlid=binlid,
-              prop_md_hairbrush=hairbrush, prop_md_bed=bed, prop_md_duvet=duvet, prop_md_table=table, prop_md_clock=clock,
+              prop_md_hairbrush=hairbrush, prop_md_bed=bed, prop_md_duvet=duvet, prop_md_duvetover=duvetover, prop_md_duvetfold=duvetfold, prop_md_duvetheap=duvetheap, prop_md_table=table, prop_md_clock=clock,
               prop_md_lamp=lamp, prop_md_drape=drape)
 for name, fn in MODELS.items():
     if not ONLY or name in ONLY:

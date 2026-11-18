@@ -123,7 +123,7 @@ def leg(s):
     c.capsule((x, 0.42, 0.04), (x, 0.07, 0.1), 0.065, group=g)
     for ang in (-38, 0, 38):
         a = math.radians(ang + s * 6)
-        c.capsule((x, 0.05, 0.1), (x + math.sin(a) * 0.22, 0.045, 0.1 + math.cos(a) * 0.22), 0.055, r2=0.045, group=g)
+        c.capsule((x, 0.055, 0.1), (x + math.sin(a) * 0.22, 0.05, 0.1 + math.cos(a) * 0.22), 0.066, r2=0.056, group=g)   # chunky toes: a closed ink outline
 c.mirror(leg)
 c.layer('skin')
 

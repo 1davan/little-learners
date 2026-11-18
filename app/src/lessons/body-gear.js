@@ -32,8 +32,8 @@ function sunglasses(span) {
 
 function sunscreen() {
   const d = pm('prop_dollop');
-  // tipped so the swirl's curly tip points up-and-out: seen tip-on it read as a flat white button
-  if (d) { d.userData.model.rotation.x = -0.5; d.userData.model.scale.multiplyScalar(0.85); return d; }   // (steeper read as a horn)
+  // a small flat dab of white sun cream with a soft peak (prop_dollop), oriented by GEAR.nose.rot
+  if (d) return d;
   const b = mesh(geo.sphere(0.11, 12, 8), 0xffffff, { outline: 0.012 });
   b.scale.set(1.3, 0.9, 0.7);
   return b;
@@ -57,7 +57,7 @@ function flower(s = 0.22, col = C.pink) {
 }
 
 function swimRing() {
-  const r = pm('prop_ring', { size: [0.95, 0.55, 0.95] });
+  const r = pm('prop_ring', { size: [0.74, 0.5, 0.74] });
   if (r) return r;
   const g = new T.Group();
   const cols = [C.red, 0xffffff];
@@ -72,7 +72,7 @@ function swimRing() {
 
 function spade(s = 0.8, col = C.blue) {
   const sp = pm('prop_spade', { tint: col, size: s });
-  if (sp) { sp.rotation.z = 0.5; return sp; }
+  if (sp) return sp;
   const g = new T.Group();
   const handle = mesh(geo.cyl(0.035, 0.035, 0.55, 8), C.yellow, { outline: 0.01 });
   handle.position.y = 0.2;
@@ -93,7 +93,7 @@ function flipper() {
 }
 
 function iceLolly() {
-  const l = pm('prop_lolly', { tint: C.orange, size: 0.5 });
+  const l = pm('prop_lolly', { size: 0.62 });
   if (l) return l;
   const g = new T.Group();
   const stick = mesh(geo.box(0.05, 0.25, 0.02), 0xe0b98c, { hull: 1.1, outline: 0 });
@@ -104,15 +104,26 @@ function iceLolly() {
   return g;
 }
 
-// name → list of { make, at: anchor name, on: 'head'|'root'|'hand', off: [x,y,z] }
+// name -> list of pieces { make, at: anchor (or 'eyes' = between the eyes), on: what it hangs on ('head' | 'body' |
+// 'handL' | 'handR' | 'legL' | 'legR' | 'root'), off: [x, y, z] from the anchor and rot: [x, y, z] (both in the friend's
+// own scale-1 model space, at its rest pose), via: an anchor it visits first (the lolly goes to the mouth for a bite) }.
+// The child puts each part's gear on herself (body.js offerGear): it waits on the sand, she drags it to the part.
 export const GEAR = {
-  eyes: [{ make: (span) => sunglasses(span), at: 'eyes', on: 'head', off: [0, 0, 0.09] }],
-  nose: [{ make: sunscreen, at: 'nose', on: 'head', off: [0, 0.01, 0.05] }],
-  ears: [{ make: () => flower(), at: 'earL', on: 'head', off: [0.05, -0.08, 0.15] }],
-  mouth: [{ make: iceLolly, at: 'mouth', on: 'head', off: [0.12, -0.1, 0.2], eat: true }],
-  tummy: [{ make: swimRing, at: 'tummy', on: 'root', off: [0, -0.1, -0.62] }],
-  hands: [{ make: () => spade(), at: 'handR', on: 'hand', off: [0.05, 0.05, 0.12] }],
-  feet: [{ make: flipper, at: 'footL', on: 'root', off: [0, -0.05, 0.25] }, { make: flipper, at: 'footR', on: 'root', off: [0, -0.05, 0.25] }],
+  eyes: [{ make: (span) => sunglasses(span), at: 'eyes', on: 'head', off: [0, 0, 0.09], rot: [0, 0, 0] }],
+  // a small dab of sun cream on the bridge of the nose: the nose itself stays visible
+  // (she carries the sun cream bottle; it squeezes the dab on)
+  nose: [{ make: sunscreen, tool: () => pm('prop_suncream', { size: 1.15 }), at: 'nose', on: 'head', off: [0, 0.1, -0.02], rot: [-0.55, 0, 0] }],
+  // a flower behind each ear, facing the child
+  ears: [{ make: () => flower(0.34), at: 'earL', on: 'head', off: [0.1, -0.12, 0.08], rot: [0, 0.25, 0.3] },
+         { make: () => flower(0.34, C.yellow), at: 'earR', on: 'head', off: [-0.1, -0.12, 0.08], rot: [0, -0.25, -0.3] }],
+  // the lolly: a bite at the mouth, then held in the left paw
+  mouth: [{ make: iceLolly, at: 'handL', on: 'handL', off: [0.02, 0.12, 0.12], rot: [0, 0, -0.25], via: 'mouth' }],
+  // the swim ring sits low round the waist, under the tummy (so the tummy stays touchable)
+  tummy: [{ make: swimRing, at: 'tummy', on: 'body', off: [0, -0.36, -0.66], rot: [0, 0, 0], under: true }],
+  // the spade: handle upright through the right paw, blade down and out
+  hands: [{ make: () => spade(), at: 'handR', on: 'handR', off: [0.02, 0.06, 0.12], rot: [0, 0, 0.35] }],
+  feet: [{ make: flipper, at: 'footL', on: 'legL', off: [0, -0.06, 0.2], rot: [0, 0.12, 0] },
+         { make: flipper, at: 'footR', on: 'legR', off: [0, -0.06, 0.2], rot: [0, -0.12, 0] }],
 };
 
 // ---- the beach spot for each level (decor around the friend) ----
@@ -157,48 +168,56 @@ export function makeSet(level) {
     }
     statics.push([-3.6, 2.5, -1.2, 0.2, 5, 0.2]);
   } else if (level === 1) {
+    // the paddling pool stands back-left: Bunny goes paddling in it when Kitty comes (body.js BACKS)
+    const PX = -3.9, PZ = -1.7;
     const pool = pm('prop_pool');
-    if (pool) pool.position.set(-4.2, 0, 0.4);
+    if (pool) pool.position.set(PX, 0, PZ);
     else {
       const p = new T.Group();
       const ring = mesh(geo.torus(1.5, 0.32, Math.PI * 2, 10, 32), C.blue, { outline: 0.02 });
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.32;
       const water = new T.Mesh(geo.circle(1.5, 32), basic(0x7fd8ee));
       water.rotation.x = -Math.PI / 2; water.position.y = 0.5;
-      p.add(ring, water); p.position.set(-4.2, 0, 0.4);
+      p.add(ring, water); p.position.set(PX, 0, PZ);
       g.add(p);
     }
     if (pool) g.add(pool);
     const flag = pm('prop_lifeflag');
-    if (flag) { flag.position.set(4.6, 0, -1.5); g.add(flag); g.userData.flag = flag.userData.bones.flag; }
-    statics.push({ cont: [-4.2, 0.5, 0.4], r: 1.3, h: 0.45 });
+    if (flag) { flag.position.set(6.1, 0, -0.5); g.add(flag); g.userData.flag = flag.userData.bones.flag; }
+    statics.push({ cont: [PX, 0.5, PZ], r: 1.3, h: 0.45 });
   } else {
-    const pool = new T.Mesh(geo.circle(2.2, 28), basic(0x5cc6e6));
-    pool.rotation.x = -Math.PI / 2; pool.scale.set(1, 0.6, 1); pool.position.set(-4.0, 0.03, 0.6);
-    const rim = new T.Mesh(geo.ring(2.2, 2.45, 40), basic(0xbfe9f5));
-    rim.rotation.x = -Math.PI / 2; rim.scale.set(1, 0.6, 1); rim.position.set(-4.0, 0.025, 0.6);
-    g.add(rim, pool);
-    for (const [x, z, r, c, ry] of [[-5.6, 0.4, 0.8, 0x9a948a, 0.3], [-2.6, -0.2, 0.6, 0xb7b2a6, -0.5], [4.4, -0.6, 0.9, 0xa8a196, 0.8], [5.4, 0.8, 0.5, 0xb7b2a6, 2.0]]) {
+    // the rock pool: a sculpted Blender pool (sandy lip, sunken water with ripple rings); flat discs only as a fallback
+    const rp = pm('prop_rockpool');
+    if (rp) { rp.position.set(-4.0, 0, 0.6); g.add(rp); }
+    else {
+      const pool = new T.Mesh(geo.circle(2.2, 28), basic(0x5cc6e6));
+      pool.rotation.x = -Math.PI / 2; pool.scale.set(1, 0.6, 1); pool.position.set(-4.0, 0.03, 0.6);
+      const rim = new T.Mesh(geo.ring(2.2, 2.45, 40), basic(0xbfe9f5));
+      rim.rotation.x = -Math.PI / 2; rim.scale.set(1, 0.6, 1); rim.position.set(-4.0, 0.025, 0.6);
+      g.add(rim, pool);
+    }
+    // (nothing tall at the back-left: Froggy and Kitty stand there later, Pip at the far left)
+    for (const [x, z, r, c, ry] of [[-2.25, 1.55, 0.55, 0xb7b2a6, -0.5], [6.0, 0.9, 0.7, 0xa8a196, 0.8]]) {
       const rock = pm('prop_rock', { tint: c, size: r });
       if (rock) { rock.position.set(x, 0, z); rock.rotation.y = ry; }
       else { const m = mesh(geo.sphere(r, 12, 8), c, { outline: 0.025 }); m.scale.set(1.3, 0.7, 1); m.position.set(x, r * 0.35, z); g.add(m); }
       if (rock) g.add(rock);
       statics.push([x, r * 0.5, z, r * 2.3, r * 1.0, r * 1.6]);
     }
-    for (const [x, z, s] of [[-4.7, 0.15, 0.85], [-3.55, 0.45, 0.65]]) {
+    for (const [x, z, s] of [[-1.55, 1.95, 0.55], [6.1, 0.15, 0.6]]) {
       const weed = pm('prop_seaweed', { size: s });
       if (weed) { weed.position.set(x, 0, z); g.add(weed); }
     }
     const star = makeSeaStar(0xff8a5c, 0.3);
     star.rotation.set(-1.2, 0, 0.4);
-    star.position.set(-3.0, 0.07, 1.2);
+    star.position.set(-2.3, 0.2, 1.22);   // resting on the pool's sandy lip
     g.add(star);
   }
   g.userData.statics = statics;
   return g;
 }
 
-// ---- loose toys (rigid bodies) that shower down after a right answer ----
+// ---- loose toys (rigid bodies): only the beach ball now (kicked for feet, batted for hands) ----
 const SHELL_COLS = [0xffb6c9, 0xffd9a8, 0xd8b6ff, 0xa8e0ff, 0xffffff];
 const BALLS = [[C.red, C.yellow, C.blue], [C.green, C.pink, C.yellow], [C.purple, C.orange, C.blue]];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];

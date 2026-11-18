@@ -21,15 +21,12 @@ want = lambda n: not ONLY or n in ONLY
 def soiltop():
     p = Prop('prop_soiltop', base=0xffffff, target_faces=900, voxel=0.016, smooth=3)
     p.cyl((0, 0, 0), 1.0, 0.1, bevel=0.04, seg=48)
-    for i in range(16):
-        a = i * 2.4
-        r = 0.75 * math.sqrt((i + 0.5) / 16)
-        p.blob((r * math.cos(a), 0.1, r * math.sin(a)), (0.13, 0.05, 0.12), group='lump%d' % i)
-    p.paint_fn(lambda q, n: (math.sin(q.x * 11 + q.z * 3) + math.sin(q.z * 13 - q.x * 4)) > 1.25, 0xc8c8c8)
+    p.blob((0, 0.08, 0), (0.95, 0.07, 0.95), group='top')                      # a soft smooth domed top (no scribbly lumps)
+    p.paint_fn(lambda q, n: q.y < 0.06 and math.hypot(q.x, q.z) > 0.9, 0xd6d6d6)
     p.layer('crumbs', base=0xcfcfcf, target_faces=300, voxel=0.01)
     p.quadriflow = False
-    for i, (x, z) in enumerate([(0.3, 0.4), (-0.45, 0.2), (0.1, -0.5), (-0.2, 0.55), (0.55, -0.15)]):
-        p.blob((x, 0.16, z), (0.05, 0.035, 0.05), group='c%d' % i)
+    for i, (x, z, s) in enumerate([(0.3, 0.4, 0.07), (-0.45, 0.2, 0.06), (0.1, -0.5, 0.075), (-0.2, 0.55, 0.055), (0.55, -0.15, 0.065), (-0.1, 0.05, 0.06)]):
+        p.blob((x, 0.155, z), (s, s * 0.7, s * 0.9), rot=(0, i * 40, 0), group='c%d' % i)      # a few clean round crumbs
     p.layer('skin')
     p.bone('body', (0, 0, 0), (0, 0.2, 0))
     p.extras['argMode'] = 'tint'; p.extras['argDefault'] = 0x7a4a2c
@@ -45,11 +42,17 @@ def mound():
         r = 0.9 * math.sqrt((i + 0.5) / 10)
         p.blob((r * math.cos(a) * 1.2, 0.32 - r * 0.25, r * math.sin(a)), (0.22, 0.1, 0.2), group='lump%d' % i)
     p.paint_fn(lambda q, n: (math.sin(q.x * 7 + q.z * 3) + math.sin(q.z * 9 - q.x * 4)) > 1.3, 0xc8c8c8)
-    p.layer('stones', base=0xd8d2c4, target_faces=1400, voxel=0.016)
+    # round pebbles set into the mound's lower slope (half sunk, on the surface, never hanging off the edge)
+    p.layer('stones', base=0xd8d2c4, target_faces=1800, voxel=0.012)
     for i in range(9):
-        a = i / 9 * math.tau
-        p.blob((math.cos(a) * 1.62, 0.08, math.sin(a) * 1.18), (0.22, 0.13, 0.19), rot=(0, math.degrees(-a), 0), group='s%d' % i)
-    p.paint_fn(lambda q, n: (int((math.atan2(q.z, q.x) + 7) / (math.tau / 9) + 0.5)) % 2 == 0, 0xb7b2a6)
+        a = i / 9 * math.tau + 0.2
+        f = 0.86 + 0.05 * (i % 2)
+        x, z = math.cos(a) * 1.55 * f, math.sin(a) * 1.2 * f
+        y = 0.42 * math.sqrt(max(0.0, 1 - f * f))
+        s = 0.15 + 0.03 * ((i * 5) % 3) / 2
+        p.blob((x, y - 0.03, z), (s * 1.15, s * 0.75, s), rot=(0, math.degrees(-a), 0), group='s%d' % i)
+    p.paint_fn(lambda q, n: (int((math.atan2(q.z, q.x) - 0.2 + 7) / (math.tau / 9) + 0.5)) % 3 == 0, 0xb7b2a6)
+    p.paint_fn(lambda q, n: n.y > 0.8, 0xe8e3d8)
     p.layer('skin')
     p.bone('body', (0, 0, 0), (0, 0.45, 0))
     p.extras['argMode'] = 'tint'; p.extras['argDefault'] = 0x7a4a2c
@@ -125,11 +128,11 @@ def metaltub():
 
 def teacup():
     CHINA, BAND, DOT = 0xfff6e6, 0x4a90ff, 0xff8fc0
-    p = Prop('prop_teacup', base=CHINA, target_faces=2400, voxel=0.015, smooth=3)
+    p = Prop('prop_teacup', base=CHINA, target_faces=4200, voxel=0.012, smooth=3)
     p.lathe(rounded([(0, 0.12), (0.62, 0.12), (0.92, 0.6), (0.97, 1.08), (0.0, 1.08)], 0.06, n=3), seg=56)
     p.lathe(rounded([(0, 0.0), (1.35, 0.0), (1.4, 0.06), (1.32, 0.14), (0.0, 0.12)], 0.03, n=2), seg=64)  # saucer
     p.tube([(0.88, 0.85, 0)] + [(1.06 + 0.24 * math.sin(math.radians(a)), 0.62 + 0.24 * math.cos(math.radians(a)), 0) for a in range(0, 181, 20)] + [(0.82, 0.38, 0)], 0.075, rseg=10)
-    p.paint_fn(lambda q, n: q.y < 0.15 and math.hypot(q.x, q.z) > 1.2, 0xc9dcff)
+    p.paint_fn(lambda q, n: n.y > 0.6 and 1.16 < math.hypot(q.x, q.z) < 1.3 and q.y < 0.16, 0xc9dcff)          # a clean saucer ring
     rw = lambda y: 0.92 + 0.05 * (y - 0.6) / 0.48
     p.layer('band', base=BAND, target_faces=900, voxel=0.011)
     p.lathe(rounded([(rw(0.78) - 0.01, 0.78), (rw(0.94) - 0.01, 0.94), (rw(0.94) + 0.03, 0.94), (rw(0.78) + 0.03, 0.78)], 0.015, n=2, closed=True), closed=True, seg=64)

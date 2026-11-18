@@ -6,16 +6,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from skit import SProp
 
 p = SProp('prop_jellyfish', base=0xffffff)
-NT, NP = 32, 9
+NT, NP = 64, 14
 verts, faces = [(0, 0.38, 0)], []
 grid = {}
 for i in range(1, NP + 1):
     a = (math.pi / 2) * i / NP
     for j in range(NT):
         t = j / NT * math.tau
-        sc = 1 + 0.07 * math.cos(8 * t) * (i / NP) ** 3
+        sc = 1 + 0.035 * math.cos(8 * t) * (i / NP) ** 4                      # soft round scallops at the hem
         r = 0.45 * math.sin(a) * sc
-        y = 0.38 * math.cos(a) - (0.05 * (1 - math.cos(8 * t)) * (i / NP) ** 4)
+        y = 0.38 * math.cos(a) - 0.035 * (0.5 + 0.5 * math.cos(8 * t)) * (i / NP) ** 6
         grid[(i, j)] = len(verts)
         verts.append((r * math.sin(t), y, r * math.cos(t)))
 for j in range(NT):

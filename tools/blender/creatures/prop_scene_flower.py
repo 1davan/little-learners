@@ -12,7 +12,7 @@ from mathutils import Matrix, Vector
 STEM, LEAF, EYE, EYE_L, PETAL, PETAL_IN = 0x4aa84a, 0x5cc45a, 0xffc53a, 0xffe27a, 0xffffff, 0xe6e6e6
 HEAD = Vector((0, 0.53, 0.02))
 TILT = math.radians(-22)          # head tipped back so its face looks up toward the camera
-p = Prop('prop_scene_flower', base=STEM, target_faces=280, voxel=0.01, smooth=5)
+p = Prop('prop_scene_flower', base=STEM, target_faces=1000, voxel=0.007, smooth=5)
 
 
 def head_rot(az, cup):
@@ -55,36 +55,36 @@ def petal_paint(r_in):
 # ---------- daisy ----------
 stem(HEAD.y - 0.1)
 leaf(0.13, 1); leaf(0.22, -1, length=0.14)
-eye(0.075, 0.05)
-eye_paint(0.075)
-p.layer('daisy_p', base=PETAL, target_faces=400, voxel=0.008)
+eye(0.082, 0.05)
+eye_paint(0.082)
+p.layer('daisy_p', base=PETAL, target_faces=1400, voxel=0.006)
 for k in range(8):
     az = k / 8 * math.tau
     d = 0.135
-    p.blob(at_head(-math.sin(az) * d, math.cos(az) * d, -0.005), (0.05, 0.098, 0.028), rot=head_rot(az, math.radians(-12)), group='p%d' % k)
+    p.blob(at_head(-math.sin(az) * d, math.cos(az) * d, -0.005), (0.04, 0.1, 0.024), rot=head_rot(az, math.radians(-12)), group='p%d' % k)
 petal_paint(0.07)
 
 # ---------- primrose ----------
-p.layer('prim', base=STEM, target_faces=280, voxel=0.01)
+p.layer('prim', base=STEM, target_faces=1000, voxel=0.007)
 stem(HEAD.y - 0.1, bend=-0.03)
 leaf(0.1, -1, length=0.17, up=28, wid=0.07); leaf(0.16, 1, length=0.15, up=40)
 eye(0.05, 0.035)
 eye_paint(0.05)
-p.layer('prim_p', base=PETAL, target_faces=400, voxel=0.008)
+p.layer('prim_p', base=PETAL, target_faces=1400, voxel=0.006)
 for k in range(5):
     az = k / 5 * math.tau
     d = 0.118
-    p.blob(at_head(-math.sin(az) * d, math.cos(az) * d, -0.01), (0.075, 0.084, 0.028), rot=head_rot(az, math.radians(-10)), group='p%d' % k)
+    p.blob(at_head(-math.sin(az) * d, math.cos(az) * d, -0.01), (0.066, 0.084, 0.024), rot=head_rot(az, math.radians(-10)), group='p%d' % k)
 petal_paint(0.06)
 
 # ---------- tulip ----------
-p.layer('tulip', base=STEM, target_faces=280, voxel=0.01)
+p.layer('tulip', base=STEM, target_faces=1000, voxel=0.007)
 p.tube([(0, 0, 0), (0, 0.25, 0), (0, 0.5, 0)], [0.03, 0.027, 0.025], rseg=8)
 for s_, (ln, ang, y0) in ((1, (0.2, 22, 0.02)), (-1, (0.17, 30, 0.06))):
     a = math.radians(ang)
     p.blob((s_ * math.sin(a) * ln * 0.8, y0 + math.cos(a) * ln * 0.8, 0.015), (0.05, ln, 0.026), rot=(0, 0, -s_ * ang), group='tl%d' % s_)
 p.paint_fn(lambda q, n: abs(q.x) > 0.032, LEAF)
-p.layer('tulip_p', base=PETAL, target_faces=400, voxel=0.008)
+p.layer('tulip_p', base=PETAL, target_faces=1400, voxel=0.006)
 for k in range(3):
     for inner in (False, True):
         az = k / 3 * math.tau + (math.pi / 3 if inner else 0)

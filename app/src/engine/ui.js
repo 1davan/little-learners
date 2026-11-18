@@ -1,10 +1,11 @@
 // DOM overlays: fade transitions, the child home button (hold), the parent gate (hold corner 3 s),
-// the sticker shelf, and the sticker award.
+// the sticker shelf (with the creation photo strip), the sticker award, and the finale photo (frame + fly to home).
 import { store } from './store.js';
 import { speech } from './speech.js';
 import { setVolume, getVolume, sfx, getMusicVolume, setMusicVolume } from './audio.js';
 import { LESSON_LIST, WORLDS } from '../lessons/meta.js';
 import { THEMES } from './theme.js';
+import { HAND_SVG } from './fx.js';
 
 const $ = (sel) => document.querySelector(sel);
 const ui = document.getElementById('ui');
@@ -90,6 +91,13 @@ arrowR.textContent = '▶';
 const dots = document.createElement('div');
 dots.id = 'page-dots';
 ui.append(arrowL, arrowR, dots);
+// A big, obvious way back to the world map: the 🗺️ button sits top-left on every world page (where the 🏠 button
+// sits inside a game).
+const mapBtn = document.createElement('div');
+mapBtn.id = 'map-btn';
+mapBtn.innerHTML = '<span>🗺️</span>';
+mapBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); mapBtn.classList.add('press'); setTimeout(() => mapBtn.classList.remove('press'), 180); onJump('map'); });
+ui.append(mapBtn);
 let onPage = () => {};
 export function setPageHandler(fn) { onPage = fn; }
 arrowL.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPage('right'); });
@@ -113,7 +121,21 @@ shelf.id = 'shelf';
 ui.appendChild(shelf);
 export function renderShelf(lessons = LESSON_LIST.slice(0, 5), newId = null) {
   shelf.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'stickers';
+  const photos = document.createElement('div');
+  photos.className = 'photos';
   for (const l of lessons) {
+    // the photo strip: the latest thing the child made in each game (tap to see it big)
+    const url = store.latestCreation(l.id);
+    if (url) {
+      const ph = document.createElement('div');
+      ph.className = 'thumb';
+      ph.style.setProperty('--c', l.color);
+      ph.style.backgroundImage = `url(${url})`;
+      ph.addEventListener('pointerdown', (e) => { e.stopPropagation(); showPhoto(url, { from: ph }); });
+      photos.appendChild(ph);
+    }
     const n = store.stickers(l.id);
     if (n < 1) continue;
     const s = document.createElement('div');
@@ -122,9 +144,93 @@ export function renderShelf(lessons = LESSON_LIST.slice(0, 5), newId = null) {
     s.textContent = l.icon;
     if (n > 1) { const b = document.createElement('i'); b.className = 'extra'; b.textContent = '×' + n; s.appendChild(b); }
     s.addEventListener('pointerdown', (e) => { e.stopPropagation(); s.classList.remove('spin'); void s.offsetWidth; s.classList.add('spin'); sfx.note(LESSON_LIST.indexOf(l)); });
-    shelf.appendChild(s);
+    row.appendChild(s);
   }
+  if (row.children.length) shelf.appendChild(row);
+  if (photos.children.length) shelf.appendChild(photos);
   shelf.classList.toggle('empty', !shelf.children.length);
+}
+
+// ---------- creation photos (docs/SATISFACTION.md E3/E4) ----------
+const HOME_XY = () => { const v = Math.min(innerWidth, innerHeight) / 100; return { x: 8.7 * v, y: 8.7 * v }; };
+// The finale photo: a soft white frame closes in around the view (0.4 s), holds a moment, then the framed picture
+// shrinks into the home button (top-left). Resolves when it has landed (~1.3 s).
+export function photoFlash(url) {
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'snap';
+    el.innerHTML = '<div class="flash"></div><div class="frame"></div>';
+    ui.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
+    setTimeout(() => {
+      // the picture itself (4:3) takes the frame's place and shrinks into the home button
+      el.classList.add('away');
+      if (!url) { setTimeout(() => { el.remove(); resolve(); }, 350); return; }
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.backgroundImage = `url(${url})`;
+      el.appendChild(card);
+      const r = card.getBoundingClientRect(), h = HOME_XY();
+      const dx = h.x - (r.left + r.width / 2), dy = h.y - (r.top + r.height / 2);
+      card.animate([{ transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 0.4 }, { transform: 'translate(0,0) scale(1) rotate(-2deg)', opacity: 1, offset: 0.2 },
+        { transform: `translate(${dx * 0.4}px, ${dy * 0.3}px) scale(.5) rotate(-4deg)`, offset: 0.55 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.06) rotate(-8deg)`, opacity: 0.7 }], { duration: 900, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' });
+      setTimeout(() => { el.remove(); resolve(); }, 930);
+    }, 800);
+  });
+}
+// Tap a photo frame: the picture grows to the middle of the screen for 3 s (a tap closes it sooner).
+// opts.from: an element or {x, y} to grow out of. Resolves when closed.
+let viewer = null;
+export function showPhoto(url, { from = null, ms = 3000, line = 'You made this!' } = {}) {
+  if (!url) return Promise.resolve();
+  if (viewer) viewer.close();
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'photo-view';
+    el.innerHTML = '<div class="pic"></div>';
+    const pic = el.querySelector('.pic');
+    pic.style.backgroundImage = `url(${url})`;
+    let fx0 = innerWidth / 2, fy0 = innerHeight / 2;
+    if (from && from.getBoundingClientRect) { const r = from.getBoundingClientRect(); fx0 = r.left + r.width / 2; fy0 = r.top + r.height / 2; }
+    else if (from && from.x !== undefined) { fx0 = from.x; fy0 = from.y; }
+    ui.appendChild(el);
+    const pr = pic.getBoundingClientRect();
+    const dx = fx0 - (pr.left + pr.width / 2), dy = fy0 - (pr.top + pr.height / 2);
+    pic.animate([{ transform: `translate(${dx}px, ${dy}px) scale(.12) rotate(-6deg)`, opacity: 0.4 }, { transform: 'translate(0,0) scale(1) rotate(-2deg)', opacity: 1 }],
+      { duration: 420, easing: 'cubic-bezier(.3,1.3,.5,1)', fill: 'forwards' });
+    if (line) speech.say(line);
+    let done = false;
+    const close = () => {
+      if (done) return; done = true;
+      if (viewer && viewer.el === el) viewer = null;
+      el.classList.add('off');
+      pic.animate([{ transform: 'translate(0,0) scale(1) rotate(-2deg)', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(.12) rotate(-6deg)`, opacity: 0 }],
+        { duration: 360, easing: 'cubic-bezier(.5,0,.7,1)', fill: 'forwards' });
+      setTimeout(() => { el.remove(); resolve(); }, 380);
+    };
+    viewer = { el, close };
+    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); close(); });
+    setTimeout(close, ms);
+  });
+}
+// The new photo, back on the home screen: it flies from the home-button corner onto (x, y) (its frame on the
+// pedestal) and shrinks into it. Resolves on arrival (~0.9 s).
+export function flyPhoto(url, x, y) {
+  return new Promise((resolve) => {
+    if (!url) { resolve(); return; }
+    const el = document.createElement('div');
+    el.className = 'photo-fly';
+    el.style.backgroundImage = `url(${url})`;
+    ui.appendChild(el);
+    const h = HOME_XY();
+    const v = Math.min(innerWidth, innerHeight) / 100;
+    el.style.left = h.x + 'px'; el.style.top = h.y + 'px';
+    const dx = x - h.x, dy = y - h.y;
+    el.animate([{ transform: 'translate(-50%,-50%) scale(.2) rotate(-10deg)', opacity: 0 }, { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.25 - 10 * v}px)) scale(1) rotate(-3deg)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.38) rotate(0deg)`, opacity: 1 }], { duration: 900, easing: 'cubic-bezier(.4,0,.4,1)', fill: 'forwards' });
+    setTimeout(() => { el.remove(); resolve(); }, 900);
+  });
 }
 
 export function setMode(mode) {
@@ -136,20 +242,23 @@ export function setMode(mode) {
 // a few sparkles twinkle once and a shine sweeps across it; ~2.4 s later (or on a tap) it flies off to the top-left
 // corner, where the sticker shelf lives on the home screen.
 const SPARKS = [[-17, -11, 1.0, 0.35], [16, -14, 0.8, 0.5], [19, 7, 1.0, 0.65], [-18, 10, 0.7, 0.8], [-6, -19, 0.6, 0.95], [8, 18, 0.65, 1.05]];
-export function awardSticker(meta) {
+// opts.quiet: no sounds at all (games that end quietly, e.g. bedtime); opts.sparkle: false skips the sparkle sound
+// (the finale plays its own 3-note resolve instead, so nothing stacks).
+export function awardSticker(meta, { quiet = false, sparkle = true } = {}) {
   return new Promise((resolve) => {
     const el = document.createElement('div');
     el.className = 'award';
     el.style.setProperty('--c', meta.color);
     el.innerHTML = '<div class="glow"></div><div class="stk-wrap"><div class="sticker"><span>' + meta.icon + '</span><i class="shine"></i></div>' +
       SPARKS.map(([x, y, k, d]) => `<i class="tw" style="--x:${x}vmin;--y:${y}vmin;--k:${k};--d:${d}s"></i>`).join('') + '</div>';
+    if (quiet) el.classList.add('quiet');
     ui.appendChild(el);
-    sfx.sparkle && sfx.sparkle();
+    if (!quiet && sparkle) sfx.sparkle && sfx.sparkle();
     let done = false;
     const finish = () => {
       if (done) return; done = true;
       el.classList.add('fly');
-      sfx.whoosh();
+      if (!quiet) sfx.swoosh();
       // fly into the top-left corner (the sticker shelf on the home screen / the home button in a game)
       const w = el.querySelector('.stk-wrap');
       const r = w.getBoundingClientRect();
@@ -159,7 +268,7 @@ export function awardSticker(meta) {
         { transform: `translate(${dx}px, ${dy}px) scale(.16)`, opacity: 0.9 }], { duration: 560, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' });
       setTimeout(() => { el.remove(); resolve(); }, 580);
     };
-    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); sfx.pop(); finish(); });
+    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!quiet) sfx.tap(); finish(); });
     setTimeout(finish, 2600);
   });
 }
@@ -190,7 +299,7 @@ function openParentPanel() {
     <div class="card">
       <h2>Grown-ups</h2>
       <p class="muted">Each lesson is based on a topic from the Marble learning taxonomy. "First try" shows how many rounds were solved with no hint and no wrong choice.</p>
-      <p>Current level: <b>Level ${store.level() + 1}</b> (change it with the 1 · 2 · 3 buttons on the home screen).</p><table><tr><th>Game</th><th>Stickers</th><th>Plays</th><th>Recent: level and first-try</th></tr>${rows}</table>
+      <p>Current level: <b>Level ${store.level() + 1}</b> (change it with the 1 · 2 · 3 buttons on the home screen).</p><table><tr><th>Game</th><th>Stickers</th><th>Plays</th><th>Recent: level and first-try</th></tr>${rows}</table>${store.parentNotes ? store.parentNotes() : ''}
       <label>Sound effects <input type="range" id="pp-vol" min="0" max="1" step="0.05" value="${getVolume()}"></label>
       <label>Music <input type="range" id="pp-music" min="0" max="1" step="0.05" value="${getMusicVolume()}"></label>
       <div class="btns">
@@ -211,3 +320,19 @@ panel.addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // (No bedtime screen: the parent decides when play ends.)
 export function checkSleepy() { return false; }
+
+// ---------- 'Go!' badge: it's your turn now ----------
+const go = document.createElement('div');
+go.id = 'go-badge';
+go.innerHTML = '<span class="g">Go!</span><span class="h">' + HAND_SVG + '</span>';
+ui.appendChild(go);
+let goT = 0;
+// side: 'right' (default, under the parent gear), 'left' (under the home button) or 'bottom' (bottom centre), so it never covers a face
+export function showGo(side = 'right') {
+  clearTimeout(goT);
+  go.classList.toggle('left', side === 'left');
+  go.classList.toggle('bottom', side === 'bottom');
+  go.classList.remove('on'); void go.offsetWidth; go.classList.add('on');
+  // silent: the badge is enough (very few sounds)
+  goT = setTimeout(() => go.classList.remove('on'), 1300);
+}

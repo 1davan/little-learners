@@ -1,26 +1,33 @@
 // Lesson 2 — Apple count. Topics mt_WcfaSfVT33 "One-to-one counting" and mt_dmNvjroCPT "How many in total?".
-// Tap each thing once: its numeral pops up and it tumbles (real physics) into the container, piling up.
-// The last numeral is shown big as the total, the pile jumps once per number (a recount), then a friend eats them.
+// Tap each thing once: its number is said and shown, and it tumbles (real physics) into the container, piling up.
+// The last number is said, the pile jumps once per number (a slow recount with small numerals), then the TOTAL is
+// said with the noun ("Three apples!"). The friend looks at the pile and at her; she taps the friend, it sniffs the
+// pile happily (mmm, tummy pat) and the round's pile goes into a little bowl with its number tag that hops onto the
+// keepsake shelf at the back. The shelf of bowls (one per round) is what the level builds and the finale shows.
 // Each level is its own little world: L1 the orchard (Hedgehog, apples, a wicker basket), L2 the berry patch
 // (Bunny, strawberries and berries, a blue pail), L3 the tea party (Bear, cookies, cupcakes, donuts, a mixing bowl).
 // Every round has a new host (tree, bush, patch, balloons, table, cake stand…) and a twist (ladybug, frog visitor,
-// golden one, super-bouncy, worm), and the payoff rotates (trot, leap, roll, juggle, dance, worm steals it).
+// golden one, super-bouncy).
 import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
-import { makeAnimal, popIn, popOut, hop, wiggle, dance, setFace } from '../engine/actors.js';
+import { makeAnimal, popIn, hop, wiggle, setFace } from '../engine/actors.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
 import { physics } from '../engine/physics.js';
-import { makeWorm, makeHost } from './counting-hosts.js';
+import { makeHost } from './counting-hosts.js';
 import { makeItem, makeLadybug, makeContainer, PLURAL } from './counting-items.js';
 import { frame, calmBackdrop, isTree } from './view-tools.js';
-import { camera, getLook } from '../engine/stage.js';
+import { camera, getLook, project } from '../engine/stage.js';
+import { makeTray } from '../engine/keepsake.js';
+import { prop } from './view-tools.js';
+import { mesh, geo } from '../engine/toon.js';
 
 // Camera per host so the things to count are big: high for the tree's fruit, low for the blanket / patch / tray.
+// (the tree camera stands back a little so both the crown, under the caption, and the whole basket fit)
 const CAMS = {
-  tree: [0, 4.3, 13.6, 0, 3.3, 0], balloons: [0, 4.1, 13.6, 0, 2.9, 0],
+  tree: [0, 4.4, 14.8, 0, 3.0, 0], balloons: [0, 4.1, 13.6, 0, 2.9, 0],
   blanket: [0, 5.2, 13.6, 0, 1.0, 2.4], tray: [0, 5.2, 13.6, 0, 1.0, 2.4], patch: [0, 5.2, 13.6, 0, 1.0, 2.4],
   other: [0, 3.6, 13, 0, 2.1, 0],
 };
@@ -28,14 +35,17 @@ const CAMS = {
 const WORDS = ['One', 'Two', 'Three', 'Four', 'Five'];
 const NUM_COL = ['#ff5a5a', '#ff9f3f', '#5fd068', '#4a90ff', '#a77bff'];
 const BOX = new T.Vector3(0, 0, 3.2);
-const HOME = new T.Vector3(3.9, 0, 2.7); // close to the container, so the eater walks (not slides) over at ~3 units/s
+const HOME = new T.Vector3(4.4, 0, 2.2); // beside the container, behind every host's front things (never in the patch)
 const HOME_RY = -0.6;
+// the keepsake shelf at the back: one bowl per round. It stands on tall posts, so the bowls show over every host
+// (a low shelf vanished behind the bush and the table)
+const SHELF = [0, 2.35, -3.6];
 const tmp = new T.Vector3();
 
 // Per level: who eats, what they eat from, and 6 rounds. Counts are the learning plan (L1 to 3, L2 to 4, L3 to 5).
 // host: tree | blossom | bush | patch | balloons | blanket | table | stand | tray
-// twist: ladybug (sits on one, flies off) | frog (a visitor watches and cheers) | golden (one sparkly one) | bouncy | worm
-// pay: trot | leap | roll | spin | juggle | worm
+// twist: ladybug (sits on one, flies off) | frog (a visitor watches) | golden (one sparkles at the start) | bouncy
+// (the old per-round payoff field `pay` is no longer used: every round ends the same calm way)
 export const PLANS = [
   { eater: 'hedgehog', scale: 1, box: 'basket', rounds: [
     { n: 1, item: 'apple', host: 'tree', pay: 'trot' },
@@ -95,16 +105,26 @@ export default class CountingLesson extends Lesson {
     this.hogLook = null;
     this.fruits = [];
     // no scenery trees / leaf litter between or behind the things to count; weather falls behind the play area
-    calmBackdrop(this.meadow, { hide: (o) => (isTree(o) && Math.abs(o.position.x) < 10) || (o.userData.flower && o.position.z > -6 && Math.abs(o.position.x) < 9) });
+    // (also no snowman / pumpkins at the near flanks: the snowman sat behind Pip and under the Home button)
+    calmBackdrop(this.meadow, { hide: (o) => (isTree(o) && (Math.abs(o.position.x) < 10 || o.position.z > -12)) || (o.userData.flower && o.position.z > -6 && Math.abs(o.position.x) < 9) || (Math.abs(o.position.x) > 8.5 && o.position.z > -9) });
     this.pip.position.set(-6.5, 0, -2);
     frame(...CAMS.other);
+    // the bear's rest pose holds its arms straight out (it read as a T-pose): let them hang
+    const arms = this.hog.userData.arms;
+    if (this.theme.eater === 'bear' && arms && arms.length === 2) { arms[0].rotation.z = -0.9; arms[1].rotation.z = 0.9; }
+    this.tray = makeTray(this, this.totalRounds, SHELF, { style: 'shelf', spacing: 1.3, fit: 1.25 });
+    for (const sx of [-1, 1]) {
+      const post = mesh(geo.box(0.26, SHELF[1] + 0.36, 0.26), 0xa86f3c, { outline: 0.02 });
+      post.position.set(SHELF[0] + sx * (this.totalRounds * 1.3 / 2 - 0.1), (SHELF[1] + 0.36) / 2, SHELF[2]);
+      this.root.add(post);
+    }
   }
 
   // glide the camera to frame this round's host
   frameHost(kind) {
     const to = CAMS[kind] || CAMS.other;
     const p0 = camera.position.clone(), l0 = getLook().clone();
-    this.s.anim(0.5, (e) => frame(
+    this.s.anim(0.8, (e) => frame(
       p0.x + (to[0] - p0.x) * e, p0.y + (to[1] - p0.y) * e, p0.z + (to[2] - p0.z) * e,
       l0.x + (to[3] - l0.x) * e, l0.y + (to[4] - l0.y) * e, l0.z + (to[5] - l0.z) * e), Ease.inOut);
   }
@@ -118,28 +138,23 @@ export default class CountingLesson extends Lesson {
     const R = this.plan[r];
     this.R = R;
     this.n = R.n; this.kind = R.item; this.count = 0;
-    // tidy up the last round: anything not eaten yet (the juggle payoff leaves the pile in the container) is gobbled up
-    // by the eater on the way out; visitors hop away; eaten ones (already shrunk to nothing) are simply removed
-    this.clearLeftovers(this.fruits);
-    if (this.frog) { const fr = this.frog; this.s.anim(0.45, (_, p) => { fr.position.x = -3.3 - p * 7; fr.position.y = Math.abs(Math.sin(p * Math.PI * 3)) * 0.5; }).then(() => this.root.remove(fr)); }
-    for (const v of [this.worm, this.bug]) if (v) this.root.remove(v); // both already gone from view (sunk / flown off)
-    this.worm = this.frog = this.bug = null;
-    if (this.hog.userData.eating) this.homeLater = true; else this.hogHome();
-    // swap the host: the old one pops away as the new one springs up
+    this.hogLook = null;
+    this.feeding = false;
+    // swap the host: the old one settles away slowly (it is not something she made); her counted things are on the shelf
     const old = this.host;
-    if (old) popOut(this.s, old.obj, 0.2).then(() => this.root.remove(old.obj));
+    if (old) this.fadeAway(old.obj, 0.45).then(() => this.root.remove(old.obj));
     this.frameHost(R.host === 'blossom' ? 'tree' : R.host);
     const host = makeHost(R.host === 'blossom' ? 'tree' : R.host, R.host === 'blossom' ? 1 : 0);
     this.host = host;
     this.root.add(host.obj);
-    popIn(this.s, host.obj, host.obj.scale.x, 0.45, { sound: false });
+    popIn(this.s, host.obj, host.obj.scale.x, 0.6, { sound: false });
     sfx[HOST_SND[R.host]]?.();
 
     this.fruits = [];
     const slots = host.slots(R.n, R.layout);
     const goldI = R.twist === 'golden' ? Math.floor(Math.random() * R.n) : -1;
     for (let i = 0; i < R.n; i++) {
-      const f = makeItem(R.item, { golden: i === goldI });
+      const f = makeItem(R.item);
       if (host.decorate) host.decorate(f, i);
       f.position.copy(slots[i]);
       if (host.restY) {
@@ -157,32 +172,38 @@ export default class CountingLesson extends Lesson {
         const y = f.position.y;
         f.position.y = -2;
         f.scale.setScalar(1);
-        this.s.wait(i * 0.07).then(() => { if (!f.userData.counted) this.s.tween(f.position, { y }, 0.55, Ease.out); });
+        this.s.wait(i * 0.15).then(() => { if (!f.userData.counted) this.s.tween(f.position, { y }, 0.85, Ease.out); });
       } else if (R.host === 'patch') {
         // berries poke up out of the leaves
         const y = f.position.y;
         f.position.y = y - 0.6;
-        this.s.wait(0.1 + i * 0.08).then(() => { if (f.userData.counted) return; sfx.pop(); f.scale.setScalar(1); this.s.tween(f.position, { y }, 0.3, Ease.back); });
-      } else popIn(this.s, f, 1, 0.4, { sound: i === 0 }).catch(() => {});
+        this.s.wait(0.1 + i * 0.15).then(() => { if (f.userData.counted) return; f.scale.setScalar(1); this.s.tween(f.position, { y }, 0.5, Ease.out); });
+      } else this.s.wait(i * 0.1).then(() => popIn(this.s, f, 1, 0.5, { sound: false })).catch(() => {});
       f.userData.tap = input.addTap(f, { radius: 0.85, onTap: () => this.tapFruit(f) });
     }
     if (R.twist === 'ladybug') this.addBug();
     if (R.twist === 'frog') this.addFrog();
-    if (R.twist === 'golden') this.s.wait(0.5).then(() => { const g = this.fruits[goldI]; if (g && !g.userData.counted) { sfx.sparkle(); g.getWorldPosition(tmp); fx.float(tmp.clone().add(new T.Vector3(0, 0.7, 0)), '✦', { color: '#ffd23f', size: 6 }); } });
-    this.hogLook = null;
+    // the golden one: it looks like the others (a gold lump was unreadable) and simply sparkles once at the start
+    if (R.twist === 'golden') this.s.wait(0.7).then(() => { const g = this.fruits[goldI]; if (g && !g.userData.counted) { sfx.sparkle(); const stop = fx.halo(g, 0.8); this.s.wait(1.6).then(stop); } });
     // the prompt starts right away; the very first round waits until the fruit is in place for the demo
     if (this.demoDone) { this.cue(); return; }
-    await this.wait(0.45 + R.n * 0.07);
+    await this.wait(0.7 + R.n * 0.15);
     this.cue();
   }
 
-  promptText() { return `Count the ${PLURAL[this.kind] || this.kind + 's'}!`; }
+  promptText() {
+    if (this.n === 1) return `Tap the ${this.kind}!`;
+    return `Count the ${PLURAL[this.kind] || this.kind + 's'}!`;
+  }
 
   addBug() {
     const f = this.fruits[Math.floor(Math.random() * this.fruits.length)];
     const b = makeLadybug();
-    b.position.set(0.05, (f.userData.r || 0.45) + 0.05, 0.15);
-    b.rotation.y = 0.6;
+    const r = f.userData.r || 0.45;
+    // on the fruit's upper-front shoulder (it sat on the stalk), twice as big so it reads
+    b.position.set(0.2, r * 0.75, r * 0.55);
+    b.rotation.set(-0.5, 0.6, 0);
+    b.scale.setScalar(1.9);
     f.add(b);
     f.userData.bug = b;
     this.bug = null;
@@ -192,36 +213,12 @@ export default class CountingLesson extends Lesson {
     const fr = makeAnimal('frog');
     fr.scale.setScalar(0.6);
     fr.userData.baseScale = 0.6;
-    fr.position.set(-3.3, 0, 4.6);
+    fr.position.set(-2.7, 0, 4.0); // clear of Pip and of the container
     fr.rotation.y = 0.5;
     this.root.add(fr);
     this.frog = fr;
     popIn(this.s, fr, 0.6, 0.4, { sound: false });
-    this.s.wait(0.2).then(() => { sfx.ribbit(); hop(this.s, fr, 0.6, 0.35, { sound: true }); });
-  }
-
-  hogHome() {
-    const h = this.hog;
-    if (h.userData.face) setFace(h.userData.face, 'happy');
-    h.rotation.z = 0; h.rotation.x = 0;
-    h.scale.setScalar(this.base);
-    this.s.tween(h.position, { x: HOME.x, y: 0, z: HOME.z }, 0.6, Ease.inOut); // walks back (the motion layer adds steps)
-  }
-
-  // Last round's things that are still about (not eaten) fly into the eater's mouth with a chomp; eaten ones go.
-  clearLeftovers(list) {
-    const h = this.hog, left = list.filter((q) => q.parent && q.scale.x > 0.05);
-    for (const q of list) if (!left.includes(q)) { physics.remove(q); this.root.remove(q); }
-    if (!left.length) return;
-    const mouth = h.position.clone().add(new T.Vector3(0, 1.2 * this.base, 0.4));
-    sfx.chomp();
-    left.forEach((q, k) => {
-      physics.remove(q);
-      const from = q.position.clone(), s0 = q.scale.x;
-      this.s.anim(0.26, (e) => { q.position.lerpVectors(from, mouth, e); q.position.y += Math.sin(e * Math.PI) * 0.8; q.scale.setScalar(Math.max(0.001, s0 * (1 - e))); }, Ease.in)
-        .then(() => this.root.remove(q));
-    });
-    this.s.wait(0.26).then(() => { if (!this.dead) { sfx.mmm(); hop(this.s, h, 0.25, 0.25); } });
+    this.s.wait(0.3).then(() => { sfx.ribbit(); hop(this.s, fr, 0.4, 0.5); });
   }
 
   update(dt, t) {
@@ -233,59 +230,171 @@ export default class CountingLesson extends Lesson {
       else if (this.host?.kind === 'tree') f.rotation.z = Math.sin(t * 2 + f.userData.ph) * 0.06;
       if (f.userData.bug) f.userData.bug.rotation.y = 0.6 + Math.sin(t * 1.5) * 0.8;
     }
-    // the eater keeps an eye on the fruit (turns toward what was just tapped, or the next one)
+    // the eater keeps an eye on the fruit (turns toward what was just tapped, or the next one), but never turns its
+    // back or full profile to the child
     const h = this.hog;
     if (!h.userData.eating) {
       const look = this.hogLook || this.fruits.find((f) => !f.userData.counted);
       let ry = HOME_RY;
-      if (look) { look.getWorldPosition(tmp); ry = Math.atan2(tmp.x - h.position.x, tmp.z - h.position.z + 3) * 0.8; }
+      if (look === 'child') ry = -0.25;
+      else if (look) { look.getWorldPosition(tmp); ry = Math.atan2(tmp.x - h.position.x, tmp.z - h.position.z + 3) * 0.8; }
+      ry = T.MathUtils.clamp(ry, -0.9, 0.9);
       h.rotation.y += (ry - h.rotation.y) * Math.min(1, dt * 6);
-      if (h.userData.head) h.userData.head.rotation.x = Math.max(0, Math.sin(t * 9)) * 0.05 * (Math.sin(t * 0.7) > 0.6 ? 1 : 0);
     }
     if (this.frog && !this.frog.userData.busyAnim) {
       const look = this.hogLook || this.fruits.find((f) => !f.userData.counted);
-      if (look) { look.getWorldPosition(tmp); const ry = Math.atan2(tmp.x - this.frog.position.x, tmp.z - this.frog.position.z + 3) * 0.7; this.frog.rotation.y += (ry - this.frog.rotation.y) * Math.min(1, dt * 5); }
+      if (look && look.isObject3D) { look.getWorldPosition(tmp); const ry = T.MathUtils.clamp(Math.atan2(tmp.x - this.frog.position.x, tmp.z - this.frog.position.z + 3) * 0.7, -0.9, 0.9); this.frog.rotation.y += (ry - this.frog.rotation.y) * Math.min(1, dt * 5); }
     }
+  }
+
+  // a numeral over a counted thing: above it, or beside it when "above" would sit under the caption or the frame top
+  showNumber(at, text, col, size, r = 0.45) {
+    const up = at.clone().add(new T.Vector3(0, r + 0.75, 0));
+    const p = project(up);
+    const where = p.y < innerHeight * 0.2 ? at.clone().add(new T.Vector3(-(r + 0.65), 0.1, 0.2)) : up;
+    fx.float(where, text, { color: col, size });
   }
 
   async tapFruit(f) {
     if (f.userData.counted || this.busy) return;
     f.userData.counted = true;
     input.remove(f.userData.tap);
+    input.lock(650); // one number at a time: a quick double tap never skips a spoken number
     this.clearHints();
     const i = this.count++;
-    sfx.note(i);
     const last = this.count === this.n;
-    // the numeral pops up big over the fruit (no voice: the numeral carries the count); beside a thing on the ground, which springs straight up next
+    // one tap, one number: the number is said every time (she asked for it) and shown over the thing
+    this.say(`${WORDS[i]}!`, { repeat: true });
     f.getWorldPosition(tmp);
-    fx.float(tmp.clone().add(f.position.y < 1.5 ? new T.Vector3(-0.85, 1.0, 0) : new T.Vector3(0, 0.9, 0)), String(i + 1), { color: NUM_COL[i], size: 11 });
-    if (f.userData.golden) { sfx.sparkle(); fx.confetti(tmp.clone(), 18); }
+    this.showNumber(tmp.clone(), String(i + 1), NUM_COL[i], 11, f.userData.r || 0.45);
     this.release(f, i);
-    // the eater follows it with its eyes and gets more excited with every fruit
+    // the eater follows it with its eyes, delighted
     this.hogLook = f;
-    if (!this.hog.userData.eating) {
-      if (this.hog.userData.face) setFace(this.hog.userData.face, 'scared'); // big wide "ooh" eyes
-      this.s.wait(0.35).then(() => { if (!this.hog.userData.eating && this.hog.userData.face) setFace(this.hog.userData.face, 'happy'); });
-      hop(this.s, this.hog, 0.18 + i * 0.07, 0.3);
-      if (i % 2) sfx.squeak();
-    }
-    if (this.frog && i % 2 === 0) this.s.wait(0.15).then(() => { if (this.frog) { sfx.ribbit(); hop(this.s, this.frog, 0.35, 0.3); } });
-    if (!last) { this.say(`${WORDS[i]}!`); return; }
+    if (this.hog.userData.face) { setFace(this.hog.userData.face, 'joy'); this.s.wait(0.35).then(() => { if (this.hog.userData.face && !this.feeding) setFace(this.hog.userData.face, 'happy'); }); }
+    hop(this.s, this.hog, 0.12 + i * 0.04, 0.45);
+    if (!last) return;
 
-    // last one: the total shows big while the fruit lands, the pile jumps once per number, then the payoff
-    const n = this.n, R = this.R;
-    this.success(new T.Vector3(BOX.x, 2, BOX.z), `${WORDS[n - 1]}!`);
-    this.s.wait(0.42).then(() => {
-      fx.float(new T.Vector3(BOX.x, 2.9, BOX.z), String(n), { color: '#ffd23f', size: 20 });
-      sfx.twinkle();
-    });
-    // recount: once everything has landed, the pile jumps once per number
-    if (R.pay !== 'juggle') this.fruits.forEach((q, k) => this.s.wait(0.68 + k * 0.05).then(() => { if (physics.has(q)) physics.impulse(q, { x: 0, y: 2.2, z: 0 }); sfx.note(k); }));
-    this.payoff(R).then(() => { if (this.homeLater) { this.homeLater = false; this.hogHome(); } });
+    // last one: the pile jumps once per number (a slow, silent recount with small numerals), then the total is said.
+    // The friend (and the basket) can be tapped AT ONCE (rule 0); the round moves on when she has tapped it and the
+    // recount has finished jumping.
+    this.recountP = this.recount();
+    this.feedP = this.awaitFeed();
+    this.success(new T.Vector3(BOX.x, 2, BOX.z), '', { payoff: Promise.all([this.recountP, this.feedP]), still: 0 });
   }
-  afterSuccess() { return this.wait(0.3); }
+
+  // her tap on the friend or the basket (a slow hand demo the first time; it happens by itself 5 s after the recount)
+  awaitFeed() {
+    const h = this.hog;
+    return new Promise((res) => {
+      let done = false;
+      const fin = (v) => { if (done) return; done = true; this.endWaiting = false; input.remove(t1); input.remove(t2); stopHalo(); res(v); };
+      this.endStep = () => fin(true); this.endWaiting = true; // (autoplay: tools/autoplay.js taps the friend)
+      const t1 = input.addTap(h, { radius: 1.3, onTap: () => fin(true) });
+      const t2 = input.addTap(this.box.obj, { radius: 1.3, onTap: () => fin(true) });
+      const stopHalo = fx.halo(h, 1.1);
+      if (!this.feedShown) {
+        this.feedShown = true;
+        this.s.wait(0.9).then(() => { if (done) return; const hp = h.getWorldPosition(new T.Vector3()); hp.y += 0.9 * this.base; fx.ghostHand(hp); });
+      }
+      this.recountP.then(() => this.s.wait(5)).then(() => fin(false));
+    });
+  }
+
+  async recount() {
+    const n = this.n;
+    await this.wait(0.9); // everything has landed
+    for (let k = 0; k < n; k++) {
+      if (this.dead) return;
+      const q = this.fruits[k];
+      if (physics.has(q)) physics.impulse(q, { x: 0, y: 2.0, z: 0 });
+      q.getWorldPosition(tmp);
+      fx.float(new T.Vector3(BOX.x + (k - (n - 1) / 2) * 0.55, 2.6, BOX.z), String(k + 1), { color: NUM_COL[k], size: 7 });
+      await this.wait(0.45);
+    }
+    if (this.dead) return;
+    const total = `${WORDS[n - 1]} ${n === 1 ? this.kind : PLURAL[this.kind] || this.kind + 's'}!`;
+    this.say(total, { repeat: true });
+    if (this.hog.userData.face) setFace(this.hog.userData.face, 'joy');
+  }
+
+  // The round's ending (SATISFACTION 2, her action): the friend looks at the pile, then at her; she taps the friend
+  // (or the basket) and it sniffs the pile happily - mmm, a tummy pat - and the pile goes into a little bowl with the
+  // round's number, which hops onto the keepsake shelf at the back and stays there for the level.
+  async afterSuccess() {
+    const tapped = await this.feedP; // (already settled: success() waited for the recount and her tap)
+    this.recountP = this.feedP = null;
+    if (this.dead) return;
+    // The friend sniffs the pile happily (mmm, a joyful face, a tummy wiggle) and the pile goes into its bowl and onto
+    // the shelf, all WHILE the next host springs up (nothing here is awaited: she can count again at once).
+    const h = this.hog, b = this.base, x0 = HOME.x;
+    const list = this.fruits.slice(), n = this.n, kind = this.kind;
+    this.feeding = true;
+    sfx.mmm();
+    if (h.userData.face) setFace(h.userData.face, 'joy');
+    this.hogLook = this.box.obj;
+    this.s.anim(0.6, (_, p) => { const k = Math.sin(p * Math.PI); h.position.x = x0 - k * 0.35; h.rotation.x = k * 0.18; })
+      .then(() => { h.position.x = x0; h.rotation.x = 0; return this.s.anim(0.5, (_, p) => { const k = Math.sin(p * Math.PI * 2) * 0.06 * (1 - p); h.scale.set(b * (1 + k), b * (1 - k), b * (1 + k)); }); })
+      .then(() => { h.scale.setScalar(b); if (h.userData.face) setFace(h.userData.face, 'happy'); this.feeding = false; this.hogLook = null; });
+    this.toShelf(list, n, kind);
+    // the frog visitor walks off now, so it's gone before the next round's things appear where it stood
+    if (this.frog) { const fr = this.frog; this.frog = null; this.walkTo(fr, new T.Vector3(-11, 0, fr.position.z), { speed: 2.6, faceCamera: false }).then(() => this.root.remove(fr)); }
+    if (this.bug) { this.root.remove(this.bug); this.bug = null; }
+    void tapped;
+  }
+
+  // the counted pile settles into a little bowl (in counting order) and the bowl hops onto the next shelf spot
+  async toShelf(list, n, kind) {
+    const bowl = this.makeBowl(n);
+    const c = this.box.phys;
+    bowl.position.set(BOX.x, c.y + c.h + 0.2, BOX.z);
+    this.root.add(bowl);
+    const spots = bowlSpots(n);
+    const moves = list.map((q, k) => {
+      physics.remove(q);
+      q.userData.counted = true;
+      bowl.userData.inner.attach(q);
+      const from = q.position.clone(), q0 = q.quaternion.clone(), s0 = q.scale.x, to = spots[k];
+      return this.wait(k * 0.08).then(() => this.s.anim(0.55, (e, p) => {
+        q.position.lerpVectors(from, to, e); q.position.y += Math.sin(p * Math.PI) * 0.5;
+        q.quaternion.slerpQuaternions(q0, new T.Quaternion(), e);
+        q.scale.setScalar(s0 + (0.5 - s0) * e);
+      }, Ease.inOut));
+    });
+    await Promise.all(moves);
+    await this.tray.add(bowl, { dur: 1.1, arc: 2.6 }); // a high arc: it clears the host on its way to the shelf
+    // a poke on a bowl says its own total again
+    this.pokeable(bowl, { fn: () => { input.press(bowl, 140); this.say(`${WORDS[n - 1]} ${n === 1 ? kind : PLURAL[kind] || kind + 's'}!`, { repeat: true }); } });
+  }
+
+  makeBowl(n) {
+    const g = new T.Group();
+    const pm = prop('prop_woodbowl');
+    if (pm) {
+      pm.updateMatrixWorld(true);
+      const bb = new T.Box3().setFromObject(pm), sz = bb.getSize(new T.Vector3());
+      const k = 1.15 / Math.max(sz.x, sz.z);
+      pm.scale.multiplyScalar(k);
+      pm.position.y = -bb.min.y * k;
+      g.add(pm);
+      g.userData.top = sz.y * k;
+    } else {
+      const b = mesh(geo.cyl(0.5, 0.36, 0.3, 24, true), 0xc98b4f, { outline: 0.02 });
+      b.position.y = 0.15; g.add(b);
+      g.userData.top = 0.3;
+    }
+    const inner = new T.Group();
+    inner.position.y = Math.max(0.12, g.userData.top * 0.55);
+    g.add(inner);
+    g.userData.inner = inner;
+    // the round's number on a round tag at the bowl's front
+    const tag = numberTag(String(n), NUM_COL[n - 1]);
+    tag.position.set(0, 0.2, 0.62);
+    g.add(tag);
+    return g;
+  }
 
   // How a tapped thing leaves its host, then it is thrown with real physics into the container and piles up.
+  // One sound per tap: the pluck on the level's rising notes (a balloon's own pop instead of a note).
   async release(f, i) {
     const s = this.s, kind = this.R.host, R = this.R;
     s.stop(f.position); s.stop(f.scale);
@@ -293,54 +402,46 @@ export default class CountingLesson extends Lesson {
     f.scale.setScalar(1);
     if (f.userData.bug) this.flyBug(f);
     if (kind === 'balloons' && f.userData.balloon) {
-      // POP! the balloon bursts and the fruit drops
+      // pop! the balloon bursts and the fruit drops
       const b = f.userData.balloon;
       sfx.pop();
-      f.getWorldPosition(tmp);
-      fx.confetti(tmp.clone().add(new T.Vector3(0, 1.9, 0)), 10);
-      await s.anim(0.08, (_, p) => b.scale.setScalar(1 + p * 0.4));
+      await s.anim(0.18, (_, p) => b.scale.setScalar(1 + p * 0.4));
       f.remove(b);
       f.userData.balloon = null;
-    } else if (kind === 'bush') {
-      sfx.rustle();
-      wiggle(s, this.host.obj, 0.03, 0.3);
-      await s.tween(f.position, { y: f.position.y + 0.6 }, 0.1, Ease.out);
-    } else if (kind === 'tree' || kind === 'blossom') {
-      // a little pluck: stretch down, snap
-      await s.anim(0.1, (_, p) => f.scale.set(1 - p * 0.1, 1 + p * 0.15, 1 - p * 0.1));
-      f.scale.setScalar(1);
-      wiggle(s, this.host.obj, 0.015, 0.3);
-      sfx.tick();
-    } else if (kind === 'patch') {
-      // pull! it stretches, then pops out of the ground with a puff of soil
-      await s.anim(0.12, (_, p) => f.scale.set(1 - p * 0.15, 1 + p * 0.3, 1 - p * 0.15));
-      f.scale.setScalar(1);
-      sfx.pop();
-      f.getWorldPosition(tmp);
-      fx.float(tmp.clone().add(new T.Vector3(0, -0.3, 0)), '·•·', { color: '#8a5a3a', size: 5 });
     } else {
-      // on a plate / table / stand: a little hop up first
-      sfx.tick();
-      await s.anim(0.1, (_, p) => { f.position.y = f.userData.home.y + Math.sin(p * Math.PI / 2) * 0.3; });
+      sfx.step(i, Math.max(3, this.n));
+      if (kind === 'bush') {
+        wiggle(s, this.host.obj, 0.03, 0.3);
+        await s.tween(f.position, { y: f.position.y + 0.6 }, 0.3, Ease.out);
+      } else if (kind === 'tree' || kind === 'blossom') {
+        // a little pluck: stretch down on its stalk, snap, the branch springs back
+        await s.anim(0.25, (_, p) => f.scale.set(1 - p * 0.1, 1 + p * 0.15, 1 - p * 0.1));
+        f.scale.setScalar(1);
+        wiggle(s, this.host.obj, 0.015, 0.4);
+      } else if (kind === 'patch') {
+        // pull! it stretches, then pops out of the ground
+        await s.anim(0.3, (_, p) => f.scale.set(1 - p * 0.15, 1 + p * 0.3, 1 - p * 0.15));
+        f.scale.setScalar(1);
+      } else {
+        // on a plate / table / stand: a little hop up first
+        await s.anim(0.25, (_, p) => { f.position.y = f.userData.home.y + Math.sin(p * Math.PI / 2) * 0.3; });
+      }
     }
     if (this.dead) return;
     const c = this.box.phys;
     // things on the ground (patch, blanket, tray) spring straight up first, so the throw comes down over the rim
-    if (f.position.y < 1.5) { sfx.boing2(); await s.tween(f.position, { y: c.y + c.h + 1.3 }, 0.14, Ease.out); }
+    if (f.position.y < 1.5) await s.tween(f.position, { y: c.y + c.h + 1.3 }, 0.35, Ease.out);
     if (this.dead) return;
     const target = new T.Vector3(BOX.x + (i - (this.n - 1) / 2) * 0.22 + (Math.random() - 0.5) * 0.15, c.y + c.h + 1.05, BOX.z + (Math.random() - 0.5) * 0.3);
     const bouncy = R.twist === 'bouncy';
-    if (bouncy) sfx.boing();
-    else sfx.swoosh();
-    const opts = { ...(f.userData.hull ? { shape: 'hull' } : { r: f.userData.r || 0.45 }), bounce: bouncy ? 0.62 : 0.3, friction: 0.8, time: bouncy ? 0.5 : 0.42, arc: kind === 'tree' || kind === 'blossom' ? 0.3 : 1.4, maxT: 1.0 };
+    // treats (hull shapes) only spin about their up axis: a cupcake never lands upside-down
+    const opts = { ...(f.userData.hull ? { shape: 'hull', rot: [false, true, false] } : { r: f.userData.r || 0.45 }), bounce: bouncy ? 0.62 : 0.3, friction: 0.8, time: bouncy ? 0.75 : 0.65, arc: kind === 'tree' || kind === 'blossom' ? 0.3 : 1.4, maxT: 1.4 };
     await this.throwIn(f, target, opts);
-    // the container gives a squashy "got it" when it lands
+    // the container gives a soft squashy "got it" when it lands (no extra sound)
     s.wait(0.28).then(() => {
       if (this.dead) return;
-      if (bouncy) sfx.highBoing(); else sfx.pop();
-      if (f.userData.golden) { sfx.twinkle(); fx.float(new T.Vector3(BOX.x, 2.2, BOX.z), '★', { color: '#ffd23f', size: 9 }); }
       const b = this.box.obj;
-      s.anim(0.2, (_, p) => { const k = Math.sin(p * Math.PI) * 0.08; b.scale.set(1 + k, 1 - k, 1 + k); }).then(() => b.scale.setScalar(1));
+      s.anim(0.35, (_, p) => { const k = Math.sin(p * Math.PI) * 0.06; b.scale.set(1 + k, 1 - k, 1 + k); }).then(() => b.scale.setScalar(1));
     });
   }
 
@@ -360,8 +461,7 @@ export default class CountingLesson extends Lesson {
       if (this.dead || !physics.has(f) || tries <= 0) return;
       f.getWorldPosition(tmp);
       if (Math.hypot(tmp.x - BOX.x, tmp.z - BOX.z) > c.r + 0.15) {
-        sfx.boing2();
-        this.throwIn(f, new T.Vector3(BOX.x, c.y + c.h + 1.5, BOX.z), { ...opts, bounce: 0.2, time: 0.5, maxT: 0.7 }, tries - 1);
+        this.throwIn(f, new T.Vector3(BOX.x, c.y + c.h + 1.5, BOX.z), { ...opts, bounce: 0.2, time: 0.6, maxT: 0.9 }, tries - 1);
       }
     });
   }
@@ -370,110 +470,19 @@ export default class CountingLesson extends Lesson {
     const b = f.userData.bug;
     f.userData.bug = null;
     b.getWorldPosition(tmp);
+    const ws = b.getWorldScale(new T.Vector3()).x;
     f.remove(b);
     b.position.copy(tmp);
+    b.scale.setScalar(ws);
     this.root.add(b);
     this.bug = b;
     sfx.buzz();
-    const p0 = tmp.clone(), dir = p0.x > 0 ? 1 : -1;
-    this.s.anim(0.9, (_, p) => {
-      b.position.set(p0.x + dir * p * 5, p0.y + p * 4 + Math.sin(p * 18) * 0.25, p0.z + Math.cos(p * 14) * 0.3);
+    // it flies off sideways and a little up (never out through the top of the frame, never onto the friend)
+    const p0 = tmp.clone(), dir = p0.x > 0 ? -1 : 1, top = Math.min(6, p0.y + 2.2);
+    this.s.anim(1.6, (_, p) => {
+      b.position.set(p0.x + dir * p * 7, p0.y + (top - p0.y) * Math.sin(p * Math.PI / 2) + Math.sin(p * 12) * 0.2, p0.z - p * 2 + Math.cos(p * 9) * 0.3);
       b.rotation.z = Math.sin(p * 30) * 0.4;
     }).then(() => { if (this.bug === b) { this.root.remove(b); this.bug = null; } });
-  }
-
-  // Gobble: every counted thing flies into the eater's mouth (physics off), cheeks puff, a heart.
-  chomp(spot) {
-    const s = this.s, h = this.hog;
-    sfx.chomp();
-    const mouth = new T.Vector3(spot.x - 0.3, 1.2 * this.base, spot.z + 0.4);
-    this.fruits.forEach((q, k) => s.wait(k * 0.04).then(() => {
-      physics.remove(q);
-      const from = q.position.clone();
-      s.anim(0.22, (e) => { q.position.lerpVectors(from, mouth, e); q.scale.setScalar(Math.max(0.001, 1 - e)); }, Ease.in);
-    }));
-    fx.float(new T.Vector3(spot.x, 2.2, spot.z), '♥', { color: '#ff7aa8', size: 7 });
-    const b = this.base;
-    s.anim(0.25, (_, p) => { const k = Math.sin(p * Math.PI) * 0.18; h.scale.set(b * (1 + k), b * (1 - k * 0.5), b * (1 + k)); }).then(() => { h.scale.setScalar(b); sfx.mmm(); wiggle(s, h, 0.2, 0.3); });
-  }
-
-  // The payoff for a correct total, different every round (about 0.9 s, runs during the praise).
-  async payoff(R) {
-    const s = this.s, h = this.hog, u = h.userData, b = this.base;
-    u.eating = true;
-    let how = R.pay;
-    if (how === 'roll' && this.theme.eater !== 'hedgehog') how = 'spin';
-    const spot = new T.Vector3(BOX.x + 1.8 + 1.0 * b, 0, BOX.z - 0.1); // beside the rim, never inside it
-    h.rotation.y = -1.2;
-    if (this.frog) { const fr = this.frog; s.wait(0.5).then(() => { sfx.ribbit(); hop(s, fr, 1.0, 0.45, { sound: true }); }); }
-    if (how === 'juggle') {
-      // the container bounces and everything inside jumps up and tumbles back down; the eater cheers
-      await s.wait(0.72);
-      sfx.boing();
-      const box = this.box.obj;
-      s.anim(0.3, (_, p) => { const k = Math.sin(p * Math.PI) * 0.2; box.scale.set(1 + k, 1 - k, 1 + k); box.position.y = Math.sin(p * Math.PI) * 0.25; }).then(() => { box.scale.setScalar(1); box.position.y = 0; });
-      for (const q of this.fruits) physics.poke(q, 0.9);
-      if (u.face) setFace(u.face, 'happy');
-      await hop(s, h, 0.9, 0.4, { sound: true });
-      sfx.giggle();
-      u.eating = false;
-      return;
-    }
-    await s.wait(0.42);
-    const x0 = h.position.x, z0 = h.position.z;
-    const go = (fn, dur = 0.42, ease) => s.anim(dur, (e, p) => { h.position.x = x0 + (spot.x - x0) * e; h.position.z = z0 + (spot.z - z0) * e; fn(e, p); }, ease);
-    if (how === 'worm') this.wormGag();
-    if (how === 'roll') {
-      sfx.boing2();
-      await go((e, p) => { h.rotation.z = e * Math.PI * 2; const k = 1 - Math.sin(p * Math.PI) * 0.3; h.scale.set(b * 1.1, b * k, b * 1.1); }, 0.35, Ease.inOut);
-      h.rotation.z = 0; h.scale.setScalar(b);
-    } else if (how === 'leap') {
-      sfx.highBoing();
-      await go((e, p) => { h.position.y = Math.sin(p * Math.PI) * 1.4; });
-      h.position.y = 0;
-      sfx.land();
-    } else {
-      sfx.patter();
-      await go((e, p) => { h.position.y = Math.abs(Math.sin(p * Math.PI * 4)) * 0.15; });
-      h.position.y = 0;
-    }
-    if (this.dead) return;
-    if (how === 'worm') {
-      // the worm got there first! the eater jumps back in surprise, then giggles
-      if (u.face) setFace(u.face, 'scared');
-      sfx.gasp();
-      await s.anim(0.3, (_, p) => { h.position.x = spot.x + Math.sin(p * Math.PI / 2) * 0.8; h.position.y = Math.sin(p * Math.PI) * 0.6; });
-      h.position.y = 0;
-      if (u.face) setFace(u.face, 'happy');
-      sfx.giggle();
-    } else {
-      this.chomp(spot);
-      if (how === 'spin') { await s.wait(0.2); sfx.twinkle(); await dance(s, h); }
-    }
-    u.eating = false;
-  }
-
-  wormGag() {
-    const w = makeWorm();
-    w.position.set(BOX.x - 0.3, this.box.phys.y, BOX.z);
-    w.scale.setScalar(0.001);
-    this.root.add(w);
-    this.worm = w;
-    const s = this.s, segs = w.userData.segs;
-    sfx.squeak();
-    const y0 = w.position.y;
-    s.anim(0.3, (_, p) => { w.scale.setScalar(Math.max(0.001, Ease.back(p) * 0.9)); w.position.y = y0 + p * 0.5; });
-    s.anim(1.1, (_, p) => {
-      segs.forEach((q, k) => { q.position.x = Math.sin(p * 14 - k * 0.9) * 0.08; });
-      w.userData.head.position.x = Math.sin(p * 14 - 4 * 0.9) * 0.1;
-      w.rotation.z = Math.sin(p * 10) * 0.2;
-    });
-    s.wait(0.4).then(() => {
-      sfx.chomp();
-      for (const q of this.fruits) { physics.remove(q); s.tween(q.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.2, Ease.in); }
-      fx.float(new T.Vector3(BOX.x, 2.6, BOX.z), '♥', { color: '#ff7aa8', size: 7 });
-    });
-    s.wait(0.9).then(() => { if (this.worm === w) { sfx.boing2(); s.tween(w.position, { y: -0.8 }, 0.3, Ease.in); } });
   }
 
   showHint(glow = true) {
@@ -481,10 +490,53 @@ export default class CountingLesson extends Lesson {
     if (!next) return;
     if (glow) this.addHalo(next, 0.85);
     wiggle(this.s, next, 0.4, 0.8);
-    fx.ghostHand(next.position.clone());
+    // the fingertip rests on the thing's lower edge, so the hand does not cover it
+    const p = next.getWorldPosition(new T.Vector3());
+    p.y -= (next.userData.r || 0.45) * 0.7;
+    fx.ghostHand(p);
   }
 
+  // ---- the ending: the shelf of bowls she filled; each bowl says its own total when poked ----
+  creationView() { return this.tray.view(); }
+  creationObjects() { return []; } // the bowls are already pokeable (they say their totals)
   onFinale() {
-    hop(this.s, this.hog, 0.8).then(() => hop(this.s, this.hog, 0.8));
+    this.fadeAway(this.box.obj, 0.5); // the empty container and the last host step aside: the photo is the shelf
+    if (this.host) this.fadeAway(this.host.obj, 0.5);
+    const h = this.hog;
+    if (h.userData.face) setFace(h.userData.face, 'joy');
+    this.hogLook = this.tray.group;
   }
+}
+
+// where n things sit in a bowl (local to the bowl's inner group): a ring, the first in front
+function bowlSpots(n) {
+  if (n === 1) return [new T.Vector3(0, 0.05, 0)];
+  const out = [];
+  const r = n <= 3 ? 0.24 : 0.3;
+  for (let k = 0; k < n; k++) {
+    const a = Math.PI + (k / n) * Math.PI * 2;
+    out.push(new T.Vector3(Math.sin(a) * r, 0.05 + (k % 2) * 0.04, -Math.cos(a) * r * 0.7));
+  }
+  return out;
+}
+
+// a round number tag (a canvas sprite that always faces the camera)
+const tagCache = {};
+function numberTag(text, col) {
+  const key = text + col;
+  if (!tagCache[key]) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff8ec'; x.beginPath(); x.arc(64, 64, 58, 0, Math.PI * 2); x.fill();
+    x.lineWidth = 8; x.strokeStyle = '#3a2838'; x.stroke();
+    x.fillStyle = col; x.font = 'bold 84px "Baloo 2", "Arial Rounded MT Bold", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, 64, 70);
+    const tex = new T.CanvasTexture(c);
+    tex.userData = { shared: true };
+    tagCache[key] = new T.SpriteMaterial({ map: tex, depthWrite: false });
+    tagCache[key].userData = { shared: true };
+  }
+  const sp = new T.Sprite(tagCache[key]);
+  sp.scale.setScalar(0.42);
+  return sp;
 }

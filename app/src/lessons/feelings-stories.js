@@ -27,20 +27,20 @@ export async function feel(ctx, emo) {
   setFace(pip.userData.face, emo);
   if (emo === 'sad') {
     sfx.aww(); fx.float(head, '💧', { size: 5 });
-    await s.tween(pip.userData.head.rotation, { x: 0.3 }, 0.35);
+    await s.tween(pip.userData.head.rotation, { x: 0.3 }, 0.4, Ease.inOut);
   } else if (emo === 'angry') {
     sfx.grr(); fx.float(head, '💢', { size: 5 });
-    for (let k = 0; k < 3; k++) { await hop(s, pip, 0.2, 0.17); sfx.thunk(); }
+    for (let k = 0; k < 2; k++) await hop(s, pip, 0.2, 0.26);
   } else if (emo === 'scared') {
     sfx.gasp(); fx.float(head, '❗', { color: '#ff5a5a', size: 6 });
-    await shake(s, pip, 0.14, 0.55);
+    await shake(s, pip, 0.1, 0.45);
   } else {
     sfx.giggle(); fx.float(head, '♥', { color: '#ff6f9c', size: 6 });
-    await hop(s, pip, 0.6, 0.38, { sound: true });
+    await hop(s, pip, 0.5, 0.45);
   }
 }
 
-// Put a set of tumbled physics props back where they started (quick, with a note per piece).
+// Put a set of tumbled physics props back where they started (one by one, with a note per piece).
 // each piece arcs back out in front of Pip (never through him) and lands on its home spot
 async function rebuild(ctx, items) {
   for (let i = 0; i < items.length; i++) {
@@ -48,7 +48,7 @@ async function rebuild(ctx, items) {
     physics.remove(o);
     const p0 = o.position.clone(), q0 = o.quaternion.clone();
     sfx.note(i * 2);
-    await ctx.s.anim(0.16, (e) => { o.position.lerpVectors(p0, p, e); o.position.y += Math.sin(e * Math.PI) * 0.8; o.position.z += Math.sin(e * Math.PI) * 1.1; o.quaternion.slerpQuaternions(q0, q, e); }, Ease.out);
+    await ctx.s.anim(0.38, (e) => { o.position.lerpVectors(p0, p, e); o.position.y += Math.sin(e * Math.PI) * 0.8; o.position.z += Math.sin(e * Math.PI) * 1.1; o.quaternion.slerpQuaternions(q0, q, e); }, Ease.out);
   }
   for (const { o } of items) ctx.dyn(o, { shape: 'box', bounce: 0.2 });
 }
@@ -59,7 +59,6 @@ function tower(ctx, x, z, makers, h) {
   makers.forEach((mk, i) => {
     const o = mk();
     o.position.set(x + (i % 2 ? 0.04 : -0.04), TOP + h / 2 + i * (h + 0.02), z);
-    o.scale.setScalar(0.001);
     ctx.props.add(o);
     items.push({ o, p: o.position.clone(), q: o.quaternion.clone() });
   });
@@ -75,11 +74,14 @@ export const STORIES = {
     ctx.props.add(gift);
     ctx.dyn(gift, { shape: 'box', spin: false, bounce: 0.35 });
     sfx.swoosh();
-    physics.toss(gift, V(P.x + 1.7, TOP, P.z + 0.6), { arc: 0, time: 0.4, maxT: 0.8, spin: 0 });
-    await ctx.wait(0.75);
+    gift.position.y = P.y + 4.5;
+    physics.toss(gift, V(P.x + 1.7, TOP, P.z + 0.6), { arc: 0, time: 0.45, maxT: 0.7, spin: 0 });
+    await ctx.wait(0.7);
     physics.remove(gift);
-    sfx.tick(); await wiggle(ctx.s, gift, 0.2, 0.22);
-    sfx.tick(); await wiggle(ctx.s, gift, 0.2, 0.22);
+    // it sits on the blanket (it used to stay wherever the physics left it, sometimes in the air beside Pip)
+    { const y0 = gift.position.y, q0 = gift.quaternion.clone(), qI = new T.Quaternion();
+      await ctx.s.anim(0.15, (e) => { gift.position.y = y0 + (TOP - y0) * e; gift.quaternion.slerpQuaternions(q0, qI, e); }); }
+    await wiggle(ctx.s, gift, 0.2, 0.3);
     const lid = gift.userData.lid;
     ctx.props.attach(lid);
     ctx.dyn(lid, { shape: 'box', bounce: 0.4 });
@@ -88,11 +90,9 @@ export const STORIES = {
     const star = makeStar();
     star.position.y = 0.9;
     gift.add(star);
-    ctx.s.tween(star.position, { y: 2.0 }, 0.35, Ease.back);
-    fx.confetti(wpos(gift).add(V(0, 1.4, 0)), 18);
-    sfx.twinkle();
+    ctx.s.tween(star.position, { y: 2.0 }, 0.6, Ease.out);
     await feel(ctx, 'happy');
-    return () => { sfx.sparkle(); return ctx.s.anim(0.6, (_, p) => { star.rotation.y = p * Math.PI * 4; star.position.y = 2.0 + Math.sin(p * Math.PI) * 0.6; }); };
+    return () => { return ctx.s.anim(1.0, (_, p) => { star.rotation.y = p * Math.PI * 4; star.position.y = 2.0 + Math.sin(p * Math.PI) * 0.6; }); };
   },
 
   // sad: the ice-cream scoop rolls off the cone and splats
@@ -102,24 +102,22 @@ export const STORIES = {
     ice.add(cone, scoop);
     ice.position.set(P.x + 1.2, P.y, P.z + 0.7);
     ctx.props.add(ice);
-    await popIn(ctx.s, ice, 1, 0.3);
-    sfx.mmm();
-    await ctx.s.tween(ice.rotation, { z: -0.45 }, 0.25, Ease.in);
+    await popIn(ctx.s, ice, 1, 0.3, { sound: false });
+    await ctx.wait(0.1);
+    await ctx.s.tween(ice.rotation, { z: -0.45 }, 0.35, Ease.inOut);
     ctx.props.attach(scoop);
     ctx.dyn(scoop, { shape: 'ball', r: 0.38, bounce: 0.2 });
     physics.impulse(scoop, { x: 2.4, y: 1.5, z: 0.3 });
-    sfx.whoosh();
-    await ctx.wait(0.5);
+    await ctx.wait(0.45);
     sfx.splash();
     await feel(ctx, 'sad');
     // fix: the cone stands up and a fresh scoop drops on with a bounce
     return async () => {
-      ctx.s.tween(ice.rotation, { z: 0 }, 0.2);
-      popOut(ctx.s, scoop, 0.15);
+      ctx.s.tween(ice.rotation, { z: 0 }, 0.5, Ease.inOut);
+      popOut(ctx.s, scoop, 0.35);
       const ns = makeScoop(C.pink); ns.position.y = 3.5;
       ice.add(ns);
-      sfx.whoosh();
-      await ctx.s.tween(ns.position, { y: 1.05 }, 0.45, Ease.bounce);
+      await ctx.s.tween(ns.position, { y: 1.05 }, 0.8, Ease.bounce);
       sfx.pop();
     };
   },
@@ -128,16 +126,16 @@ export const STORIES = {
   cupTower: async (ctx, P) => {
     const x = P.x + 1.9, z = P.z + 0.6;
     const items = tower(ctx, x, z, [() => makeCup(C.blue), () => makeCup(C.yellow), () => makeCup(C.red), () => makeCup(C.green)], 0.6);
-    for (let i = 0; i < items.length; i++) { await popIn(ctx.s, items[i].o, 1, 0.14, { sound: false }); sfx.note(i); }
+    await Promise.all(items.map(({ o }) => popIn(ctx.s, o, 1, 0.25, { sound: false }))); // the tower stands at once
     for (const { o } of items) ctx.dyn(o, { shape: 'box', bounce: 0.2 });
+    await ctx.wait(0.15);
     const ball = makeBall(0.4, [C.orange, C.white]);
-    ball.position.set(P.x + 9, P.y + 2.5, z);
+    ball.position.set(P.x + 6, P.y + 2.0, z);
     ctx.props.add(ball);
-    sfx.boing();
-    physics.toss(ball, V(x, TOP + 1.3, z), { arc: 1.5, time: 0.5, maxT: 0.8, bounce: 0.6, mass: 2 });
-    await ctx.wait(0.55);
+    physics.toss(ball, V(x, TOP + 1.3, z), { arc: 1.0, time: 0.55, maxT: 0.8, bounce: 0.6, mass: 2 });
+    await ctx.wait(0.6);
     sfx.crunch();
-    await ctx.wait(0.35);
+    await ctx.wait(0.25);
     await feel(ctx, 'angry');
     return () => rebuild(ctx, items);
   },
@@ -147,24 +145,23 @@ export const STORIES = {
     const balloon = makeBalloon(C.blue);
     ctx.props.add(balloon);
     balloon.position.set(P.x + 1.3, P.y + 2.6, P.z + 0.3);
-    await popIn(ctx.s, balloon, 1, 0.3);
-    await ctx.wait(0.2);
+    await popIn(ctx.s, balloon, 1, 0.3, { sound: false });
+    await ctx.wait(0.15);
     sfx.whoosh();
-    ctx.s.anim(2.0, (e, p) => { balloon.position.y = P.y + 2.6 + e * 11; balloon.position.x = P.x + 1.3 + Math.sin(p * 9) * 0.5 + p * 3; }, Ease.in);
-    await hop(ctx.s, ctx.pip, 0.8, 0.4);
+    ctx.s.anim(3.0, (e, p) => { balloon.position.y = P.y + 2.6 + e * 11; balloon.position.x = P.x + 1.3 + Math.sin(p * 6) * 0.5 + p * 3; }, Ease.in);
+    await hop(ctx.s, ctx.pip, 0.6, 0.45);
     await feel(ctx, 'sad');
     return async () => {
       const nb = makeBalloon(C.red);
       nb.position.set(P.x + 1.3, P.y + 2.6, P.z + 0.3);
       ctx.props.add(nb);
-      sfx.pop();
-      await popIn(ctx.s, nb, 1, 0.35);
+      await popIn(ctx.s, nb, 1, 0.6);
     };
   },
 
   // scared: a thunder cloud rolls in and the rain comes down
   thunder: async (ctx, P) => {
-    const cloud = makeCloud(P.x - 12, P.y + 4.4, P.z + 0.2, 1);
+    const cloud = makeCloud(P.x - 7, P.y + 3.7, P.z + 0.2, 1); // low enough to stay clear of the caption
     const grey = toon(0x8790a8);
     cloud.traverse((o) => { if (o.isMesh && !o.userData.outline) o.material = grey; });
     const bolt = makeBolt();
@@ -172,55 +169,51 @@ export const STORIES = {
     bolt.visible = false;
     cloud.add(bolt);
     ctx.props.add(cloud);
-    sfx.rustle();
-    await ctx.s.tween(cloud.position, { x: P.x + 0.6 }, 0.7, Ease.out);
+    await ctx.s.tween(cloud.position, { x: P.x + 0.6 }, 0.9, Ease.inOut);
     bolt.visible = true;
     document.body.classList.add('flash');
     sfx.thunder();
     setTimeout(() => document.body.classList.remove('flash'), 180);
-    sfx.patter();
     const drops = [];
     for (let i = 0; i < 9; i++) {
       const d = makeRaindrop();
-      d.position.set(P.x + 0.6 + (Math.random() - 0.5) * 3.6, P.y + 3.4 + Math.random() * 0.6, P.z + 0.3 + Math.random() * 0.8);
+      d.position.set(P.x + 0.6 + (Math.random() - 0.5) * 3.6, P.y + 2.9 + Math.random() * 0.5, P.z + 0.3 + Math.random() * 0.8);
       ctx.props.add(d);
       ctx.dyn(d, { shape: 'ball', r: 0.09, bounce: 0.15, mass: 0.3 });
       drops.push(d);
     }
-    ctx.s.wait(0.25).then(() => { bolt.visible = false; });
+    ctx.s.wait(0.4).then(() => { bolt.visible = false; });
+    await ctx.wait(0.15);
     await feel(ctx, 'scared');
     // fix: the cloud turns white and floats away; the puddles dry up
     return async () => {
       cloud.traverse((o) => { if (o.isMesh && o.material === grey) o.material = toon(0xffffff); });
-      sfx.twinkle();
-      for (const d of drops) popOut(ctx.s, d, 0.2);
-      await ctx.s.tween(cloud.position, { x: P.x + 14, y: P.y + 7 }, 0.6, Ease.in);
+      for (const d of drops) popOut(ctx.s, d, 0.4);
+      await ctx.s.tween(cloud.position, { x: P.x + 14, y: P.y + 7 }, 1.4, Ease.inOut);
     };
   },
 
   // happy: a birthday cupcake bounces down and its candle lights up
   cupcake: async (ctx, P) => {
     const cake = makeCupcake();
-    cake.position.set(P.x + 1.6, P.y + 7, P.z + 0.7);
+    cake.position.set(P.x + 1.6, P.y + 4.5, P.z + 0.7);
     cake.scale.setScalar(1.3);
     ctx.props.add(cake);
     ctx.dyn(cake, { shape: 'box', spin: false, bounce: 0.4 });
     sfx.swoosh();
-    physics.toss(cake, V(P.x + 1.6, TOP, P.z + 0.7), { arc: 0, time: 0.4, maxT: 0.8, spin: 0 });
-    await ctx.wait(0.75);
+    physics.toss(cake, V(P.x + 1.6, TOP, P.z + 0.7), { arc: 0, time: 0.45, maxT: 0.7, spin: 0 });
+    await ctx.wait(0.7);
     physics.remove(cake);
     cake.userData.flame.visible = true;
-    sfx.pop(); sfx.twinkle();
+    sfx.pop();
     fx.float(wpos(cake).add(V(0, 2.2, 0)), '🎉', { size: 6 });
     await feel(ctx, 'happy');
     return async () => {
       sfx.whoosh();
       fx.float(wpos(cake).add(V(-0.4, 1.8, 0)), '💨', { size: 5 });
-      await ctx.wait(0.2);
+      await ctx.wait(0.5);
       cake.userData.flame.visible = false;
-      fx.confetti(wpos(cake).add(V(0, 1.6, 0)), 22);
-      sfx.sparkle();
-      await wiggle(ctx.s, cake, 0.25, 0.4);
+      await wiggle(ctx.s, cake, 0.25, 0.6);
     };
   },
 
@@ -230,18 +223,17 @@ export const STORIES = {
     const ball = makeBall(0.45, [C.blue, C.yellow, C.red]);
     ball.position.set(P.x + 1.2, TOP + 0.45, P.z + 0.7);
     ctx.props.add(ball);
-    await popIn(ctx.s, ball, 1, 0.3);
+    await popIn(ctx.s, ball, 1, 0.3, { sound: false });
+    await ctx.wait(0.1);
     ctx.dyn(ball, { shape: 'ball', r: 0.45, bounce: 0.65 });
-    sfx.boing();
-    physics.impulse(ball, { x: 4.2, y: 1.2, z: 0.2 }, { x: 0, y: 0, z: -2 });
-    await ctx.s.tween(ctx.pip.rotation, { y: -0.6 }, 0.3);
-    await ctx.wait(0.45);
+    physics.impulse(ball, { x: 3.4, y: 1.2, z: 0.2 }, { x: 0, y: 0, z: -2 });
+    await ctx.s.tween(ctx.pip.rotation, { y: -0.6 }, 0.45, Ease.inOut);
+    await ctx.wait(0.15);
     await feel(ctx, 'sad');
-    ctx.s.tween(ctx.pip.rotation, { y: 0 }, 0.3);
+    ctx.s.tween(ctx.pip.rotation, { y: 0 }, 0.6, Ease.inOut);
     // fix: the ball comes bouncing back up onto the table
     return async () => {
-      sfx.boing();
-      await physics.toss(ball, V(P.x + 1.4, TOP + 0.5, P.z + 0.7), { arc: 2, time: 0.5, maxT: 0.75 });
+      await physics.toss(ball, V(P.x + 1.4, TOP + 0.5, P.z + 0.7), { arc: 2, time: 0.8, maxT: 1.1 });
     };
   },
 
@@ -250,16 +242,16 @@ export const STORIES = {
     const x = P.x + 1.9, z = P.z + 0.6;
     const cols = [C.red, C.yellow, C.blue, C.green, C.purple];
     const items = tower(ctx, x, z, cols.map((c) => () => makeBlock(c, 0.6)), 0.6);
-    for (let i = 0; i < items.length; i++) { await popIn(ctx.s, items[i].o, 1, 0.14, { sound: false }); sfx.note(i); }
+    await Promise.all(items.map(({ o }) => popIn(ctx.s, o, 1, 0.25, { sound: false }))); // the tower stands at once
     for (const { o } of items) ctx.dyn(o, { shape: 'box', bounce: 0.15 });
+    await ctx.wait(0.15);
     const ball = makeBall(0.38, [C.purple, C.white]);
-    ball.position.set(P.x + 9, P.y + 3, z);
+    ball.position.set(P.x + 6, P.y + 2.4, z);
     ctx.props.add(ball);
-    sfx.boing();
-    physics.toss(ball, V(x, TOP + 1.9, z), { arc: 1.4, time: 0.45, maxT: 0.8, bounce: 0.6, mass: 2 });
-    await ctx.wait(0.5);
+    physics.toss(ball, V(x, TOP + 1.9, z), { arc: 1.0, time: 0.55, maxT: 0.8, bounce: 0.6, mass: 2 });
+    await ctx.wait(0.6);
     sfx.crunch();
-    await ctx.wait(0.35);
+    await ctx.wait(0.25);
     await feel(ctx, 'angry');
     return () => rebuild(ctx, items);
   },
@@ -270,15 +262,15 @@ export const STORIES = {
     jb.position.set(P.x + 1.6, TOP, P.z + 0.7);
     jb.rotation.y = -0.3;
     ctx.props.add(jb);
-    await popIn(ctx.s, jb, 1, 0.3);
+    await popIn(ctx.s, jb, 1, 0.3, { sound: false });
     const { crank, lidPivot, jack, jackFace } = jb.userData;
     const ax = jb.userData.crankAxis || 'x';
-    for (let i = 0; i < 4; i++) { sfx.note(i * 2); await ctx.s.tween(crank.rotation, { [ax]: crank.rotation[ax] + Math.PI / 2 }, 0.13); }
+    for (let i = 0; i < 3; i++) { sfx.note(i * 2); await ctx.s.tween(crank.rotation, { [ax]: crank.rotation[ax] + Math.PI / 2 }, 0.2); }
     sfx.boing();
     lidPivot.rotation.x = -2.2;
     jack.visible = true;
     if (jackFace) setFace(jackFace, 'joy');
-    ctx.s.anim(0.5, (e) => { jack.scale.set(1, Math.max(0.05, e), 1); }, Ease.elastic);
+    ctx.s.anim(0.7, (e) => { jack.scale.set(1, Math.max(0.05, e), 1); }, Ease.elastic);
     jb.rotation.y = 0;
     ctx.dyn(jb, { shape: 'box', spin: false, bounce: 0.3, size: V(1, 1, 1) });
     physics.impulse(jb, { x: 0.3, y: 4, z: 0 });
@@ -287,46 +279,42 @@ export const STORIES = {
     return async () => {
       physics.remove(jb);
       sfx.giggle();
-      await wiggle(ctx.s, jack, 0.35, 0.35);
-      sfx.squeak();
-      await ctx.s.anim(0.25, (e) => jack.scale.set(1, Math.max(0.05, 1 - e), 1));
+      await wiggle(ctx.s, jack, 0.35, 0.6);
+      await ctx.s.anim(0.5, (e) => jack.scale.set(1, Math.max(0.05, 1 - e), 1), Ease.inOut);
       jack.visible = false;
       sfx.tick();
-      await ctx.s.tween(lidPivot.rotation, { x: 0 }, 0.15);
+      await ctx.s.tween(lidPivot.rotation, { x: 0 }, 0.35, Ease.inOut);
     };
   },
 
   // happy: the toy box lid flies off and bouncy balls burst out everywhere
   ballsBurst: async (ctx, P) => {
     const box = makeGift(C.green, C.red);
-    box.position.set(P.x + 1.7, TOP, P.z + 0.6);
+    box.position.set(P.x + 2.0, TOP, P.z + 0.6); // clear of Pip's wing tip
     ctx.props.add(box);
-    await popIn(ctx.s, box, 1.1, 0.3);
-    sfx.tick(); await wiggle(ctx.s, box, 0.2, 0.2);
-    sfx.tick(); await wiggle(ctx.s, box, 0.2, 0.2);
+    await popIn(ctx.s, box, 1.1, 0.3, { sound: false });
+    await wiggle(ctx.s, box, 0.2, 0.35);
     const lid = box.userData.lid;
     ctx.props.attach(lid);
     ctx.dyn(lid, { shape: 'box', bounce: 0.4 });
-    physics.impulse(lid, { x: -0.5, y: 6, z: 0.6 }, { x: 1.5, y: 0.3, z: 1 });
+    physics.impulse(lid, { x: 1.0, y: 6, z: 0.6 }, { x: 1.5, y: 0.3, z: 1 }); // up and away from Pip
     ctx.dyn(box, { shape: 'box', spin: false, bounce: 0.1, mass: 6, size: V(1.1, 0.8, 1.1) });
     sfx.pop();
     const balls = [];
     [C.red, C.blue, C.yellow, C.pink, C.green, C.orange].forEach((col, i) => {
       const b = makeBall(0.2, [col]);
-      b.position.set(P.x + 1.7 + (i % 3 - 1) * 0.25, TOP + 1.4 + (i > 2 ? 0.35 : 0), P.z + 0.6);
+      b.position.set(P.x + 2.0 + (i % 3 - 1) * 0.25, TOP + 1.4 + (i > 2 ? 0.35 : 0), P.z + 0.6);
       ctx.props.add(b);
       ctx.dyn(b, { shape: 'ball', r: 0.2, bounce: 0.8, mass: 0.4 });
       physics.impulse(b, { x: (i - 2.5) * 0.9, y: 6 + Math.random() * 2, z: Math.random() * 1.2 });
       balls.push(b);
-      ctx.s.wait(0.05 * i).then(() => sfx.boing2());
     });
     await ctx.wait(0.3);
     await feel(ctx, 'happy');
     // fix: all the balls do a happy bounce together
     return async () => {
-      for (const b of balls) physics.poke(b, 0.9);
-      sfx.twinkle();
-      await ctx.wait(0.5);
+      for (const b of balls) physics.poke(b, 0.7);
+      await ctx.wait(0.9);
     };
   },
 
@@ -335,52 +323,50 @@ export const STORIES = {
     const ball = makeBall(0.4, [C.orange, C.yellow]);
     ball.position.set(P.x + 1.4, TOP + 0.4, P.z + 0.8);
     ctx.props.add(ball);
-    await popIn(ctx.s, ball, 1, 0.3);
+    await popIn(ctx.s, ball, 1, 0.25, { sound: false });
     ctx.dyn(ball, { shape: 'ball', r: 0.4, bounce: 0.5 });
     const frog = makeAnimal('frog');
     frog.scale.setScalar(0.7);
     frog.userData.baseScale = 0.7;
-    frog.position.set(P.x + 12, TOP, P.z + 0.8);
+    frog.position.set(P.x + 4.6, TOP, P.z + 0.8);
     frog.rotation.y = -Math.PI / 2;
     ctx.props.add(frog);
     sfx.ribbit();
-    const hopTo = (x0, x1, d) => ctx.s.anim(d, (e, p) => { frog.position.x = x0 + (x1 - x0) * e; frog.position.y = TOP + Math.abs(Math.sin(p * Math.PI * 3)) * 0.7; });
-    await hopTo(P.x + 12, P.x + 2.3, 0.5);
+    // hops at a frog's pace (about 3 units/s, one hop per ~0.5 s), never zipping across the table
+    const hopTo = (x0, x1, d) => ctx.s.anim(d, (e, p) => { frog.position.x = x0 + (x1 - x0) * e; frog.position.y = TOP + Math.abs(Math.sin(p * Math.PI * Math.max(2, Math.round(d * 2)))) * 0.6; });
+    await hopTo(P.x + 4.6, P.x + 2.3, 0.7);
     sfx.pop();
     physics.remove(ball);
     frog.add(ball);
     ball.position.set(0, 1.6, 0.4);
     ball.quaternion.identity();
     frog.rotation.y = Math.PI / 2;
-    hopTo(P.x + 2.3, P.x + 13, 0.7);
-    await ctx.wait(0.35);
+    // Pip watches it go, then gets cross (the hop away finishes first, so the fix never fights it)
+    hopTo(P.x + 2.3, P.x + 10, 2.4); // it hops off with the ball while Pip gets cross
+    await ctx.wait(0.25);
     await feel(ctx, 'angry');
     // fix: the frog comes back and throws the ball to Pip
     return async () => {
       frog.rotation.y = -Math.PI / 2;
       sfx.ribbit();
-      await hopTo(P.x + 13, P.x + 3.2, 0.4);
+      await hopTo(frog.position.x, P.x + 3.2, 1.6);
       ctx.props.attach(ball);
-      sfx.boing();
-      physics.toss(ball, V(P.x + 1.2, TOP + 0.4, P.z + 0.8), { arc: 1.6, time: 0.4, maxT: 0.6, r: 0.4, shape: 'ball' });
-      await hop(ctx.s, frog, 0.5, 0.3);
+      physics.toss(ball, V(P.x + 1.2, TOP + 0.4, P.z + 0.8), { arc: 1.6, time: 0.65, maxT: 0.9, r: 0.4, shape: 'ball' });
+      await hop(ctx.s, frog, 0.5, 0.5);
     };
   },
 
   // scared: a spider drops down on its thread
   spider: async (ctx, P) => {
     const sp = makeSpider();
-    sp.position.set(P.x + 1.5, P.y + 9, P.z + 0.6);
+    sp.position.set(P.x + 2.0, P.y + 5.5, P.z + 0.6); // clear of Pip's wing
     ctx.props.add(sp);
-    sfx.whoosh();
-    await ctx.s.tween(sp.position, { y: P.y + 1.6 }, 0.6, Ease.bounce);
-    sfx.boing();
-    await wiggle(ctx.s, sp, 0.3, 0.3);
+    await ctx.s.tween(sp.position, { y: P.y + 1.6 }, 0.8, Ease.inOut);
+    wiggle(ctx.s, sp, 0.3, 0.5);
     await feel(ctx, 'scared');
     return async () => {
-      await wiggle(ctx.s, sp, 0.3, 0.25);
-      sfx.whoosh();
-      await ctx.s.tween(sp.position, { y: P.y + 10 }, 0.45, Ease.in);
+      await wiggle(ctx.s, sp, 0.3, 0.45);
+      await ctx.s.tween(sp.position, { y: P.y + 10 }, 1.2, Ease.inOut);
     };
   },
 
@@ -393,9 +379,8 @@ export const STORIES = {
     g.add(pot, fl);
     g.position.set(P.x + 1.6, TOP, P.z + 0.7);
     ctx.props.add(g);
-    await popIn(ctx.s, g, 1, 0.35);
-    sfx.aww();
-    await ctx.s.tween(fl.rotation, { z: -1.0 }, 0.55, Ease.inOut);
+    await popIn(ctx.s, g, 1, 0.3, { sound: false });
+    await ctx.s.tween(fl.rotation, { z: -1.0 }, 0.6, Ease.inOut);
     const head = wpos(fl).add(V(1.2, 0.6, 0.2));
     const petals = [];
     for (let i = 0; i < 4; i++) {
@@ -411,9 +396,8 @@ export const STORIES = {
     // fix: a drink of water and it stands up again, with brand new petals
     return async () => {
       sfx.pour();
-      for (const p of petals) popOut(ctx.s, p, 0.2);
-      await ctx.s.tween(fl.rotation, { z: 0 }, 0.45, Ease.back);
-      sfx.twinkle();
+      for (const p of petals) popOut(ctx.s, p, 0.4);
+      await ctx.s.tween(fl.rotation, { z: 0 }, 0.8, Ease.inOut);
     };
   },
 
@@ -424,33 +408,31 @@ export const STORIES = {
     sfx.rustle();
     for (let i = 0; i < 6; i++) {
       const a = makeAcorn();
-      a.scale.setScalar(1.3);
+      a.scale.setScalar(0.75); // (at 1.3 an acorn was the size of the sheep's body)
       const bonk = i === 2;
-      a.position.set(bonk ? P.x : P.x - 1.6 + i * 0.7, P.y + 7 + i * 0.4, P.z + (bonk ? 0.2 : 0.7));
+      a.position.set(bonk ? P.x : P.x - 1.6 + i * 0.7, P.y + 4.5 + i * 0.25, P.z + (bonk ? 0.2 : 0.7));
       ctx.props.add(a);
       nuts.push(a);
-      if (!bonk) ctx.dyn(a, { shape: 'ball', r: 0.26, bounce: 0.5, mass: 0.5 });
+      if (!bonk) ctx.dyn(a, { shape: 'ball', r: 0.15, bounce: 0.5, mass: 0.5 });
       else {
-        ctx.s.tween(a.position, { y: headY }, 0.5, Ease.in).then(() => {
+        ctx.s.tween(a.position, { y: headY }, 0.45, Ease.in).then(() => {
           sfx.thunk(); fx.float(V(P.x, headY + 0.6, P.z + 0.5), '💥', { size: 5 });
           ctx.s.anim(0.2, (_, p) => { const k = 1 - Math.sin(p * Math.PI) * 0.2; ctx.pip.scale.set(1.2 / Math.sqrt(k), 1.2 * k, 1.2 / Math.sqrt(k)); });
-          ctx.dyn(a, { shape: 'ball', r: 0.26, bounce: 0.6, mass: 0.5 });
+          ctx.dyn(a, { shape: 'ball', r: 0.15, bounce: 0.6, mass: 0.5 });
           physics.impulse(a, { x: 2.2, y: 3, z: 0.6 });
         });
       }
     }
-    await ctx.wait(0.75);
+    await ctx.wait(0.6);
     await feel(ctx, 'angry');
-    // fix: every acorn gets tossed into the basket on the ground
+    // fix: every acorn gets tossed into the basket on the ground, one after another
     return async () => {
       const b = ctx.basketPos;
-      nuts.forEach((a, i) => ctx.s.wait(i * 0.06).then(() => {
+      nuts.forEach((a, i) => ctx.s.wait(i * 0.25).then(() => {
         if (!a.parent) return;
-        sfx.swoosh();
-        physics.toss(a, V(b.x + (Math.random() - 0.5) * 0.3, b.y + 0.5, b.z + (Math.random() - 0.5) * 0.3), { arc: 2, time: 0.5, maxT: 0.8, shape: 'ball', r: 0.26 });
+        physics.toss(a, V(b.x + (Math.random() - 0.5) * 0.3, b.y + 0.5, b.z + (Math.random() - 0.5) * 0.3), { arc: 2, time: 0.7, maxT: 1.0, shape: 'ball', r: 0.26 });
       }));
-      await ctx.wait(0.7);
-      sfx.twinkle();
+      await ctx.wait(nuts.length * 0.25 + 0.6);
     };
   },
 
@@ -459,12 +441,12 @@ export const STORIES = {
     const m = makeMole();
     m.position.set(P.x + 1.6, TOP, P.z + 0.7);
     ctx.props.add(m);
-    await popIn(ctx.s, m, 1.2, 0.3);
+    await popIn(ctx.s, m, 1.2, 0.3, { sound: false });
     sfx.rustle();
-    await shake(ctx.s, m, 0.12, 0.45);
+    await shake(ctx.s, m, 0.1, 0.45);
     const mole = m.userData.mole;
-    sfx.boing();
-    ctx.s.tween(mole.position, { y: 0 }, 0.3, Ease.back);
+    sfx.pop();
+    ctx.s.tween(mole.position, { y: 0 }, 0.5, Ease.back);
     for (let i = 0; i < 5; i++) {
       const d = mesh(geo.sphere(0.13, 8, 6), 0x7a5232, { outline: 0.01 });
       d.position.copy(wpos(m)).add(V(0, 0.4, 0));
@@ -476,9 +458,8 @@ export const STORIES = {
     // fix: the mole waves hello and ducks back down
     return async () => {
       sfx.squeak();
-      await wiggle(ctx.s, mole, 0.3, 0.35);
-      sfx.whoosh();
-      await ctx.s.tween(mole.position, { y: -0.8 }, 0.25, Ease.in);
+      await wiggle(ctx.s, mole, 0.3, 0.6);
+      await ctx.s.tween(mole.position, { y: -0.8 }, 0.5, Ease.inOut);
     };
   },
 
@@ -486,19 +467,17 @@ export const STORIES = {
   butterfly: async (ctx, P) => {
     const b = makeButterfly(C.purple);
     b.userData.flap = 18;
-    b.position.set(P.x + 9, P.y + 4, P.z + 1);
+    b.position.set(P.x + 5, P.y + 3.4, P.z + 1);
     ctx.props.add(b);
     const to = wpos(ctx.pip.userData.head).add(V(0, 0.75, 0));
-    sfx.twinkle();
     const from = b.position.clone();
-    await ctx.s.anim(0.9, (e, p) => { b.position.lerpVectors(from, to, e); b.position.y += Math.sin(p * Math.PI * 4) * 0.5 * (1 - p); }, Ease.inOut);
+    await ctx.s.anim(1.1, (e, p) => { b.position.lerpVectors(from, to, e); b.position.y += Math.sin(p * Math.PI * 4) * 0.5 * (1 - p); }, Ease.inOut);
     b.userData.flap = 3;
     await feel(ctx, 'happy');
     // fix: it flutters a happy loop around Pip
     return async () => {
       b.userData.flap = 18;
-      sfx.sparkle();
-      await ctx.s.anim(0.7, (_, p) => { const a = p * Math.PI * 2; b.position.set(to.x + Math.sin(a) * 1.4, to.y + Math.sin(a * 2) * 0.4 + 0.3, to.z + Math.cos(a) * 0.8); });
+      await ctx.s.anim(1.4, (_, p) => { const a = p * Math.PI * 2; b.position.set(to.x + Math.sin(a) * 1.4, to.y + Math.sin(a * 2) * 0.4 + 0.3, to.z + Math.cos(a) * 0.8); });
       b.userData.flap = 3;
     };
   },
@@ -507,16 +486,16 @@ export const STORIES = {
   potTower: async (ctx, P) => {
     const x = P.x + 1.9, z = P.z + 0.6;
     const items = tower(ctx, x, z, [() => makePot(0xd9774a), () => makePot(0x5fb0d0), () => makePot(0xd9774a), () => makePot(0x9b7bd8)], 0.68); // 0.68: the pots are 0.67 tall (no overlap)
-    for (let i = 0; i < items.length; i++) { await popIn(ctx.s, items[i].o, 1, 0.14, { sound: false }); sfx.note(i); }
+    await Promise.all(items.map(({ o }) => popIn(ctx.s, o, 1, 0.25, { sound: false }))); // the tower stands at once
     for (const { o } of items) ctx.dyn(o, { shape: 'box', bounce: 0.15 });
+    await ctx.wait(0.15);
     const pk = makePumpkinBall();
-    pk.position.set(P.x + 9, P.y + 2.5, z);
+    pk.position.set(P.x + 6, P.y + 2.0, z);
     ctx.props.add(pk);
-    sfx.lowBoing();
-    physics.toss(pk, V(x, TOP + 0.9, z), { arc: 1.2, time: 0.5, maxT: 0.8, shape: 'ball', r: 0.52, bounce: 0.35, mass: 3 });
-    await ctx.wait(0.55);
+    physics.toss(pk, V(x, TOP + 0.9, z), { arc: 0.9, time: 0.55, maxT: 0.8, shape: 'ball', r: 0.52, bounce: 0.35, mass: 3 });
+    await ctx.wait(0.6);
     sfx.crunch();
-    await ctx.wait(0.35);
+    await ctx.wait(0.25);
     await feel(ctx, 'angry');
     return () => rebuild(ctx, items);
   },
@@ -525,19 +504,18 @@ export const STORIES = {
   bee: async (ctx, P) => {
     const b = makeBee();
     b.userData.flap = 40;
-    b.position.set(P.x - 9, P.y + 3, P.z + 1);
+    b.position.set(P.x - 5, P.y + 3, P.z + 1);
     ctx.props.add(b);
     const c = P.clone().add(V(0, 1.4, 0.4));
     sfx.buzz();
     const from = b.position.clone();
-    await ctx.s.anim(0.5, (e) => b.position.lerpVectors(from, c.clone().add(V(-1.6, 0.3, 0)), e), Ease.out);
-    sfx.buzz();
-    ctx.s.anim(1.0, (_, p) => {
-      const a = Math.PI + p * Math.PI * 4, r = 1.6 - p * 0.4;
-      b.position.set(c.x + Math.cos(a) * r, c.y + Math.sin(p * 30) * 0.2, c.z + Math.sin(a) * r * 0.6);
+    await ctx.s.anim(0.8, (e) => b.position.lerpVectors(from, c.clone().add(V(-1.6, 0.3, 0)), e), Ease.inOut);
+    ctx.s.anim(1.8, (_, p) => {
+      const a = Math.PI + p * Math.PI * 2, r = 1.6 - p * 0.4;
+      b.position.set(c.x + Math.cos(a) * r, c.y + Math.sin(p * 14) * 0.15, c.z + Math.sin(a) * r * 0.6);
       b.rotation.y = -a;
     });
-    await ctx.wait(0.3);
+    await ctx.wait(0.25);
     await feel(ctx, 'scared');
     // fix: the bee finds a flower to sit on and stays happy there
     return async () => {
@@ -545,12 +523,10 @@ export const STORIES = {
       fl.scale.setScalar(2.4);
       fl.position.set(P.x + 2.0, TOP, P.z + 0.8);
       ctx.props.add(fl);
-      popIn(ctx.s, fl, 2.4, 0.3);
-      sfx.buzz();
-      const f0 = b.position.clone(), to = V(P.x + 2.0, TOP + 1.5, P.z + 0.9);
-      await ctx.s.anim(0.45, (e) => { b.position.lerpVectors(f0, to, e); b.rotation.y = 0; }, Ease.inOut);
+      popIn(ctx.s, fl, 2.4, 0.5, { sound: false });
+      const f0 = b.position.clone(), to = V(P.x + 2.5, TOP + 1.95, P.z + 1.0); // hovering beside the flower, not merged into it
+      await ctx.s.anim(1.0, (e) => { b.position.lerpVectors(f0, to, e); b.rotation.y = 0; }, Ease.inOut);
       b.userData.flap = 6;
-      sfx.twinkle();
     };
   },
 };

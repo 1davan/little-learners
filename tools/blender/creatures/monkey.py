@@ -322,7 +322,8 @@ def garment(slot, name, base, faces=1800):
 def torso(out, y_lo=0.0, group='top'):
     (p0, s0), (p1, s1) = BODY
     c.blob(p0, (s0[0] + out, s0[1] + out * 0.4, s0[2] + out), group=group)
-    c.blob((0, 1.05, -0.01), (0.4 + out, 0.2, 0.34 + out), group=group)           # shoulders
+    # shoulders (thickened on top too: a raised arm or a tilted head never pushes the shoulder skin through)
+    c.blob((0, 1.05, -0.01), (0.4 + out, 0.2 + out * 0.7, 0.34 + out), group=group)
     c.mirror(lambda s: c.blob((s * 0.27, 1.03, 0.0), (0.2 + out, 0.13 + out, 0.22 + out), group=group))
     if y_lo < 0.62:
         c.blob(p1, (s1[0] + out, s1[1], s1[2] + out), group=group)
@@ -355,6 +356,19 @@ def sleeve(s, t_end, r0=0.165, r1=0.155, group=None, cuff_r=None):
 def cut(lo, hi, groups=None):
     """subtract a game-space box from this garment (only from these blob groups, if given): crisp hems"""
     c.layers[c._cur].setdefault('cuts', []).append((lo, hi, groups))
+
+
+def tail_notch(groups=None, pad=0.0):
+    """cut an opening round the tail root in the back of this garment, so the tail comes out through it instead of
+    through the cloth (the tail leaves the bum at about (0.08, 0.42, -0.36), heading back and to its right)"""
+    cut((0.0 - pad, 0.32 - pad, -2.0), (0.23 + pad, 0.52 + pad, -0.26), groups)
+
+
+def tail_cuff(t, group, rad=0.155):
+    """a soft hemmed ring round the tail where it comes out of a garment (the body carve hollows it, so it is a
+    ring round the tail): the opening reads as made on purpose"""
+    a, b = Vector(TAIL[0]), Vector(TAIL[1])
+    cuff(tuple(a.lerp(b, t)), tuple((b - a).normalized()), rad, 0.04, group)
 
 
 def smooth(groups=('top', 'skirt', 'pants', 'shorts', 'bib')):
@@ -449,20 +463,22 @@ def sunhat():
     c.blob((0, 2.3, -0.05), (0.6, 0.36, 0.54), group='crown')
     c.blob((0, 2.2, 0.0), (1.1, 0.055, 1.0), rot=(-8, 0, 0), group='brim')
     smooth(('brim', 'crown'))
-    ring(0, 2.3, -0.05, 0.6, 0.54, 0.07, 'ribbon', n=26, tilt=0.03, yscale=1.25)
-    # ribbon bow at the back
-    c.mirror(lambda s: c.blob((s * 0.12, 2.32, -0.62), (0.12, 0.08, 0.05), rot=(0, 0, s * 15), group='ribbon'))
-    c.mirror(lambda s: c.capsule((s * 0.05, 2.26, -0.62), (s * 0.14, 2.05, -0.72), 0.04, group='ribbon'))
-    # a big daisy on the front side
-    out = Vector((0.71, 0.0, 0.71)).normalized()
-    fx, fy, fz = out.x * 0.6, 2.38, out.z * 0.52 - 0.05
+    # ribbon bow at the back: two round loops, a knot and two short tails
+    c.mirror(lambda s: c.blob((s * 0.14, 2.33, -0.6), (0.13, 0.09, 0.05), rot=(0, s * 12, s * 18), group='bow'))
+    c.blob((0, 2.32, -0.62), (0.06, 0.06, 0.05), group='bow')
+    c.mirror(lambda s: c.capsule((s * 0.04, 2.27, -0.62), (s * 0.12, 2.12, -0.68), 0.04, group='bow'))
+    # a big daisy on the front, a little to one side, on the ribbon
+    out = Vector((0.42, 0.0, 0.91)).normalized()
+    fx, fy, fz = out.x * 0.62, 2.33, out.z * 0.56 - 0.05
     side = Vector((out.z, 0, -out.x))
     for k in range(7):
         a = 2 * math.pi * k / 7
         pp = Vector((fx, fy, fz)) + side * (math.cos(a) * 0.1) + Vector((0, math.sin(a) * 0.1, 0))
         c.blob(tuple(pp), (0.075, 0.06, 0.035), rot=(0, 0, math.degrees(a)), group='petal')
     c.blob(tuple(Vector((fx, fy, fz)) + out * 0.03), (0.055, 0.055, 0.04), group='fcentre')
-    paint_blobs('ribbon', 0xff6fa8)
+    # the ribbon: one straight painted band round the crown, just above the brim
+    c.paint_fn(lambda p, n: 2.265 < p.y < 2.37 and math.hypot(p.x / 1.1, p.z / 1.0) < 0.64, 0xff6fa8)
+    paint_blobs('bow', 0xff6fa8)
     paint_blobs('petal', 0xffffff)
     paint_blobs('fcentre', 0xffb020)
     # woven straw: soft rings on the brim
@@ -575,15 +591,27 @@ def chef():
 # =====================================================================================================
 # LEVEL 2 — TOPS (slot body)
 # =====================================================================================================
-@garment('body', 'tshirt', 0xff5a5a, 4400)
+@garment('body', 'tshirt', 0xff5a5a, 6400)
 def tshirt():
     smooth()
-    torso(0.05)
-    hem(0.47, 0.045, 0.048)
-    cut_below(0.425, ['top'])
+    torso(0.065)
+    c.mirror(lambda s: c.blob((s * 0.36, 0.96, 0.01), (0.2, 0.17, 0.22), group='top'))     # fuller under the arms
+    hem(0.55, 0.05, 0.048)
+    cut_below(0.51, ['top'])
     collar(0.05)
-    c.mirror(lambda s: sleeve(s, 0.48, 0.17, 0.16, cuff_r=0.175))
-    stripes_y(0.12, 0xfff6e8, off=0.03)
+    c.mirror(lambda s: sleeve(s, 0.6, 0.19, 0.175, cuff_r=0.19))
+    tail_notch(['top', 'hem'])
+    # stripes on the body only (straight bands round the torso); the sleeves are plain red with white cuffs,
+    # so no band is ever cut in a ragged slant across a sleeve or the armpit
+    def on_sleeve(p):
+        for sd in (-1, 1):
+            a, b = Vector(SH(sd)), Vector(WR(sd))
+            d = b - a
+            t = (p - a).dot(d) / d.length_squared
+            if t > -0.15 and (p - (a + d * t)).length < 0.3 and abs(p.x) > body_ext(p.y)[0] - 0.06:
+                return True
+        return False
+    c.paint_fn(lambda p, n: (0.62 < p.y < 0.73 or 0.84 < p.y < 0.95) and not on_sleeve(p), 0xfff6e8)
     paint_blobs(['collar', 'hem', 'cuffarmL', 'cuffarmR'], 0xfff6e8)
 
 
@@ -609,7 +637,7 @@ def raincoat():
     c.paint_fn(lambda p, n: n.z < -0.2 and p.y > 1.12 and p.z < -0.3, 0xf2b81f)    # hood lining
 
 
-@garment('body', 'dress', 0xff8fc0, 6400)
+@garment('body', 'dress', 0xff8fc0, 7600)
 def dress():
     smooth()
     torso(0.045, y_lo=0.7)
@@ -623,15 +651,19 @@ def dress():
         rx, rz = skirt_r(t)
         c.blob((0, 0.68 - 0.4 * t, 0.02), (rx, 0.07, rz), group='skirt')
     ring(0, 0.26, 0.02, 0.74, 0.66, 0.065, 'frill', n=26)
-    collar(0.045)
-    c.mirror(lambda s: c.blob(lerp(SH(s), WR(s), 0.18), (0.21, 0.19, 0.2), group='arm' + ('L' if s < 0 else 'R')))
-    c.mirror(lambda s: cuff(lerp(SH(s), WR(s), 0.36), tuple(WR(s)[i] - SH(s)[i] for i in range(3)), 0.145, 0.04, 'cuffarm' + ('L' if s < 0 else 'R')))
-    rx0, rz0 = body_ext(0.64)
-    ring(0, 0.645, 0.02, rx0 + 0.07, rz0 + 0.07, 0.045, 'sash', n=28, yscale=1.2)
-    zb = rz0 + 0.16
-    c.blob((0, 0.645, zb + 0.015), (0.06, 0.06, 0.045), group='bow')
-    c.mirror(lambda s: c.blob((s * 0.13, 0.665, zb - 0.01), (0.12, 0.085, 0.045), rot=(0, s * -12, s * 20), group='bow'))
-    c.mirror(lambda s: c.capsule((s * 0.03, 0.61, zb), (s * 0.09, 0.49, zb + 0.04), 0.035, group='bow'))
+    # a lower round neckline (it no longer rides up to the chin)
+    # a small scoop at the front only: the shoulders stay covered from every side
+    cut((-0.2, 1.08, 0.16), (0.2, 2.0, 1.0), ['top'])
+    collar(0.062, ry=1.13, rx=0.42, rz=0.39, tilt=-0.06)
+    # short puff sleeves: the arm goes in at the shoulder and comes out of the sleeve's cuff
+    c.mirror(lambda s: sleeve(s, 0.5, 0.2, 0.18))
+    c.mirror(lambda s: c.blob(lerp(SH(s), WR(s), 0.25), (0.24, 0.19, 0.24), group='arm' + ('L' if s < 0 else 'R')))
+    c.mirror(lambda s: cuff(lerp(SH(s), WR(s), 0.48), tuple(WR(s)[i] - SH(s)[i] for i in range(3)), 0.165, 0.045, 'cuffarm' + ('L' if s < 0 else 'R')))
+    SY = 0.69
+    rx0, rz0 = body_ext(SY)
+    ring(0, SY, 0.02, rx0 + 0.08, rz0 + 0.08, 0.055, 'sash', n=32, yscale=1.3)
+    zb = rz0 + 0.18
+    tail_notch(['skirt', 'frill', 'sash'])
     # polka dots on the skirt (placed by angle and height, so they always land on the cloth)
     def dot(p, n):
         if not 0.3 < p.y < 0.6 or math.hypot(p.x, p.z - 0.02) < 0.45:
@@ -644,7 +676,20 @@ def dress():
         return da * da + (p.y - (0.33 + 0.1 * row)) ** 2 < 0.05 ** 2
     c.paint_fn(dot, 0xffffff)
     paint_blobs(['frill', 'collar', 'cuffarmL', 'cuffarmR'], 0xfff4f8)
-    paint_blobs(['sash', 'bow'], 0xffd23f)
+    # the sash: one straight band; the bow: everything standing out in front of it (crisp edges, no splats)
+    c.paint_fn(lambda p, n: abs(p.y - SY) < 0.06 and math.hypot(p.x / (rx0 + 0.04), (p.z - 0.02) / (rz0 + 0.04)) > 0.98, 0xffd23f)
+
+
+
+@garment('body', 'dressbow', 0xffd23f, 1400)
+def dressbow():
+    SY = 0.69
+    rx0, rz0 = body_ext(SY)
+    zb = rz0 + 0.21
+    c.blob((0, SY, zb + 0.03), (0.075, 0.07, 0.05), group='knot')
+    c.mirror(lambda s: c.blob((s * 0.16, SY + 0.025, zb), (0.15, 0.105, 0.05), rot=(0, s * -14, s * 16), group='loop' + str(s)))
+    c.mirror(lambda s: c.capsule((s * 0.045, SY - 0.05, zb + 0.02), (s * 0.11, SY - 0.19, zb + 0.05), 0.042, group='tail' + str(s)))
+    paint_blobs('knot', 0xf2b81f, k=1.05)
 
 
 @garment('body', 'jumper', 0xa77bff, 4400)
@@ -655,6 +700,7 @@ def jumper():
     cut_below(0.405, ['top'])
     collar(0.065)
     c.mirror(lambda s: sleeve(s, 0.88, 0.175, 0.16, cuff_r=0.165))
+    tail_notch(['top', 'hem'])
     heart(0, 0.8, 0.16, 0xff6fa8)
     paint_blobs(['hem', 'collar', 'cuffarmL', 'cuffarmR'], 0xc9adff)
     # rib knit lines on the bands
@@ -690,7 +736,10 @@ def dungarees():
     smooth()
     c.blob((0, 0.51, 0.02), (0.53, 0.24, 0.48), group='pants')
     c.blob((0, 0.66, 0.01), (0.5, 0.12, 0.45), group='pants')
+    c.blob((0, 0.4, -0.01), (0.22, 0.11, 0.44), group='pants')      # a closed crotch, front and back
     cut_above(0.73, ['pants'])
+    tail_notch(['pants', 'band'])
+    tail_cuff(0.12, 'tailring')
     rx, rz = body_ext(0.72)
     ring(0, 0.72, 0.015, rx + 0.06, rz + 0.06, 0.035, 'band', n=30)
     c.mirror(lambda s: c.capsule((s * 0.21, 0.44, 0.04), (s * 0.25, 0.27, 0.08), 0.19, group='leg' + ('L' if s < 0 else 'R')))
@@ -702,13 +751,14 @@ def dungarees():
     cut_above(1.0, ['bib'])
     c.blob((0, 0.82, zf + 0.07), (0.13, 0.085, 0.025), group='pocket')
     # straps over the shoulders, buttoned to the bib
+    # straps run up the chest, over the shoulder (out by the arm root, clear of the chin) and down the back
     for s in (-1, 1):
-        pts = [(s * 0.21, 0.96, zf + 0.05), (s * 0.24, 1.15, 0.3), (s * 0.27, 1.27, 0.02), (s * 0.25, 1.2, -0.28),
-               (s * 0.21, 0.96, -0.46), (s * 0.19, 0.74, -0.5)]
-        c.curve(pts, [0.05, 0.05, 0.05, 0.05, 0.05, 0.05], group='strap', per=4)
-        c.blob((s * 0.21, 0.95, zf + 0.09), (0.055, 0.055, 0.03), group='btn')
+        pts = [(s * 0.21, 0.95, zf + 0.04), (s * 0.3, 1.12, 0.33), (s * 0.39, 1.25, 0.1), (s * 0.39, 1.24, -0.17),
+               (s * 0.33, 1.06, -0.43), (s * 0.27, 0.84, -0.52), (s * 0.23, 0.72, -0.53)]
+        c.curve(pts, [0.052] * len(pts), group='strap', per=5)
+        c.blob((s * 0.21, 0.95, zf + 0.09), (0.06, 0.06, 0.032), group='btn')
     paint_blobs(['btn'], 0xffd23f)
-    paint_blobs(['pocket'], 0x7db3ff)
+    paint_blobs(['pocket', 'tailring'], 0x7db3ff)
     c.paint_fn(lambda p, n: p.y < 0.31, 0x7db3ff)    # rolled-up cuffs
 
 
@@ -765,13 +815,14 @@ def wellies():
         c.blob((fx, 0.03, fz + 0.01), (0.205, 0.035, 0.295), rot=(0, s * 8, 0), group='sole' + g)
         for e in (-1, 1):
             c.blob((fx + e * 0.08, 0.235, fz + 0.15), (0.06, 0.06, 0.055), group='eye' + g)
-            c.paint('eye', (fx + e * 0.08, 0.245, fz + 0.2), (0.055, 0.055, 0.04), 0xffffff)
-            c.paint('pupil', (fx + e * 0.08, 0.25, fz + 0.22), (0.028, 0.028, 0.03), 0x3a2838)
+            c.blob((fx + e * 0.08, 0.245, fz + 0.205), (0.026, 0.026, 0.012), group='pupil' + g)
     cut_above(0.37)
     paint_blobs(['toplegL', 'toplegR', 'solelegL', 'solelegR'], 0x3a9a44)
+    paint_blobs(['eyelegL', 'eyelegR'], 0xffffff, k=1.08)
+    paint_blobs(['pupillegL', 'pupillegR'], 0x3a2838, k=1.25)
 
 
-@garment('feet', 'sneakers', 0xff5a5a, 2000)
+@garment('feet', 'sneakers', 0xff5a5a, 3400)
 def sneakers():
     for s in (-1, 1):
         g = 'leg' + ('L' if s < 0 else 'R')
@@ -780,29 +831,67 @@ def sneakers():
         c.capsule((s * 0.25, 0.14, 0.06), (s * 0.245, 0.22, 0.06), 0.165, group=g)
         c.blob((fx, 0.04, fz + 0.015), (0.205, 0.045, 0.295), rot=(0, s * 8, 0), group='sole' + g)
         c.blob((s * 0.245, 0.24, 0.06), (0.18, 0.04, 0.18), group='collar' + g)
-        for k in range(3):
-            c.blob((fx + s * 0.01 * k, 0.2 - k * 0.025, fz + 0.06 + k * 0.065), (0.085, 0.02, 0.022), group='lace' + g)
-        c.paint('toe', (fx + s * 0.02, 0.07, fz + 0.27), (0.17, 0.11, 0.1), 0xffffff)
-        c.paint('heel', (fx, 0.15, fz - 0.27), (0.12, 0.08, 0.06), 0xffd23f)   # heel tab
     cut_above(0.26)
-    paint_blobs(['solelegL', 'solelegR', 'lacelegL', 'lacelegR', 'collarlegL', 'collarlegR'], 0xffffff)
+    paint_blobs(['solelegL', 'solelegR', 'collarlegL', 'collarlegR'], 0xffffff, k=1.08)
 
 
 @garment('legs', 'shorts', 0xff9f3f, 2200)
 def shorts():
     c.blob((0, 0.53, 0.02), (0.55, 0.2, 0.49), group='shorts')
     c.blob((0, 0.64, 0.01), (0.51, 0.1, 0.46), group='shorts')
-    c.blob((0, 0.37, 0.03), (0.17, 0.08, 0.3), group='shorts')     # covers the crotch, leaves a notch between the legs
+    c.blob((0, 0.4, -0.01), (0.22, 0.11, 0.44), group='shorts')     # closes the crotch front and back, two clear legs below
     cut_above(0.68, ['shorts'])
+    tail_notch(['shorts', 'band'])
+    tail_cuff(0.12, 'tailring')
     rx, rz = body_ext(0.67)
     ring(0, 0.67, 0.015, rx + 0.06, rz + 0.06, 0.045, 'band', n=30, yscale=1.2)
     c.mirror(lambda s: c.capsule((s * 0.22, 0.45, 0.04), (s * 0.27, 0.27, 0.09), 0.19, group='leg' + ('L' if s < 0 else 'R')))
     cut_below(0.25, ['legL', 'legR'])
     c.paint_fn(lambda p, n: p.y > 0.625, 0xfff6e8)   # waistband
+    paint_blobs('tailring', 0xfff6e8, k=1.15)
     c.paint_fn(lambda p, n: 0.3 < p.y < 0.62 and abs(abs(math.atan2(p.x, p.z - 0.02)) - math.pi / 2) < 0.13, 0xffffff)   # side stripes
     c.blob((0.0, 0.67, front_z(0.67, 0.08)), (0.03, 0.03, 0.02), group='knot')
     c.mirror(lambda s: c.capsule((0, 0.66, front_z(0.66, 0.09)), (s * 0.05, 0.58, front_z(0.58, 0.1)), 0.016, group='knot'))
     paint_blobs(['knot'], 0xfff6e8)
+
+
+@garment('legs', 'shortsflat', 0xff9f3f, 2400)
+def shortsflat():
+    """The shorts as they look laid flat or hung up (never worn: the rail and the thought bubble show this one, so
+    the shorts read as shorts - waistband, two legs, a notch between them - instead of a tub). Built well in front
+    of the monkey (z 2) so the body carve leaves it whole; the game centres it."""
+    Z = 2.0
+    c.capsule((-0.43, 0.76, Z), (0.43, 0.76, Z), 0.065, group='band')
+    c.blob((0, 0.6, Z), (0.45, 0.2, 0.13), group='seat')
+    c.mirror(lambda s: c.blob((s * 0.29, 0.36, Z), (0.2, 0.24, 0.13), rot=(0, 0, s * 14), group='seat'))
+    c.mirror(lambda s: c.blob((s * 0.33, 0.15, Z), (0.19, 0.05, 0.135), rot=(0, 0, s * 14), group='hem' + str(s)))
+    c.blob((0.0, 0.67, Z + 0.13), (0.035, 0.035, 0.025), group='knot')
+    c.mirror(lambda s: c.capsule((0, 0.66, Z + 0.14), (s * 0.06, 0.57, Z + 0.14), 0.017, group='knot'))
+    paint_blobs('band', 0xfff6e8, k=1.12)
+    paint_blobs(['hem1', 'hem-1'], 0xfff6e8, k=1.1)
+    paint_blobs('knot', 0xfff6e8, k=1.2)
+    # white side stripes down the outside of each leg
+    c.paint_fn(lambda p, n: 0.2 < p.y < 0.7 and abs(abs(p.x) - (0.44 + (0.6 - p.y) * 0.12)) < 0.045 and abs(n.z) < 0.85, 0xffffff)
+
+
+@garment('legs', 'tutuflat', 0xff8fc0, 2600)
+def tutuflat():
+    """The tutu as it looks hung up (never worn; the rail and the bubble show it): a waistband and a full skirt of
+    soft scalloped tulle fanning out below it, two tiers. Built in front of the monkey (z 2), see shortsflat."""
+    Z = 2.0
+    c.capsule((-0.4, 0.83, Z + 0.1), (0.4, 0.83, Z + 0.1), 0.085, group='band')        # the satin waistband, in front
+    # each tulle petal its own shape (they keep their scalloped edges instead of melting into one blob),
+    # alternating two pinks so the layers of net read
+    def tier(n, R, ln, wide, zoff, y0, spread, tag, cols):
+        for k in range(n):
+            a = math.radians(-spread + 2 * spread * k / (n - 1))       # 0 = straight down
+            cx, cy = math.sin(a) * R * 1.25, y0 - math.cos(a) * R * 0.62     # wide and short: a tutu sticks out
+            g = 'pet%s%d' % (tag, k)
+            c.blob((cx, cy, Z + zoff + 0.01 * (k % 2)), (wide, ln, 0.08), rot=(0, 0, math.degrees(math.atan2(math.sin(a) * 1.25, math.cos(a) * 0.62))), group=g)
+            paint_blobs(g, cols[k % 2], k=1.0)
+    tier(11, 0.44, 0.2, 0.13, -0.05, 0.8, 78, 'b', (0xffc6df, 0xffb0d2))
+    tier(9, 0.3, 0.17, 0.13, 0.06, 0.8, 72, 'f', (0xff8fc0, 0xff7fb6))
+    paint_blobs('band', 0xff5fa0, k=1.12)
 
 
 @garment('legs', 'tutu', 0xff8fc0, 2600)
@@ -817,20 +906,24 @@ def tutu():
             rr = r0 + ln * 0.55
             c.blob((math.sin(th) * rr, y - math.sin(math.radians(tilt)) * ln * 0.5, 0.02 + math.cos(th) * rr * 0.93),
                    (wide, 0.04, ln * 0.6), rot=(tilt, math.degrees(th), 0), group=g)
-    tier(0.55, 0.48, 0.34, 16, 22, 0.0, 'tier1', 0.13)
-    tier(0.47, 0.5, 0.36, 16, 30, 0.5, 'tier2', 0.13)
+    tier(0.55, 0.48, 0.34, 10, 22, 0.0, 'tier1', 0.2)
+    tier(0.47, 0.5, 0.36, 10, 30, 0.5, 'tier2', 0.2)
+    tail_notch(['tier1', 'tier2', 'band'])
     paint_blobs(['tier2'], 0xffb8d8)
-    paint_blobs(['band'], 0xff5fa0)
-    for k in range(8):
-        a = 2 * math.pi * k / 8
-        c.paint('gem', (math.sin(a) * (rx + 0.1), 0.6, 0.02 + math.cos(a) * (rz + 0.1)), (0.04, 0.04, 0.04), 0xffffff)
-    # sparkles on the top tier
-    for k in range(10):
-        a = 2 * math.pi * (k + 0.5) / 10
-        c.paint('spark', (math.sin(a) * 0.72, 0.5, 0.02 + math.cos(a) * 0.68), (0.035, 0.035, 0.035), 0xfff2a8)
+    c.paint_fn(lambda p, n: p.y > 0.555 and math.hypot(p.x / (rx + 0.03), (p.z - 0.02) / (rz + 0.03)) < 1.12, 0xff5fa0)   # waistband
 
 
 GL_Y = HY + 0.075        # eye height
+
+
+def temple(s, y):
+    """a glasses arm that follows the side of the head, just off the skin, from the frame back to the ear"""
+    pts = []
+    for k in range(9):
+        th = 0.5 + (1.42 - 0.5) * k / 8
+        rx, rz = head_rxz(y, 0.045)
+        pts.append((s * math.sin(th) * rx, y - 0.01 * k / 8, math.cos(th) * rz + 0.02))
+    c.curve([(s * 0.34, y, GL_Z - 0.05)] + pts, [0.03] * (len(pts) + 1), group='arm', per=3)
 GL_Z = 0.655             # lens plane (just in front of the eyes, so shades cover them)
 @garment('eyes', 'sunglasses', 0x3d3158, 1300)
 def sunglasses():
@@ -839,8 +932,7 @@ def sunglasses():
         c.blob((x, GL_Y, GL_Z), (0.165, 0.13, 0.04), rot=(0, s * 14, 0), group='frame')
         c.paint('lens', (x, GL_Y, GL_Z + 0.04), (0.14, 0.108, 0.06), 0x2e4d9e, rot=(0, s * 14, 0))
         c.paint('glint', (x - 0.05, GL_Y + 0.05, GL_Z + 0.05), (0.07, 0.022, 0.06), 0x9ad8ff, rot=(0, 0, -35))
-        c.capsule((s * 0.34, GL_Y + 0.02, GL_Z - 0.06), (s * 0.56, GL_Y + 0.03, 0.34), 0.03, group='arm')
-        c.capsule((s * 0.56, GL_Y + 0.03, 0.34), (s * 0.64, GL_Y + 0.02, 0.0), 0.03, group='arm')
+        temple(s, GL_Y + 0.02)
     c.capsule((-0.08, GL_Y + 0.03, GL_Z + 0.02), (0.08, GL_Y + 0.03, GL_Z + 0.02), 0.032, group='bridge')
 
 
@@ -849,39 +941,39 @@ def hearts():
     for s in (-1, 1):
         x = s * 0.22
         g = 'lens' + str(s)
-        c.blob((x - 0.065, GL_Y + 0.04, GL_Z), (0.1, 0.1, 0.04), group=g)
-        c.blob((x + 0.065, GL_Y + 0.04, GL_Z), (0.1, 0.1, 0.04), group=g)
-        c.blob((x, GL_Y - 0.04, GL_Z), (0.1, 0.1, 0.04), rot=(0, 0, 45), group=g)
-        c.paint('lens', (x, GL_Y + 0.0, GL_Z + 0.05), (0.12, 0.1, 0.06), 0xff9ec4)
-        c.paint('glint', (x - 0.06, GL_Y + 0.05, GL_Z + 0.06), (0.04, 0.018, 0.05), 0xffffff, rot=(0, 0, -35))
-        c.capsule((s * 0.34, GL_Y + 0.03, GL_Z - 0.06), (s * 0.56, GL_Y + 0.03, 0.34), 0.03, group='arm')
-        c.capsule((s * 0.56, GL_Y + 0.03, 0.34), (s * 0.64, GL_Y + 0.02, 0.0), 0.03, group='arm')
+        c.blob((x - 0.072, GL_Y + 0.045, GL_Z), (0.112, 0.112, 0.04), group=g)
+        c.blob((x + 0.072, GL_Y + 0.045, GL_Z), (0.112, 0.112, 0.04), group=g)
+        c.blob((x, GL_Y - 0.05, GL_Z), (0.112, 0.112, 0.04), rot=(0, 0, 45), group=g)
+        c.paint('lens', (x, GL_Y + 0.005, GL_Z + 0.05), (0.15, 0.13, 0.06), 0xff9ec4)
+        c.paint('glint', (x - 0.06, GL_Y + 0.06, GL_Z + 0.06), (0.045, 0.02, 0.05), 0xffffff, rot=(0, 0, -35))
+        temple(s, GL_Y + 0.03)
     c.capsule((-0.08, GL_Y + 0.05, GL_Z + 0.02), (0.08, GL_Y + 0.05, GL_Z + 0.02), 0.03, group='bridge')
 
 
 @garment('neck', 'scarf', 0xff4b4b, 1900)
 def scarf():
-    ring(0, 1.17, 0.0, 0.35, 0.33, 0.1, 'wrap', n=22, tilt=-0.04, yscale=1.1)
-    pts = [(0.17, 1.12, 0.39), (0.21, 0.94, 0.47), (0.24, 0.76, 0.49)]
+    ring(0, 1.18, 0.0, 0.4, 0.38, 0.1, 'wrap', n=24, tilt=-0.04, yscale=1.1)
+    pts = [(0.17, 1.12, 0.48), (0.21, 0.94, 0.56), (0.24, 0.76, 0.58)]
     for i in range(len(pts) - 1):
         a, b = pts[i], pts[i + 1]
         for k in range(4):
             p = lerp(a, b, k / 4)
             c.blob(p, (0.11, 0.08, 0.04), rot=(-15, 0, -8), group='scarfEnd')
     for k in range(5):
-        c.blob((0.15 + k * 0.04, 0.68, 0.49), (0.028, 0.06, 0.025), group='fringe')
+        c.blob((0.15 + k * 0.04, 0.68, 0.58), (0.028, 0.06, 0.025), group='fringe')
     stripes_y(0.09, 0xfff6e8, off=0.0, only=lambda p: 0.73 < p.y < 1.04)
     c.paint_fn(lambda p, n: p.y >= 1.04 and abs(math.atan2(p.x, p.z) % 0.6 - 0.3) < 0.1, 0xfff6e8)
     paint_blobs(['fringe'], 0xfff6e8)
 
 
-@garment('neck', 'bowtie', 0xa77bff, 1100)
+@garment('neck', 'bowtie', 0xa77bff, 1500)
 def bowtie():
-    c.mirror(lambda s: c.blob((s * 0.12, 1.15, 0.34), (0.11, 0.085, 0.05), rot=(0, s * -15, s * 12), group='bow'))
-    c.blob((0, 1.15, 0.37), (0.05, 0.055, 0.045), group='knot')
-    for x, y in [(-0.16, 1.18), (-0.09, 1.11), (0.1, 1.19), (0.16, 1.12)]:
-        c.paint('dot', (x, y, 0.4), (0.026, 0.026, 0.06), 0xffffff)
-    c.paint('knot', (0, 1.15, 0.41), (0.06, 0.07, 0.05), 0x7a52e0)
+    c.mirror(lambda s: c.blob((s * 0.16, 1.15, 0.41), (0.155, 0.12, 0.06), rot=(0, s * -15, s * 12), group='bow'))
+    c.blob((0, 1.15, 0.45), (0.07, 0.075, 0.055), group='knot')
+    ring(0, 1.16, 0.0, 0.37, 0.315, 0.026, 'band', n=26, tilt=-0.02)
+    for x, y in [(-0.22, 1.19), (-0.12, 1.1), (0.13, 1.2), (0.22, 1.11)]:
+        c.paint('dot', (x, y, 0.47), (0.034, 0.034, 0.08), 0xffffff)
+    paint_blobs(['knot', 'band'], 0x7a52e0, k=1.05)
 
 
 @garment('neck', 'lei', 0xff6fa8, 2400)
@@ -911,12 +1003,13 @@ def mittens():
     for s in (-1, 1):
         g = 'arm' + ('L' if s < 0 else 'R')
         hx, hy, hz = HAND(s)
-        c.blob((hx, hy - 0.01, hz), (0.165, 0.17, 0.15), group=g)
-        c.blob((s * 0.75, 0.59, 0.25), (0.07, 0.08, 0.065), group=g)
         d = tuple(WR(s)[i] - SH(s)[i] for i in range(3))
+        dn = Vector(d).normalized()
+        c.blob(tuple(Vector((hx, hy, hz)) + dn * 0.05), (0.15, 0.22, 0.13), rot=align_y(d), group=g)
+        # the thumb: out to the front and toward the body
+        c.blob((s * 0.71, 0.62, 0.25), (0.06, 0.1, 0.06), rot=(-30, 0, s * 35), group='thumb' + g)
         cuff(lerp(SH(s), WR(s), 0.93), d, 0.16, 0.06, 'cuff' + g)
         paint_blobs('cuff' + g, 0xfff6e8)
-        c.paint('heart', (hx, hy - 0.02, hz + 0.15), (0.06, 0.05, 0.05), 0xff6fa8)
 
 
 # =====================================================================================================
@@ -932,7 +1025,7 @@ c.bone('body', (0, 0.15, 0), (0, 1.15, 0), region=lambda p: p.y < 1.4)
 c.bone('head', (0, 1.25, 0), (0, 2.4, 0), parent='body', region=lambda p: p.y > 1.08)
 for s, n in ((-1, 'L'), (1, 'R')):
     c.bone('arm.' + n, SH(s), HAND(s), parent='body')
-    c.group_rules['arm.' + n] = ['arm' + n, 'hand' + n, 'cuffarm' + n]
+    c.group_rules['arm.' + n] = ['arm' + n, 'hand' + n, 'cuffarm' + n, 'thumbarm' + n]
     c.bone('leg.' + n, (s * 0.21, 0.46, 0.03), (s * 0.26, 0.08, 0.3), parent='body')
     c.group_rules['leg.' + n] = ['leg' + n, 'foot' + n] + [k + 'leg' + n for k in ('lace', 'eye', 'top', 'sole', 'collar')]
 TB = [TAIL[0], TAIL[2], TAIL[3], TAIL[5], TAIL[7]]
@@ -949,7 +1042,7 @@ for s, n in ((-1, 'L'), (1, 'R')):
 c.chain('mane', [(0, 1.1, -0.36), (0, 0.66, -0.56), (0, 0.16, -0.64)], 'body')   # the cape
 for i in (1, 2):
     c.group_rules['mane.%d' % i] = ['cape']
-c.chain('tuftS', [(0.17, 1.14, 0.36), (0.22, 0.9, 0.44), (0.23, 0.66, 0.45)], 'body')  # scarf end
+c.chain('tuftS', [(0.17, 1.14, 0.45), (0.22, 0.9, 0.53), (0.23, 0.66, 0.54)], 'body')  # scarf end
 for i in (1, 2):
     c.group_rules['tuftS.%d' % i] = ['scarfEnd']
 

@@ -18,9 +18,11 @@ function arc(cx, cy, rx, ry, a0, a1, n = 18) {
 // alt: a simpler path used when the stroke gets only one or two bricks (so a 5-brick B still reads as B)
 const S = (pts, cap0 = 0, cap1 = 0, alt = null) => ({ pts, cap0, cap1, alt });
 
-// Each letter: (H, c) → { W, strokes }. c = half the stroke thickness.
+// Each letter: (H, c, brick) → { W, strokes }. c = half the stroke thickness. brick = true for Brick letters' block layout
+// (a few joints get a little more room there, so no two bricks overlap; the plain strokes, e.g. the Letter friends
+// station sign, are unchanged).
 export const LETTERS = {
-  A(H, c) {
+  A(H, c, brick) {
     const W = 0.9 * H, ax0 = W / 2, ay = H - c * 0.45;
     const l0 = [c * 1.1, c], r0 = [W - c * 1.1, c];
     // the legs end side by side at the top, their inner top corners just touching on the centre line
@@ -30,7 +32,7 @@ export const LETTERS = {
     // the cross bar butts against the inner edges of the legs
     const yb = 0.34 * H;
     const xAt = (p, q, y) => p[0] + (q[0] - p[0]) * ((y - p[1]) / (q[1] - p[1]));
-    const inset = c / Math.sin(th) + 0.02;
+    const inset = c / Math.sin(th) + (brick ? 0.08 : 0.02);
     const rt = [W - ax, ay];
     return { W, strokes: [S([l0, [ax, ay]], c, 0), S([r0, rt], c, 0), S([[xAt(l0, [ax, ay], yb) + inset, yb], [xAt(r0, rt, yb) - inset, yb]])] };
   },
@@ -58,9 +60,9 @@ export const LETTERS = {
     const W = 0.64 * H;
     return { W, strokes: [S([[c, H - c], [c, c]], c, c), S([[2 * c, H - c], [W - c, H - c]], 0, c), S([[2 * c, 0.52 * H], [W * 0.88 - c, 0.52 * H]], 0, c)] };
   },
-  G(H, c) {
+  G(H, c, brick) {
     const W = 0.86 * H, rx = W / 2 - c, ry = H / 2 - c;
-    return { W, strokes: [S(arc(W / 2, H / 2, rx, ry, 40, 360, 30), c * 0.6, 0), S([[W - 2 * c, H / 2], [W * 0.54, H / 2]], 0, c)] };
+    return { W, strokes: [S(arc(W / 2, H / 2, rx, ry, 40, 360, 30), c * 0.6, 0), S([[W - 2 * c - (brick ? 0.08 : 0), H / 2], [W * 0.54, H / 2]], 0, c)] };
   },
   H(H, c) {
     const W = 0.8 * H;
@@ -74,11 +76,12 @@ export const LETTERS = {
     const W = 0.66 * H, sx = W - 2.2 * c, rx = (sx - c) / 2, cy = 0.34 * H;
     return { W, strokes: [S([[0.3 * W, H - c], [W - c, H - c]], c, c), S([[sx, H - 2 * c], [sx, cy], ...arc(sx - rx, cy, rx, cy - c, 0, -170, 16).slice(1)], 0, c * 0.6)] };
   },
-  K(H, c) {
+  K(H, c, brick) {
     const W = 0.78 * H, jy = 0.42 * H;
     const arm = [[W - c * 1.1, H - c], [2.6 * c, jy]];
     const m = [arm[0][0] + (arm[1][0] - arm[0][0]) * 0.62, arm[0][1] + (arm[1][1] - arm[0][1]) * 0.62];
-    return { W, strokes: [S([[c, H - c], [c, c]], c, c), S(arm, c, 0), S([[m[0] + c * 0.5, m[1] - c * 0.6], [W - c * 1.1, c]], 0, c)] };
+    const leg = brick ? [m[0] + c * 0.95, m[1] - c * 1.35] : [m[0] + c * 0.5, m[1] - c * 0.6];
+    return { W, strokes: [S([[c, H - c], [c, c]], c, c), S(arm, c, 0), S([leg, [W - c * 1.1, c]], 0, c)] };
   },
   L(H, c) {
     const W = 0.62 * H;
@@ -101,9 +104,9 @@ export const LETTERS = {
     const W = 0.7 * H, my = 0.44 * H, bx = 0.42 * W, ry = (H - c - my) / 2;
     return { W, strokes: [S([[c, H - c], [c, c]], c, c), S([[2 * c, H - c], ...arc(bx, my + ry, W - c - bx, ry, 90, -90), [2 * c, my]])] };
   },
-  Q(H, c) {
-    const W = 0.88 * H, rx = W / 2 - c, ry = H / 2 - c, a = -52 * DEG;
-    const p0 = [W / 2 + (rx + c * 0.6) * Math.cos(a), H / 2 + (ry + c * 0.6) * Math.sin(a)];
+  Q(H, c, brick) {
+    const W = 0.88 * H, rx = W / 2 - c, ry = H / 2 - c, a = -52 * DEG, k = brick ? 1.15 : 0.6;
+    const p0 = [W / 2 + (rx + c * k) * Math.cos(a), H / 2 + (ry + c * k) * Math.sin(a)];
     return { W, strokes: [S(arc(W / 2, H / 2, rx, ry, 90, 450, 36)), S([[p0[0] - c * 0.3, p0[1] + c * 0.3], [W - c * 0.3, c * 0.1]], 0, c * 0.5)] };
   },
   R(H, c) {
@@ -120,6 +123,38 @@ export const LETTERS = {
   T(H, c) {
     const W = 0.96 * H;
     return { W, strokes: [S([[c, H - c], [W - c, H - c]], c, c), S([[W / 2, H - 2 * c], [W / 2, c]], 0, c)] };
+  },
+  // U to Z (added for Letter friends; the same rules, so Brick letters could go on to Z)
+  U(H, c) {
+    const W = 0.8 * H, cy = 0.42 * H;
+    return { W, strokes: [S([[c, H - c], [c, cy], ...arc(W / 2, cy, W / 2 - c, cy - c, 180, 360, 20).slice(1), [W - c, H - c]], c, c)] };
+  },
+  V(H, c) {
+    // A upside down without its bar: the legs meet at the bottom, their inner corners just touching
+    const W = 0.9 * H, ax0 = W / 2, ay = c * 0.45;
+    const l0 = [c * 1.1, H - c], r0 = [W - c * 1.1, H - c];
+    let th = Math.atan2(H - c - ay, ax0 - l0[0]);
+    for (let i = 0; i < 3; i++) th = Math.atan2(H - c - ay, ax0 - c * Math.sin(th) - l0[0]);
+    const ax = ax0 - c * Math.sin(th) * 1.02;
+    return { W, strokes: [S([l0, [ax, ay]], c, 0), S([r0, [W - ax, ay]], c, 0)] };
+  },
+  W(H, c) {
+    const W = 1.16 * H, my = 0.72 * H;
+    const xs = [c * 1.1, 0.27 * W, 0.5 * W, 0.73 * W, W - c * 1.1];
+    return { W, strokes: [S([[xs[0], H - c], [xs[1], c]], c, c * 0.5), S([[xs[2], my], [xs[1], c]], c * 0.4, 0),
+      S([[xs[2], my], [xs[3], c]], 0, c * 0.5), S([[xs[4], H - c], [xs[3], c]], c, 0)] };
+  },
+  X(H, c) {
+    const W = 0.86 * H;
+    return { W, strokes: [S([[c * 1.1, H - c], [W - c * 1.1, c]], c, c), S([[W - c * 1.1, H - c], [W / 2, H / 2]], c, 0), S([[W / 2, H / 2], [c * 1.1, c]], 0, c)] };
+  },
+  Y(H, c) {
+    const W = 0.9 * H, jy = 0.45 * H;
+    return { W, strokes: [S([[c * 1.1, H - c], [W / 2, jy]], c, 0), S([[W - c * 1.1, H - c], [W / 2, jy]], c, 0), S([[W / 2, jy], [W / 2, c]], 0, c)] };
+  },
+  Z(H, c) {
+    const W = 0.8 * H;
+    return { W, strokes: [S([[c, H - c], [W - c, H - c]], c, c), S([[W - c * 1.7, H - 2 * c], [c * 1.7, 2 * c]]), S([[c, c], [W - c, c]], c, c)] };
   },
 };
 
@@ -148,10 +183,10 @@ function allot(lens, n) {
   return k;
 }
 
-export const SEAM = 0.05;      // the thin gap between neighbouring bricks
+export const SEAM = 0.08;      // the thin gap between neighbouring bricks
 export function layoutLetter(ch, n, { H = 4.6, t = 0.62 } = {}) {
   const c = t / 2;
-  const def = LETTERS[ch](H, c);
+  const def = LETTERS[ch](H, c, true);
   // stroke paths with their caps folded in (a cap stretches the end segment), so all bricks of a stroke are equal
   const path = (st, pts) => {
     const P = pts.map((p) => p.slice());
@@ -266,5 +301,6 @@ function untangle(slots, t) {
   }
 }
 
-// bricks per letter: A–E take 5, then one more each (F = 6 … T = 20)
-export const bricksFor = (ch) => Math.max(5, ch.charCodeAt(0) - 64);
+// bricks per letter: never more than ten (counting to ten is the goal; the letters bring the progression, not the number)
+const COUNT = { A: 5, B: 5, C: 5, D: 5, E: 5, F: 5, G: 5, H: 6, I: 6, J: 6, K: 7, L: 7, M: 8, N: 8, O: 8, P: 8, Q: 9, R: 9, S: 10, T: 10 };
+export const bricksFor = (ch) => COUNT[ch] || Math.min(10, Math.max(5, ch.charCodeAt(0) - 64));

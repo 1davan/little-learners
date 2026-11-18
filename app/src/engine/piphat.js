@@ -46,7 +46,7 @@ const FIT = {
   straw: { model: 'prop_pip_strawhat', pos: [0, 0.31, -0.02], rot: [-0.16, 0, -0.06], scale: 1, tuck: true },
   beanie: { model: 'prop_icon_hat_beanie', pos: [0, 0.3, -0.03], rot: [-0.12, 0, 0.05], scale: [1.86, 1.4, 1.7], tuck: true, tint: 0x7b9bff },
   nightcap: { model: 'prop_icon_hat_nightcap', pos: [0, 0.3, -0.03], rot: [-0.12, 0, 0.05], scale: [1.86, 1.4, 1.7], tuck: true, tint: 0x7b9bff },
-  rainhat: { model: 'prop_pip_rainhat', pos: [0, 0.3, -0.02], rot: [-0.16, 0, 0.06], scale: 1, tuck: true },
+  rainhat: { model: 'prop_pip_rainhat', pos: [0, 0.35, -0.03], rot: [-0.26, 0, 0.06], scale: 1, tuck: true },
   leaves: { model: 'prop_icon_hat_leaves', pos: [0, 0.5, -0.05], rot: [-0.12, 0, 0.04], scale: 1.55, tuck: true },
   flower: { model: 'prop_icon_hat_flower', pos: [0.4, 0.55, 0.22], rot: [0.1, 0.35, -0.55], scale: 1.0, tuck: false },
 };

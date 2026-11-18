@@ -4,7 +4,8 @@ and every petal on its own bone petal.1..n (in game petal1..; bone head at the p
 the petals one by one by scaling the bones. A green calyx sits behind/below the centre where the stem joins.
   prop_bloom_daisy      twelve white spoon petals round a domed yellow eye (r ~0.62)
   prop_bloom_sunflower  two rings of pointed golden petals round a big brown seed disc (r ~0.82)
-  prop_bloom_rose       two rings of round cupped pink petals round a deep pink heart (r ~0.58)
+  prop_bloom_rose       a bud wrapped by two hugging petals, then two rings of five broad round cupped pink petals
+                        (offset, overlapping) with deeper-pink rims (r ~0.62)
   prop_bloom_tulip      a red cup of five tall rounded petals (0.75 tall)"""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
@@ -77,17 +78,43 @@ def sunflower():
 
 
 def rose():
-    # the heart (with the face) is the skin; two rings of big round petals behind it
-    p = Prop('prop_bloom_rose', base=0xff5f9e, target_faces=700, voxel=0.01, smooth=3)
-    p.resolution = 0.012
-    p.blob((0, 0, 0.1), (0.2, 0.2, 0.13), group='heart')
-    p.paint_fn(lambda q, n: math.hypot(q.x, q.y) > 0.155, 0xe8478a)
-    p.layer('petals', base=0xffa3cc, target_faces=2400, voxel=0.01)
+    # the heart (with the face) is the skin: a round bud wrapped by two hugging inner petals; behind it two rings of
+    # five broad, round, cupped petals that overlap (inner ring offset half a petal) - three rings in all - each a thin
+    # flat petal (flattened through its thickness, toward the viewer) with a deeper-pink rim band so they read apart
+    p = Prop('prop_bloom_rose', base=0xff5f9e, target_faces=1800, voxel=0.008, smooth=3)
+    p.resolution = 0.01
+    p.blob((0, 0, 0.08), (0.2, 0.2, 0.15), group='heart')
+    for k, a0 in enumerate((math.radians(195), math.radians(15))):        # two wrap petals hugging the bud (spiral)
+        for t in range(7):
+            a = a0 + t / 6 * math.radians(160)
+            r = 0.19 + 0.012 * t
+            out = Vector((math.cos(a), math.sin(a), 0.5)).normalized()
+            tang = Vector((-math.sin(a), math.cos(a), 0))
+            flat(p, (r * math.cos(a), r * math.sin(a), 0.06 + 0.01 * t), tang, out, (0.09 + 0.02 * math.sin(math.pi * t / 6), 0.06, 0.03), 'wrap%d' % k)
+    p.paint_fn(lambda q, n: math.hypot(q.x, q.y) > 0.17, 0xe8478a)
+    p.layer('petals', base=0xffa3cc, target_faces=3600, voxel=0.009)
     bones = []
-    radial(p, 5, 0.14, 0.43, [0.1, 0.17, 0.2, 0.17], -0.08, 0.04, 'p', bones=bones, flatk=0.3)
-    radial(p, 5, 0.1, 0.3, [0.09, 0.14, 0.15, 0.12], -0.01, 0.06, 'q', phase=math.tau / 10, bones=bones, flatk=0.36)
-    p.paint_fn(lambda q, n: q.z > -0.02 and math.hypot(q.x, q.y) < 0.36, 0xff80b6)
-    finish(p, bones, 0.2, 0.95)
+    for ring, (cnt, r0, r1, z0, wmax, phase) in enumerate(((5, 0.14, 0.5, -0.12, 0.27, 0.0), (5, 0.1, 0.36, -0.03, 0.2, math.tau / 10))):
+        for i in range(cnt):
+            a = phase + i / cnt * math.tau + math.pi / 2
+            d = Vector((math.cos(a), math.sin(a), 0))
+            g = '%s%d' % ('pq'[ring], i)
+            pts = []
+            for k in range(7):
+                t = k / 6
+                r = r0 + (r1 - r0) * t
+                z = z0 + 0.12 * t * t
+                cup = 0.5 * t                                                   # tips curl toward the viewer
+                nrm = (Vector((0, 0, 1)) * math.cos(cup) - d * math.sin(cup)).normalized()
+                w = wmax * (0.55 + 0.45 * math.sin(math.pi * min(1.0, 0.2 + t * 0.62)))        # broad round ends
+                pos = d * r + Vector((0, 0, z))
+                flat(p, tuple(pos), d, nrm, (w, 0.07, 0.03), g)
+                pts.append(tuple(pos))
+            bones.append((pts[0], pts[-1], g))
+    p.paint_fn(lambda q, n: q.z > 0.0 and math.hypot(q.x, q.y) < 0.4, 0xff8cbd)
+    p.paint_fn(lambda q, n: math.hypot(q.x, q.y) > 0.58, 0xf2679f)
+    p.paint_fn(lambda q, n: n.z < -0.4, 0xf37fb2)
+    finish(p, bones, 0.2, 1.15)
 
 
 def tulip():

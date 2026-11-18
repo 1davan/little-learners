@@ -19,11 +19,12 @@ import * as T from '../three.js';
 import { Lesson } from '../engine/lesson.js';
 import { setFace, hop, popIn, popOut } from '../engine/actors.js';
 import { makeChick } from '../engine/farm.js';
+import { makeCreature, hasCreature } from '../engine/creature.js';
 import { input } from '../engine/input.js';
 import { cursor } from '../engine/cursor.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
-import { setCamera, project } from '../engine/stage.js';
+import { setCamera, project, camera, getLook } from '../engine/stage.js';
 import { Ease } from '../engine/tween.js';
 import { toonUnique } from '../engine/toon.js';
 import { Pail, SeeSaw, SEESAW, Stream, PAIL, makeCastle, makeHeap, makeTub, makePourer, spoutWorld, spoutOffset, MATS } from './balance-props.js';
@@ -37,38 +38,47 @@ const PLANS = [
     { task: 'empty', side: 0, say: 'Now tip it out!' },
     { task: 'fill', side: 0, goal: 1, mat: 'water', pail: [BLUE, 1], say: 'Fill it up with water!' },
     { task: 'empty', side: 0, say: 'Make it empty!' },
-    { task: 'fill', side: 0, goal: 1, mat: 'sand', pail: [YELLOW, 1.1], say: 'Fill the big bucket up!' },
+    { task: 'fill', side: 0, goal: 1, mat: 'sand', pail: [YELLOW, 1.3], say: 'Fill the big bucket up!' },
     { task: 'empty', side: 0, say: 'Tip it out!' },
   ],
   // Level 2: two pails; half and full, heavy and light (each round carries on from the last)
   [
-    { task: 'fill', side: 0, goal: 0.5, mat: 'sand', say: 'Fill this bucket half way!' },
+    { task: 'fill', side: 0, goal: 0.5, mat: 'sand', say: 'Fill it half way! To the line!' },
     { task: 'pick', ask: 'heavy', say: 'Which bucket is heavy?' },
-    { task: 'fill', side: 1, goal: 1, mat: 'water', say: 'Fill this one right up!' },
+    { task: 'fill', side: 1, goal: 1, mat: 'water', say: 'Fill it to the star!' },
     { task: 'pick', ask: 'full', say: 'Which bucket is full?' },
     { task: 'empty', ask: 'half', say: 'Tip out the half full one!' },
     { task: 'pick', ask: 'light', say: 'Which bucket is light?' },
   ],
   // Level 3: balance the see-saw by pouring just enough; which holds more / less (proved by pouring one into the other)
   [
-    { task: 'balance', side: 1, pre: [1, 0], preMat: 'sand', mat: 'sand', say: 'Make the see-saw balance!' },
-    { task: 'more', ask: 'more', cands: [[GREEN, 1.25, 1.2], [PINK, 0.72, 0.72]], mat: 'sand', say: 'Which one holds more?', line: 'The big one holds more!' },
-    { task: 'balance', side: 0, pre: [0, 0.5], preMat: 'water', mat: 'water', say: 'Balance it with water!' },
-    { task: 'more', ask: 'more', cands: [[PURPLE, 1.35, 0.78], [TEAL, 0.66, 1.3]], mat: 'water', say: 'Which one holds more?', line: 'The wide one holds more!' },
-    { task: 'balance', side: 1, pre: [0.75, 0], preMat: 'sand', mat: 'sand', say: 'Make it balance again!' },
-    { task: 'more', ask: 'less', cands: [[ORANGE, 1.2, 1.1], [BLUE, 0.75, 0.7]], mat: 'sand', say: 'Which one holds less?', line: 'The small one holds less!' },
+    { task: 'balance', side: 1, pre: [1, 0], preMat: 'sand', mat: 'sand', say: 'Make the see-saw flat!' },
+    { task: 'more', ask: 'more', cands: [[GREEN, 1.25, 1.2], [PINK, 0.72, 0.72]], mat: 'sand', say: 'Pour the little one in the big one!', line: 'The big one holds more!' },
+    { task: 'balance', side: 0, pre: [0, 0.5], preMat: 'water', mat: 'water', say: 'Make it flat with water!' },
+    { task: 'more', ask: 'more', cands: [[PURPLE, 1.35, 0.78], [YELLOW, 0.66, 1.3]], mat: 'water', say: 'Pour the tall one in the wide one!', line: 'The wide one holds more!' },
+    { task: 'balance', side: 1, pre: [0.75, 0], preMat: 'sand', mat: 'sand', say: 'Make it flat again!' },
+    { task: 'more', ask: 'less', cands: [[RED, 1.2, 1.1], [BLUE, 0.75, 0.7]], mat: 'sand', say: 'Pour the big one in the little one!', line: 'The little one holds less!' },
   ],
 ];
-const CAM = { pos: new T.Vector3(0.3, 4.9, 12.6), look: new T.Vector3(0.3, 1.85, 0) };
+// The camera opens wide on the yard (sand heap, water tub, see-saw), then works close on the see-saw: the scoop or jug
+// is brought over to stand right by the pail it pours into, so everything you do is in the close-up.
+const CAMS = {
+  wide: { pos: new T.Vector3(0.0, 5.6, 15.2), look: new T.Vector3(0.0, 1.85, 0) },
+  main: { pos: new T.Vector3(2.2, 4.5, 10.0), look: new T.Vector3(2.2, 1.5, 0) },
+};
+const _cp = new T.Vector3(), _cl = new T.Vector3();
 const SS = new T.Vector3(2.2, 0, -0.7);           // the see-saw's brick
-const HEAP = new T.Vector3(-5.2, 0, -2.4);        // the sand heap (the scoop rests on its front)
-const TUB = new T.Vector3(-4.3, 0, 1.2);          // the water tub (the jug stands beside it)
-const PIP = new T.Vector3(-6.75, 0, -0.6);
+const HEAP = new T.Vector3(-6.7, 0, -2.6);        // the sand heap (the scoop rests on its front), out to the left
+const TUB = new T.Vector3(-6.5, 0, 0.9);          // the water tub (the jug stands beside it), out to the left
+const PIP = new T.Vector3(8.7, 0, -2.5);          // beyond the right end of the see-saw (never behind the plank), watching
 const DRAG_Z = SS.z + 0.2;                        // carried pourers move in this plane, just in front of the pails
-const FRONT = [new T.Vector3(0.5, 0, 2.5), new T.Vector3(3.9, 0, 2.5)];   // where "which holds more?" pails stand
-const SPOTS = [new T.Vector3(3.5, 0, 3.4), new T.Vector3(1.2, 0, 3.7), new T.Vector3(5.5, 0, 3.0), new T.Vector3(-0.8, 0, 3.8)];
-const RATE = 0.75;                                // pour speed: a unit pail fills in about 1.3 s
-const AUTO_RATE = 1.5;
+const FRONT = [new T.Vector3(1.35, 0, 2.3), new T.Vector3(3.35, 0, 2.3)];   // where the "holds more" pails stand (clear of the plank)
+// castles stand in front of the see-saw's two ends (never in front of the pivot, where the scoop / jug waits, nor
+// where the "holds more" pails stand)
+const SPOTS = [new T.Vector3(-0.75, 0, 2.85), new T.Vector3(5.2, 0, 2.85), new T.Vector3(-1.6, 0, 1.9), new T.Vector3(6.0, 0, 1.9)];
+const READY_Z = 1.45;                             // a scoop or jug brought over waits on the sand here, beside its pail
+const RATE = 0.5;                                 // pour speed: a unit pail fills in about 2 s
+const AUTO_RATE = 0.85;
 const V = (x, y, z) => new T.Vector3(x, y, z);
 
 // the wet-sand splotch: white with soft alpha, tinted by the material colour (drawn once, shared by every puddle)
@@ -90,9 +100,10 @@ function wetTex() {
 
 export default class BalanceLesson extends Lesson {
   build() {
-    setCamera(CAM.pos, CAM.look);
+    setCamera(CAMS.wide.pos, CAMS.wide.look);
+    this.feelInit();
     this.pip.position.copy(PIP);
-    this.pip.rotation.y = 0.6;
+    this.pip.rotation.y = -0.65;
     this.pip.scale.setScalar(0.85);
     this.pip.userData.baseScale = 0.85;
     const lv = this.level;
@@ -118,8 +129,10 @@ export default class BalanceLesson extends Lesson {
     this.castles = [];
     if (lv === 0) {
       this.seat(this.newPail(RED, 1), 0);
-      const ch = (this.chick = makeChick(0.8));
+      // the weight on the other end: Frog (green, so never mistaken for Pip watching nearby)
+      const ch = (this.chick = hasCreature('frog') ? makeCreature('frog') : makeChick(0.8));
       ch.userData.noWalk = true;
+      if (ch.userData.creature) { const b = new T.Box3().setFromObject(ch), h = b.max.y - b.min.y; if (h > 0.01) ch.scale.multiplyScalar(1.2 / h); }
       ch.rotation.y = -0.35;
       ch.position.set(0, 0, 0.05);
       ss.seats[1].add(ch);
@@ -138,15 +151,28 @@ export default class BalanceLesson extends Lesson {
       scoop: { p: V(HEAP.x + 1.2, 0.85, HEAP.z + 1.3), r: -0.55 },
       jug: { p: V(TUB.x + 1.15, 0, TUB.z + 0.75), r: 0 },
     };
+    this.sources = {};
     for (const type of ['scoop', 'jug']) {
       const P = makePourer(type);
       const H = this.homes[type];
       H.p.y += P.userData.P.grip[1] * P.userData.P.k;
       P.position.copy(H.p);
       P.userData.tilt.rotation.z = H.r;
+      this.sources[type] = { p: H.p.clone(), r: H.r };
       this.root.add(P);
       this.pourers[type] = P;
       this.addPourDrag(P);
+    }
+    // the first round's scoop / jug already waits beside its pail when the game opens (no flight to wait for)
+    const p0 = this.plans[0];
+    if (p0 && (p0.task === 'fill' || p0.task === 'balance') && this.plank[p0.side]) {
+      const type = p0.mat === 'water' ? 'jug' : 'scoop', P = this.pourers[type];
+      this.root.updateMatrixWorld(true);
+      const side = p0.side ? 1 : -1;
+      const H = this.restOn(P, this.plank[p0.side].g.getWorldPosition(new T.Vector3()).x - side * 1.25, READY_Z, 0);
+      this.homes[type] = H;
+      P.position.copy(H.p);
+      P.userData.tilt.rotation.z = H.r;
     }
     this.finger = new T.Vector3();
     this.blend = 0;
@@ -158,6 +184,7 @@ export default class BalanceLesson extends Lesson {
     this.marks = new Map();
     this.creakT = 0;
     this.puddles = [];
+    this.spills = [];
   }
 
   // ---------------- pails ----------------
@@ -210,13 +237,10 @@ export default class BalanceLesson extends Lesson {
     this.dragP = P;
     this.blend = 0;
     this.hover = null;
-    this.finger.copy(P.position);
-    P.position.z = DRAG_Z;
+    this.finger.copy(P.position);   // it is carried in its own plane, in front of the plank (never snapped into it)
     this.idle = 0;
-    this.demoDone = true;
-    fx.clearHands();
-    if (u.type === 'scoop') { bal.scoop(); this.puff(V(P.position.x, 0.9, HEAP.z + 1.2), MATS.sand.grain, 8); }
-    else { bal.dip(); this.drops(V(TUB.x + 0.6, 0.7, TUB.z + 0.3), 8); }
+    this.endDemo();
+    this.clearHints();   // no halo over the pail while she pours
   }
   release(P, zone, info) {
     if (this.dragP !== P || this.auto) return;
@@ -225,10 +249,16 @@ export default class BalanceLesson extends Lesson {
     this.hover = null;
     this.stopPour();
     if (info && info.tapped) { this.tapPourer(P); return; }
+    // letting go over the bucket in a fill round finishes the pour (the scoop stays tipped and empties itself)
+    const p = this.target();
+    if (this.phase === 'play' && this.task === 'fill' && wasOver && wasOver === p && p.level < this.goal() - 0.002) {
+      this.autoPour(P, p, this.goal(), { rate: RATE }).then(() => this.afterPour(p));
+      return;
+    }
     this.goHome(P);
     if (this.phase !== 'play') return;
-    if (this.task === 'balance' && (wasOver || this.pouredSome)) this.checkBalance(true);
-    else if (!wasOver && zone && !zone.ok) this.redirect(this.task === 'fill' ? 'Pour it in this one!' : 'This one!'), this.hopPail(this.target());
+    if (!wasOver && zone && !zone.ok) { this.redirect('Pour in this one!'); this.hopPail(this.target()); }
+    else if (this.task === 'balance' && (wasOver || this.pouredSome)) this.checkBalance(true);
   }
   // tapping the scoop or jug pours for you, into the right pail
   tapPourer(P) {
@@ -242,8 +272,9 @@ export default class BalanceLesson extends Lesson {
     const a = P.position.clone(), r0 = u.tilt.rotation.z, rz0 = P.rotation.z;
     // a curve up and forward over the see-saw (never through the plank or a pail), then down to its spot
     const far = Math.abs(a.x - H.p.x) > 1.5;
-    const c = V((a.x + H.p.x) / 2, Math.max(a.y, H.p.y) + (far ? 1.5 : 0.7), far ? Math.max(a.z, H.p.z) + 1.4 : (a.z + H.p.z) / 2);
-    const dur = far ? 0.48 : 0.34;
+    // always out toward us first (in front of the plank and the pails), then over and down to its spot
+    const c = V((a.x + H.p.x) / 2, Math.max(a.y, H.p.y) + (far ? 1.5 : 0.7), Math.max(a.z, H.p.z) + (far ? 1.4 : 1.0));
+    const dur = far ? Math.min(1.3, 0.8 + Math.abs(a.x - H.p.x) * 0.06) : 0.7;
     await this.s.anim(dur, (e) => {
       if (u.mv !== id) return;
       const i = 1 - e;
@@ -254,8 +285,39 @@ export default class BalanceLesson extends Lesson {
     if (u.mv !== id || this.dead) return;
     P.position.copy(H.p);
     u.tilt.rotation.z = H.r;
-    sfx.land();
-    if (u.type === 'scoop') this.puff(V(H.p.x + 0.3, 0.7, H.p.z), MATS.sand.grain, 5);
+  }
+  // a scoop or jug resting on the flat sand at (x, z): its lowest point just touches the sand
+  restOn(P, x, z, r = 0) {
+    const t = P.userData.tilt, p0 = P.position.clone(), r0 = t.rotation.z, rz0 = P.rotation.z;
+    P.position.set(x, 0, z); P.rotation.z = 0; t.rotation.z = r;
+    P.updateMatrixWorld(true);
+    const y = -new T.Box3().setFromObject(P).min.y + 0.02;
+    P.position.copy(p0); t.rotation.z = r0; P.rotation.z = rz0;
+    P.updateMatrixWorld(true);
+    return { p: V(x, y, z), r };
+  }
+  // bring the scoop / jug for this pour over from its heap / tub to wait beside the pail (it scoops or dips first)
+  async bringPourer(P, pail) {
+    const u = P.userData, src = this.sources[u.type];
+    const side = pail.side ? 1 : -1;
+    // beside its pail, toward the middle but well short of the pivot brick (and in front of it)
+    const x = pail.g.getWorldPosition(_v).x - side * 1.25;
+    const H = this.restOn(P, x, READY_Z, 0);
+    if (this.homes[u.type].p.distanceTo(H.p) < 0.4) return;   // already there (or as good as)
+    this.homes[u.type] = H;
+    if (u.type === 'scoop') { bal.scoop(); this.puff(V(src.p.x, 0.9, HEAP.z + 1.2), MATS.sand.grain, 8); }
+    else { bal.dip(); this.drops(V(TUB.x + 0.6, 0.7, TUB.z + 0.3), 8); }
+    await this.goHome(P);
+  }
+  // the scoop and jug go back to the heap and the tub (all but `keep`)
+  parkPourers(keep = null) {
+    for (const [type, P] of Object.entries(this.pourers)) {
+      if (type === keep) continue;
+      const src = this.sources[type];
+      if (this.homes[type].p.distanceTo(src.p) < 0.01) continue;
+      this.homes[type] = { p: src.p.clone(), r: src.r };
+      this.goHome(P);
+    }
   }
   // pour with the scoop/jug as a hand would: fly over the pail, tip, pour to `goal`, let go
   async autoPour(P, pail, goal, { rate = AUTO_RATE, setup = false } = {}) {
@@ -267,18 +329,17 @@ export default class BalanceLesson extends Lesson {
     this.blend = 0;
     this.hover = null;
     const from = P.position.clone();
-    const to = pail.mouth().add(V(-1.0, 0.9, 0));
+    const to = pail.mouth().add(V(-1.0, 0.55, 0));
     to.z = DRAG_Z;
-    if (u.type === 'scoop') bal.scoop(); else bal.dip();
     // up and over (a high arc in front of the plank), then in over the pail
     const c = V((from.x + to.x) / 2, Math.max(from.y, to.y) + 1.2, Math.max(from.z, to.z) + 0.8);
-    await this.s.anim(0.4, (e) => { const i = 1 - e; this.finger.set(i * i * from.x + 2 * i * e * c.x + e * e * to.x, i * i * from.y + 2 * i * e * c.y + e * e * to.y, i * i * from.z + 2 * i * e * c.z + e * e * to.z); }, Ease.inOut);
+    await this.s.anim(Math.abs(from.x - to.x) > 3 ? 1.0 : 0.75, (e) => { const i = 1 - e; this.finger.set(i * i * from.x + 2 * i * e * c.x + e * e * to.x, i * i * from.y + 2 * i * e * c.y + e * e * to.y, i * i * from.z + 2 * i * e * c.z + e * e * to.z); }, Ease.inOut);
     if (this.dead) return;
     this.hover = pail;
     for (let k = 0; k < 120 && !this.dead && this.auto && pail.level < goal - 0.002; k++) await this.wait(0.05);
     if (this.dead) return;
     this.hover = null;
-    await this.wait(0.12);
+    await this.wait(0.35);
     if (this.dead) return;
     this.auto = null;
     this.dragP = null;
@@ -294,10 +355,10 @@ export default class BalanceLesson extends Lesson {
     if (!P) return;
     const u = P.userData;
     const hover = this.hover;
-    this.blend = Math.max(0, Math.min(1, this.blend + (hover ? dt / 0.16 : -dt / 0.12)));
+    this.blend = Math.max(0, Math.min(1, this.blend + (hover ? dt / 0.3 : -dt / 0.2)));
     const e = Ease.inOut(this.blend);
     const tiltTo = hover ? u.P.pour : -0.12;
-    u.tilt.rotation.z += (tiltTo - u.tilt.rotation.z) * Math.min(1, dt * (hover ? 9 : 12));
+    u.tilt.rotation.z += (tiltTo - u.tilt.rotation.z) * Math.min(1, dt * (hover ? 5 : 7));
     if (hover) {
       // the spout over the pail's opening, a little to the left so the stream curves in to the middle
       const m = hover.mouth();
@@ -305,7 +366,8 @@ export default class BalanceLesson extends Lesson {
     }
     if (this.snap && this.blend > 0) P.position.lerpVectors(this.finger, this.snap, e);
     else P.position.copy(this.finger);
-    P.position.z = DRAG_Z;
+    // only over a pail does it move back into the pouring plane (above the mouth, clear of the brick)
+    P.position.z = this.finger.z + (DRAG_Z - this.finger.z) * (this.snap ? e : 0);
     const tipped = u.tilt.rotation.z < u.P.pour * 0.8;
     const p = hover;
     let pouring = !!p && this.blend > 0.85 && tipped && this.canPour(p);
@@ -348,7 +410,7 @@ export default class BalanceLesson extends Lesson {
   }
   marksCrossed(p, before) {
     if (before < 0.5 && p.level >= 0.5 - 1e-4) { p.flash('half'); bal.ding(false); }
-    if (before < 0.999 && p.level >= 0.999) { p.flash('full'); bal.ding(true); const m = p.mouth(); const s = project(m); fx.sparkle(s.x, s.y); }
+    if (before < 0.999 && p.level >= 0.999) { p.flash('full'); bal.ding(true); }
   }
   goalReached(p) {
     if (this.auto) return;   // autoPour finishes by itself
@@ -375,8 +437,8 @@ export default class BalanceLesson extends Lesson {
       this.phase = 'done';
       this.enablePourers(false);
       this.happyPail(p);
-      this.success(p.mouth().add(V(0, 0.6, 0.6)), half ? 'Half full!' : (this.level === 0 ? "It's full!" : 'Full right up!'));
-    } else if (this.task === 'balance') this.checkBalance(false);
+      this.success(p.mouth().add(V(0, 0.6, 0.6)), half ? 'Half full!' : (this.level === 0 ? "It's full!" : 'Full right up!'), { voice: true });
+    } else if (this.task === 'balance') this.checkBalance(this.reached);   // a pour that stopped at the brim counts as a let-go
   }
 
   // ---------------- balance ----------------
@@ -388,14 +450,15 @@ export default class BalanceLesson extends Lesson {
     if (Math.abs(d) * p.cap <= this.ss.tol + 1e-4) {
       this.phase = 'done';
       this.enablePourers(false);
-      bal.balance();
-      this.s.wait(0.25).then(() => { for (const q of this.seatPails) this.happyPail(q); });
+      if (!this.wasNear) bal.balance();
+      // balance is stillness: a held breath (the bubble centres), then both pails give a happy squash
       const pos = this.ss.g.position.clone().add(V(0, 2.2, 1));
-      this.success(pos, 'It balances!');
+      this.payoffP = this.beat(this.ss.g, 0.5, { squash: 0.03 }).then(() => { for (const q of this.seatPails) this.happyPail(q); return this.wait(1.0); });
+      this.success(pos, 'It balances!', { voice: true });
     } else if (d > 0 && fromRelease) {
       this.over = true;
-      this.redirect('Too much! Tap it to tip some out.');
-      this.hopPail(p);
+      this.redirect('Too much! Tap the bucket!');
+      this.s.wait(1.2).then(() => { if (!this.dead && this.over && this.phase === 'play' && !this.dragP) this.teachNow(); });
     } else if (fromRelease && !this.saidMore) {
       this.saidMore = true;
       this.say('A little bit more!', { max: 1.2 });
@@ -411,28 +474,27 @@ export default class BalanceLesson extends Lesson {
     // lean outwards over the plank end (rocking on the outer edge of its base) and let a little run over the rim
     const px = side * (PAIL.RB + 0.085) * p.sx, y0 = g.position.y, x0 = g.position.x;
     const lean = (a) => { g.rotation.z = rz0 + a; g.position.x = x0 + px - px * Math.cos(a); g.position.y = y0 - px * Math.sin(a); };
-    await this.s.anim(0.18, (e) => lean(-side * 0.9 * e));
+    await this.s.anim(0.5, (e) => lean(-side * 0.9 * e), Ease.inOut);
     const m = p.mouth(), land = V(m.x + side * 0.9, 0.02, m.z + 0.2);
     this.stream.aim(p.mouth(_b).add(V(side * 0.15 * p.sx, -0.05, 0)), V(side, 0, 0), land);
     this.stream.start(p.mat === 'water' ? 'water' : 'sand', 0.8);
     pourSound.start(p.mat === 'water' ? 'water' : 'sand');
-    await this.s.anim(0.3, (e) => { p.level = startL + (to - startL) * e; this.stream.aim(p.mouth(_b).add(V(side * 0.15 * p.sx, -0.05, 0)), V(side, 0, 0), land); });
+    await this.s.anim(0.6, (e) => { p.level = startL + (to - startL) * e; this.stream.aim(p.mouth(_b).add(V(side * 0.15 * p.sx, -0.05, 0)), V(side, 0, 0), land); });
     this.stopPour();
     if (p.mat === 'water') this.puddle(land, 0.5); else this.puff(land, MATS.sand.grain, 6);
-    await this.s.anim(0.2, (e) => lean(-side * 0.9 * (1 - e)));
+    await this.s.anim(0.5, (e) => lean(-side * 0.9 * (1 - e)), Ease.inOut);
     lean(0);
     p.tipping = false;
     if (Math.abs(p.level - this.balanceLevel(p)) * p.cap <= this.ss.tol + 1e-4) { this.over = false; this.checkBalance(false); }
-    else if (p.level > this.balanceLevel(p)) this.say('A bit more out!', { max: 1 });
+    else if (p.level > this.balanceLevel(p)) this.say('Tap it again!', { max: 1 });
   }
 
   // ---------------- tapping pails ----------------
   tapPail(p) {
     if (this.dead) return;
     this.idle = 0;
-    if (this.phase !== 'play' || this.demoing) { this.wigglePail(p); return; }
-    this.demoDone = true;
-    fx.clearHands();
+    if (this.phase !== 'play') { this.wigglePail(p); return; }
+    this.endDemo();
     const t = this.task;
     if (t === 'fill' || t === 'balance') {
       if (p !== this.target()) { this.redirect(t === 'fill' ? 'Pour it in this one!' : 'Pour in this one!'); this.hopPail(this.target()); return; }
@@ -449,15 +511,21 @@ export default class BalanceLesson extends Lesson {
       return;
     }
     if (t === 'pick') {
-      if (p !== this.target()) { this.redirect(WRONG[this.plan.ask] || 'Try the other one!'); this.wigglePail(p); return; }
+      if (p !== this.target()) { this.redirect(WRONG[this.plan.ask] || 'Try the other one!'); this.wigglePail(p); this.hopPail(this.target()); return; }
       this.phase = 'done';
       this.pickPayoff(p);
       return;
     }
     if (t === 'more') {
-      if (p !== this.target()) { this.redirect(this.plan.ask === 'less' ? 'Hmm, that one holds lots! Try again.' : 'Hmm, let\'s look again!'); this.wigglePail(p); return; }
+      // no wrong answer: tapping either pail pours the full one into the empty one, and she sees which holds more
       this.phase = 'done';
       this.payoff = this.pourAcross();
+      return;
+    }
+    if (t === 'tipall') {
+      if (p.level <= 0.01 || p.tippedOut) { this.wigglePail(p); return; }
+      p.tippedOut = true;
+      this.tipOut(p, { quiet: true }).then(() => this.checkTipped());
       return;
     }
   }
@@ -469,15 +537,13 @@ export default class BalanceLesson extends Lesson {
   }
   wigglePail(p) {
     const g = p.g, r0 = g.rotation.z;
-    sfx.tap();
-    this.s.anim(0.3, (_, q) => { g.rotation.z = r0 + Math.sin(q * Math.PI * 3) * 0.08 * (1 - q); }).then(() => (g.rotation.z = r0));
+    this.s.anim(0.5, (_, q) => { g.rotation.z = r0 + Math.sin(q * Math.PI * 3) * 0.08 * (1 - q); }).then(() => (g.rotation.z = r0));
   }
   hopPail(p) {
     if (!p || p.hopping) return;
     p.hopping = true;
     const g = p.g, y0 = g.position.y;
-    sfx.boing && sfx.boing();
-    this.s.anim(0.4, (_, q) => { g.position.y = y0 + Math.sin(q * Math.PI) * 0.45; }).then(() => { g.position.y = y0; p.hopping = false; });
+    this.s.anim(0.6, (_, q) => { g.position.y = y0 + Math.sin(q * Math.PI) * 0.35; }).then(() => { g.position.y = y0; p.hopping = false; });
   }
   pickPayoff(p) {
     const ask = this.plan.ask;
@@ -486,23 +552,22 @@ export default class BalanceLesson extends Lesson {
     if (ask === 'light') { this.ss.kick((p.side ? 1 : -1) * 1.8); bal.whee(); }
     if (ask === 'full') { p.flash('full'); bal.ding(true); }
     const line = { heavy: 'Heavy goes down!', light: 'Light goes up!', full: 'That one is full!' }[ask] || '';
-    this.success(p.mouth().add(V(0, 0.6, 0.6)), line);
+    this.success(p.mouth().add(V(0, 0.6, 0.6)), line, { voice: true });
   }
   // Tip a pail out in front of the see-saw: sand turns out as a castle, water splashes out in a puddle.
-  async tipOut(p) {
+  async tipOut(p, { quiet = false } = {}) {
     const g = p.g, seat = g.parent, side = p.side;
     const sand = p.mat !== 'water';
     // sand turns out as a castle in a tidy row at the front; water is poured out just in front of its end of the plank
-    const spot = sand ? this.freeSpot(side) : V(g.getWorldPosition(_v).x + 0.2, 0, SS.z + 2.0);
+    const spot = sand ? this.freeSpot(side) : V(g.getWorldPosition(_v).x + (side ? -0.4 : 0.2), 0, SS.z + 2.0);
     const L = p.level;
     this.root.attach(g);
     const a = g.position.clone(), r0 = g.rotation.clone();
     const H = PAIL.H * p.sy;
-    sfx.swoosh();
     if (sand) {
       // up and over: it lands upside down on the spot
       const to = V(spot.x, H, spot.z);
-      await this.s.anim(0.42, (e, q) => {
+      await this.s.anim(0.9, (e, q) => {
         g.position.lerpVectors(a, to, e);
         g.position.y += Math.sin(q * Math.PI) * 1.4;
         g.rotation.set(r0.x * (1 - e), r0.y * (1 - e), r0.z + (Math.PI - r0.z) * e);
@@ -510,28 +575,32 @@ export default class BalanceLesson extends Lesson {
       if (this.dead) return;
       g.position.copy(to);
       bal.plop();
-      this.puff(V(spot.x, 0.1, spot.z), MATS.sand.grain, 12);
-      // squash on landing
+      this.puff(V(spot.x, 0.1, spot.z), MATS.sand.grain, 10);
+      // squash on landing, then a little pat-pat pause before it lifts
       const s0 = g.scale.x;
-      await this.s.anim(0.14, (_, q) => { const k = Math.sin(q * Math.PI); g.scale.set(s0 * (1 + 0.08 * k), s0 * (1 - 0.1 * k), s0 * (1 + 0.08 * k)); });
+      await this.s.anim(0.25, (_, q) => { const k = Math.sin(q * Math.PI); g.scale.set(s0 * (1 + 0.08 * k), s0 * (1 - 0.1 * k), s0 * (1 + 0.08 * k)); });
       g.scale.setScalar(s0);
+      await this.wait(0.45);
+      if (this.dead) return;
       // the castle appears as the pail lifts away
-      const c = makeCastle(p.sx, p.sy * Math.max(0.5, L));
+      const c = makeCastle(p.sx, p.sy, L);
       c.position.copy(spot);
       c.rotation.y = (Math.random() - 0.5) * 0.4;
       this.root.add(c);
       this.castles.push(c);
       p.set(0);
       const up = V(spot.x, H + 1.1, spot.z);
-      this.success(V(spot.x, 1.8, spot.z + 0.5), this.level === 0 ? (this.round === 1 ? 'A sand castle!' : 'Empty!') : "Now it's empty!");
-      await this.s.anim(0.22, (e) => { g.position.lerpVectors(to, up, e); }, Ease.out);
-      sfx.pop();
+      if (!quiet) {
+        if (this.level === 0) this.success(V(spot.x, 1.8, spot.z + 0.5), this.round === 1 ? 'A sand castle!' : 'Another sand castle!');
+        else this.success(V(spot.x, 1.8, spot.z + 0.5), "Now it's empty!", { voice: true });
+      }
+      await this.s.anim(0.6, (e) => { g.position.lerpVectors(to, up, e); }, Ease.inOut);
       const cs = c.scale.clone();
-      this.s.anim(0.3, (_, q) => { const k = Math.sin(q * Math.PI) * (1 - q); c.scale.set(cs.x * (1 + 0.12 * k), cs.y * (1 - 0.15 * k + 0.1 * Math.sin(q * Math.PI * 2)), cs.z * (1 + 0.12 * k)); }).then(() => c.scale.copy(cs));
+      this.s.anim(0.45, (_, q) => { const k = Math.sin(q * Math.PI) * (1 - q); c.scale.set(cs.x * (1 + 0.12 * k), cs.y * (1 - 0.15 * k + 0.1 * Math.sin(q * Math.PI * 2)), cs.z * (1 + 0.12 * k)); }).then(() => c.scale.copy(cs));
       // and back onto the plank, the right way up
       seat.attach(g);
       const b = g.position.clone(), rz = g.rotation.z;
-      await this.s.anim(0.4, (e, q) => {
+      await this.s.anim(0.9, (e, q) => {
         g.position.lerpVectors(b, _zero, e);
         g.position.y += Math.sin(q * Math.PI) * 0.8;
         g.rotation.set(0, (side ? -0.2 : 0.2) * e, rz * (1 - e));
@@ -539,34 +608,32 @@ export default class BalanceLesson extends Lesson {
     } else {
       // hop off to the front, lean over and pour it out
       const to = V(spot.x, 0, spot.z);
-      await this.s.anim(0.34, (e, q) => {
+      await this.s.anim(0.8, (e, q) => {
         g.position.lerpVectors(a, to, e);
         g.position.y += Math.sin(q * Math.PI) * 1.0;
         g.rotation.set(r0.x * (1 - e), r0.y * (1 - e), r0.z * (1 - e));
       }, Ease.inOut);
       if (this.dead) return;
-      sfx.land();
       // it rolls over onto its side about the outer edge of its base, so it lies on the sand (never sinks into it)
-      const dir = 1, px = dir * (PAIL.RB + 0.085) * p.sx;
+      const dir = side ? -1 : 1, px = dir * (PAIL.RB + 0.085) * p.sx;   // it rolls over toward the middle (never off the edge)
       const roll = (a) => { g.rotation.z = a; g.position.x = spot.x + px - px * Math.cos(a); g.position.y = -px * Math.sin(a); };
-      await this.s.anim(0.2, (e) => roll(-dir * 1.7 * e));
+      await this.s.anim(0.5, (e) => roll(-dir * 1.7 * e), Ease.inOut);
       const land = V(spot.x + px + dir * (PAIL.H * p.sy + 0.35), 0.02, spot.z + 0.15);
       const lip = () => g.localToWorld(_b.set(dir * 0.55, PAIL.H * 1.02, 0));
       this.stream.aim(lip(), V(dir, 0, 0), land);
       this.stream.start('water', 1.25);
       pourSound.start('water');
-      bal.splash();
       this.puddle(land, 0.9 * p.sx);
-      this.success(V(spot.x, 1.8, spot.z + 0.5), this.level === 0 ? 'All empty!' : "Now it's empty!");
-      await this.s.anim(0.45, (e) => { p.level = L * (1 - e); this.stream.aim(lip(), V(dir, 0, 0), land); });
+      if (!quiet) this.success(V(spot.x, 1.8, spot.z + 0.5), this.level === 0 ? 'All empty!' : "Now it's empty!", { voice: true });
+      await this.s.anim(1.0, (e) => { p.level = L * (1 - e); this.stream.aim(lip(), V(dir, 0, 0), land); });
       p.set(0);
       this.stopPour();
       this.drops(land, 10);
-      await this.s.anim(0.18, (e) => roll(-dir * 1.7 * (1 - e)));
+      await this.s.anim(0.5, (e) => roll(-dir * 1.7 * (1 - e)), Ease.inOut);
       roll(0);
       seat.attach(g);
       const b = g.position.clone(), rz = g.rotation.z;
-      await this.s.anim(0.36, (e, q) => {
+      await this.s.anim(0.85, (e, q) => {
         g.position.lerpVectors(b, _zero, e);
         g.position.y += Math.sin(q * Math.PI) * 0.9;
         g.rotation.set(0, (side ? -0.2 : 0.2) * e, rz * (1 - e));
@@ -575,61 +642,89 @@ export default class BalanceLesson extends Lesson {
     if (this.dead) return;
     g.position.set(0, 0, 0);
     g.rotation.set(0, side ? -0.2 : 0.2, 0);
-    sfx.land();
-    this.ss.kick(side ? -0.6 : 0.6);
+    this.ss.kick(side ? -0.4 : 0.4);
   }
   freeSpot(side) {
     const used = this.castles.map((c) => c.position).concat(this.puddles.filter((q) => q.userData.alive).map((q) => q.position));
-    const order = [0, 1, 2, 3];
+    // its own side first (a short flight, never across the other seat), then the other side, then the back row
+    const order = side ? [1, 0, 3, 2] : [0, 1, 2, 3];
     for (const i of order) if (!used.some((u) => Math.hypot(u.x - SPOTS[i].x, u.z - SPOTS[i].z) < 1.6)) return SPOTS[i].clone();
     return SPOTS[order[0]].clone();
   }
-  // "which holds more?": the small one, full, pours itself into the big one - which still has lots of room
+  // "holds more / less": the full pail pours itself into the empty one. Into a bigger one, it all goes in with room to
+  // spare; into a smaller one, it fills it to the top and the rest runs over the rim onto the sand (a little heap stays).
   async pourAcross() {
-    const [big, small] = this.capOrder();
-    const g = small.g, a = g.position.clone(), r0 = g.rotation.z;
-    const dir = big.g.position.x > a.x ? 1 : -1;
-    const bm = big.mouth();
-    const H = PAIL.H * small.sy;
-    const to = V(bm.x - dir * (0.75 + 0.6 * small.sx), bm.y + 0.4, bm.z + 0.35);
-    const pick = this.target();
-    this.happyPail(pick);
-    this.success(pick.mouth().add(V(0, 0.8, 0.6)), this.plan.line);
-    await this.s.anim(0.32, (e, q) => { g.position.lerpVectors(a, to, e); g.position.y += Math.sin(q * Math.PI) * 0.5; g.rotation.z = r0 - dir * 1.9 * Math.max(0, (q - 0.4) / 0.6); }, Ease.inOut);
+    const full = this.cands.find((c) => c.level > 0.5) || this.capOrder()[1];
+    const into = this.cands.find((c) => c !== full);
+    if (!full || !into) return;
+    const g = full.g, a = g.position.clone(), r0 = g.rotation.z;
+    const dir = into.g.position.x > a.x ? 1 : -1;
+    const bm = into.mouth();
+    // where it pours from: tipped over (by TIP), its lip just over the middle of the other pail's mouth; its foot is
+    // placed so the lip lands there, so the tipped pail never dips into the other one
+    const TIP = 1.9, ang = -dir * TIP;
+    const lx = dir * (PAIL.R + 0.02) * full.sx, ly = PAIL.H * 0.97 * full.sy;
+    const lipOff = V(lx * Math.cos(ang) - ly * Math.sin(ang), lx * Math.sin(ang) + ly * Math.cos(ang), 0);
+    const to = V(bm.x - dir * 0.12, bm.y + 0.3, bm.z + 0.25).sub(lipOff);
+    this.happyPail(full);
+    await this.s.anim(0.9, (e, q) => { g.position.lerpVectors(a, to, e); g.position.y += Math.sin(q * Math.PI) * 0.5; g.rotation.z = r0 + ang * Ease.inOut(Math.max(0, (q - 0.4) / 0.6)); }, Ease.inOut);
     if (this.dead) return;
-    const lip = () => g.localToWorld(_b.set(dir * 0.72, PAIL.H * 0.97, 0));
-    const mat = small.mat || 'sand';
+    const lip = () => g.localToWorld(_b.set(lx, ly, 0));
+    const mat = full.mat || 'sand';
     this.stream.start(mat, 1.1);
     pourSound.start(mat);
-    const L0 = small.level, B0 = big.level, add = (small.cap * L0) / big.cap;
-    await this.s.anim(0.6, (e) => {
-      small.level = L0 * (1 - e);
-      const before = big.level;
-      big.add(B0 + add * e - big.level, mat);
-      big.wob = 1;
-      this.marksCrossed(big, before);
-      this.stream.aim(lip(), V(dir, 0, 0), big.surface());
-      pourSound.update(1 / 60, big.level);
+    const L0 = full.level, B0 = into.level, amount = full.cap * L0, room = into.cap * (1 - B0);
+    const fillE = Math.min(1, room / Math.max(1e-6, amount));   // the part of the pour that fits
+    // over the rim: where the spill lands (on the sand in front of the little pail), and the heap it leaves
+    const spill = V(bm.x + dir * 0.15, 0.03, bm.z + PAIL.R * into.sx + 0.35);
+    let heap = null;
+    const dur = fillE < 1 ? 2.0 : 1.3;
+    await this.s.anim(dur, (e) => {
+      full.level = L0 * (1 - e);
+      if (e <= fillE) {
+        const before = into.level;
+        into.add(B0 + (amount * e) / into.cap - into.level, mat);
+        into.wob = 1;
+        this.marksCrossed(into, before);
+        this.stream.aim(lip(), V(dir, 0, 0), into.surface());
+        pourSound.update(1 / 60, into.level);
+      } else {
+        // it's full: the rest runs over the rim and onto the sand
+        if (into.level < 1) { const before = into.level; into.add(1 - into.level, mat); this.marksCrossed(into, before); }
+        this.stream.aim(lip(), V(dir, 0, 0.6), spill);
+        if (!heap && mat !== 'water') {
+          heap = makeHeap({ bare: true });
+          heap.position.copy(spill).setY(0);
+          heap.scale.setScalar(0.01);
+          this.root.add(heap);
+          this.spills.push(heap);
+        }
+        const k = (e - fillE) / Math.max(1e-6, 1 - fillE);
+        if (heap) heap.scale.setScalar(0.05 + 0.2 * k);
+        if (Math.random() < 0.3) this.puff(spill, MATS.sand.grain, 2);
+      }
     });
-    small.set(0);
+    full.set(0);
     this.stopPour();
-    await this.s.anim(0.3, (e, q) => { g.position.lerpVectors(to, a, e); g.position.y += Math.sin(q * Math.PI) * 0.4; g.rotation.z = (r0 - dir * 1.9) * (1 - e) + r0 * e; }, Ease.inOut);
+    if (mat === 'water' && fillE < 1) this.puddle(spill, 0.7);
+    this.success(into.mouth().add(V(0, 0.8, 0.6)), this.plan.line, { voice: true });
+    this.happyPail(into);
+    await this.s.anim(0.8, (e, q) => { g.position.lerpVectors(to, a, e); g.position.y += Math.sin(q * Math.PI) * 0.4; g.rotation.z = r0 + ang * (1 - e); }, Ease.inOut);
     g.position.copy(a);
     g.rotation.z = r0;
-    sfx.land();
   }
   capOrder() { const c = this.cands.slice().sort((x, y) => y.cap - x.cap); return [c[0], c[c.length - 1]]; }
 
   // ---------------- see-saw life ----------------
   bump(side, sp) {
     const k = Math.min(1, sp / 2);
-    bal.clonk(0.5 + 0.5 * k);
+    if (k > 0.3) bal.clonk(0.4 + 0.4 * k);
     const x = SS.x + side * (SEESAW.PL - 0.2);
     this.puff(V(x, 0.05, SS.z + 0.4), MATS.sand.grain, 4 + Math.round(6 * k));
     this.puff(V(x, 0.05, SS.z - 0.4), MATS.sand.grain, 3 + Math.round(4 * k));
     // the other end flies up: Chick gets a ride
     if (this.chick && side < 0 && k > 0.25) {
-      sfx.cheep();
+      if (k > 0.5) sfx.cheep();
       const f = this.chick.userData.face;
       if (f) { setFace(f, 'joy'); this.s.wait(1.2).then(() => { if (f.userData.emotion === 'joy') setFace(f, 'happy'); }); }
       hop(this.s, this.chick, 0.35 + 0.4 * k, 0.4);
@@ -682,7 +777,8 @@ export default class BalanceLesson extends Lesson {
       if (plan.ask === 'light') return ps.slice().sort((a, b) => a.mass - b.mass)[0];
       if (plan.ask === 'full') return ps.find((p) => p.level > 0.98) || ps[0];
     }
-    if (t === 'more') { const [big, small] = this.capOrder(); return plan.ask === 'less' ? small : big; }
+    if (t === 'more') return this.cands.find((c) => c.level > 0.5) || this.cands[0] || null;   // the full one pours
+    if (t === 'tipall') return this.seatPails.find((p) => p.level > 0.01 && !p.tippedOut) || null;
     return null;
   }
   goal() {
@@ -705,23 +801,41 @@ export default class BalanceLesson extends Lesson {
     this.task = null;
     this.enablePourers(false);
     for (const p of [...this.seatPails, ...this.cands]) { p.g.visible = true; if (p.tapT) p.tapT.enabled = true; p.g.scale.setScalar(1); }
-    // the new task is said right away, while the pails get ready (a new pail, tipping out, the starting pour)
-    if (r > 0) this.prompt();
+    // the opening shot shows the whole yard for a moment, then the camera moves in on the see-saw
+    // the opening: a short look at the whole yard while the camera eases in; she can already pour (rule 0)
+    const opening = r === 0 ? this.glide(CAMS.main, 1.2) : null;
+    const pourType = plan.task === 'fill' || plan.task === 'balance' ? (plan.mat === 'water' ? 'jug' : 'scoop') : null;
+    this.parkPourers(pourType);
+    // the scoop / jug sets off for the pail's side while the round is laid out (it waits beside the seat, so the
+    // pail can be swapped meanwhile); Level 3 brings it after the tip-out instead, so nothing is in the way
+    const early = pourType && this.level < 2 && this.plank[plan.side] ? this.bringPourer(this.pourers[pourType], this.plank[plan.side]) : null;
     await this.setup(plan, r);
     if (this.dead) return;
     this.task = plan.task;
     this.ss.tol = this.task === 'balance' ? 0.05 : 0;
     for (const p of this.seatPails) if (p.tapT) p.tapT.enabled = this.task !== 'more';
     for (const p of this.cands) if (p.tapT) p.tapT.enabled = this.task === 'more';
+    // the scoop / jug comes over to stand by the pail it pours into
+    if (early) await early;
+    else if (pourType) await this.bringPourer(this.pourers[pourType], this.target());
+    if (this.dead) return;
     this.enablePourers(this.pourTask);
     this.phase = 'play';
     this.busy = false;
     // "this one": the pail to fill hops (when there is a choice of two)
-    if ((this.task === 'fill' || this.task === 'balance') && this.seatPails.length > 1) this.hopPail(this.target());
-    if (r === 0 && !this.demoDone) this.cue();
-    else if (r === 0) this.prompt();
+    if (this.pourTask && this.seatPails.length > 1) this.hopPail(this.target());
+    // (the first round's words and hand demo wait for the camera to settle, so the hand lands on the real scoop;
+    // she can pour already)
+    if (opening) { await opening; if (this.dead || this.phase !== 'play' || this.round !== r) return; }
+    this.cue();
   }
-  promptText() { return this.plan?.say || ''; }
+  promptText() { return this.task === 'tipall' ? 'Tip them out!' : this.plan?.say || ''; }
+  // what the child is being asked to do (each new kind gets its own slow hand demo)
+  action() {
+    if (this.phase !== 'play' || this.busy) return null;
+    if (this.pourTask) return this.over ? 'tip' : 'pour';
+    return this.task === 'empty' || this.task === 'tipall' ? 'empty' : this.task === 'more' ? 'pourover' : 'choose';
+  }
   prompt() { const t = this.promptText(); if (t) this.say(t, { max: 1.6 }); }
 
   async setup(plan, r) {
@@ -730,20 +844,21 @@ export default class BalanceLesson extends Lesson {
       // the old pail hops off behind the see-saw, a new one drops onto the plank
       const old = this.plank[0];
       this.root.attach(old.g);
-      const a = old.g.position.clone(), to = V(SS.x - 5.8, 0, SS.z - 3.2);
+      // (it shrinks away as it goes, gently, without a spin)
+      const a = old.g.position.clone(), to = V(a.x - 1.2, a.y + 2.2, a.z - 1.5);
       input.remove(old.tapT);
-      sfx.swoosh();
-      this.s.anim(0.45, (e, q) => { old.g.position.lerpVectors(a, to, e); old.g.position.y += Math.sin(q * Math.PI) * 1.6; old.g.rotation.z = q * 2.5; }, Ease.inOut)
-        .then(() => popOut(this.s, old.g, 0.2)).then(() => this.root.remove(old.g));
-      await this.wait(0.2);
+      this.s.anim(0.8, (e) => { old.g.position.lerpVectors(a, to, e); old.g.scale.setScalar(Math.max(0.001, 1 - e)); }, Ease.inOut)
+        .then(() => this.root.remove(old.g));
+      await this.wait(0.35);
+      if (this.dead) return;
       const p = this.seat(this.newPail(plan.pail[0], plan.pail[1]), 0);
       p.g.position.y = 3.2;
-      await this.s.anim(0.32, (e) => { p.g.position.y = 3.2 * (1 - e); }, Ease.in);
+      await this.s.anim(0.7, (e) => { p.g.position.y = 3.2 * (1 - e); }, Ease.inOut);
       p.g.position.y = 0;
       sfx.thunk();
-      this.ss.kick(0.9);
+      this.ss.kick(0.6);
       this.happyPail(p);
-      await this.wait(0.1);
+      await this.wait(0.15);
       return;
     }
     if (lv === 2) {
@@ -751,61 +866,64 @@ export default class BalanceLesson extends Lesson {
       if (this.cands.length) {
         const old = this.cands;
         this.cands = [];
-        old.forEach((c, i) => { input.remove(c.tapT); this.s.wait(i * 0.06).then(() => popOut(this.s, c.g, 0.22)).then(() => this.root.remove(c.g)); });
-        await this.wait(0.2);
+        old.forEach((c, i) => { input.remove(c.tapT); this.s.wait(i * 0.15).then(() => popOut(this.s, c.g, 0.4)).then(() => this.root.remove(c.g)); });
+        await this.wait(0.6);
       }
       if (plan.task === 'balance' && r > 0) {
-        // tip both pails out, then pour the starting weight into one of them
-        await this.dumpAll();
+        // she tips both pails out herself (sand turns out as castles, water splashes out), then the starting weight
+        // is poured into one of them
+        await this.tipAll();
+        if (this.dead) return;
         const side = plan.pre[0] ? 0 : 1, L = plan.pre[side];
         const P = this.pourers[plan.preMat === 'water' ? 'jug' : 'scoop'];
-        await this.autoPour(P, this.plank[side], L, { rate: 2.4, setup: true });
-        await this.wait(0.1);
+        await this.autoPour(P, this.plank[side], L, { rate: 1.4, setup: true });
+        await this.wait(0.3);
       }
       if (plan.task === 'more') {
         const order = Math.random() < 0.5 ? [0, 1] : [1, 0];
         const caps = plan.cands.map(([c, sx, sy]) => sx * sx * sy);
-        const smallI = caps[0] < caps[1] ? 0 : 1;
+        const smallI = caps[0] < caps[1] ? 0 : 1, bigI = 1 - smallI;
+        // the one that pours: the little one into the big one ("more"), the big one into the little one ("less")
+        const fullI = plan.ask === 'less' ? bigI : smallI;
         plan.cands.forEach(([col, sx, sy], i) => {
           const p = this.newPail(col, sx, sy);
           const at = FRONT[order[i]];
           p.g.position.copy(at);
           p.g.rotation.y = at.x < SS.x ? 0.15 : -0.15;
-          if (i === smallI) p.set(1, plan.mat);
+          if (i === fullI) p.set(1, plan.mat);
           p.tick(0, 0);
           this.root.add(p.g);
           this.cands.push(p);
           p.g.scale.setScalar(0.01);
-          this.s.wait(i * 0.1).then(() => popIn(this.s, p.g, 1, 0.38));
+          this.s.wait(i * 0.25).then(() => popIn(this.s, p.g, 1, 0.55, { sound: i === 0 }));
         });
-        await this.wait(0.45);
+        await this.wait(1.0);
       }
     }
   }
-  // flip each pail on the plank right over in the air: what's in it drops out onto the sand
-  async dumpAll() {
+  // Level 3, before a new balance: "Tip them out!" - she taps each full pail on the plank and it tips out (sand makes a
+  // castle that stays, water splashes out); the round goes on once both are empty.
+  async tipAll() {
     const list = this.seatPails.filter((p) => p.level > 0.01);
     if (!list.length) return;
-    sfx.swoosh();
-    await Promise.all(list.map((p, i) => this.s.wait(i * 0.08).then(async () => {
-      const g = p.g, side = p.side ? 1 : -1;
-      const mat = p.mat;
-      let dropped = false;
-      await this.s.anim(0.5, (e, q) => {
-        g.position.y = Math.sin(q * Math.PI) * 1.4;
-        g.rotation.z = side * e * Math.PI * 2;
-        if (!dropped && q > 0.45) {
-          dropped = true;
-          const w = g.localToWorld(_b.set(0, PAIL.H * 0.6, 0));
-          if (mat === 'water') { this.drops(w, 12); bal.splash(); } else { this.puff(w, MATS.sand.grain, 14); bal.plop(); }
-          p.set(0);
-        }
-      }, Ease.inOut);
-      g.position.y = 0; g.rotation.z = 0;
-    })));
-    sfx.land();
+    for (const p of this.seatPails) p.tippedOut = false;
+    this.task = 'tipall';
+    for (const p of this.seatPails) if (p.tapT) p.tapT.enabled = true;
+    const done = new Promise((res) => (this.tipDone = res));
+    this.phase = 'play';
+    this.busy = false;
+    this.cue();
+    await done;
+    this.tipDone = null;
+    this.busy = true;
+    this.phase = 'setup';
+    this.task = null;
+    this.clearHints();
+    await this.wait(0.3);
   }
-
+  checkTipped() {
+    if (this.task === 'tipall' && this.seatPails.every((p) => p.level <= 0.01) && this.tipDone) this.tipDone();
+  }
   // the payoff animation (castle, splash, pour-across) finishes before the next round sets up
   async afterSuccess() { if (this.payoff) await this.payoff; this.payoff = null; }
 
@@ -816,43 +934,90 @@ export default class BalanceLesson extends Lesson {
     if (this.pourTask) return this.over ? this.target()?.g : this.pourerFor();
     return this.target()?.g || null;
   }
-  // a stuck child: the scoop/jug (or the pail to tap) does a little hop where it stands
+  // a stuck child: the scoop/jug (or the pail to tap) gives a slow, quiet bob where it stands
   nudge(step) {
     const o = this.nudgeTarget();
+    if (this.task === 'pick') { for (const p of this.tapPails) this.hopPail(p); return; }
     const pail = o && o.userData && o.userData.pail;
-    if (pail) { this.hopPail(pail); if (step >= 2) { const stop = fx.halo(pail.mid, Math.max(pail.sx, pail.sy)); this.s.wait(3).then(stop); } return; }
+    if (pail) { this.hopPail(pail); if (step >= 2) { const stop = fx.halo(pail.mid, 0.6 * Math.max(pail.sx, pail.sy)); this.s.wait(3).then(stop); } return; }
     const P = o && o.userData && o.userData.tilt ? o : null;
-    if (!P || this.dragP === P) return super.nudge(step);
-    sfx.boing && sfx.boing();
+    if (!P || this.dragP === P) return hop(this.s, this.pip, 0.4, 0.6);
     const t = P.userData.tilt;
-    this.s.anim(0.5, (_, q) => { t.position.y = Math.sin(q * Math.PI) * 0.45; t.rotation.x = Math.sin(q * Math.PI * 2) * 0.1; }).then(() => { t.position.y = 0; t.rotation.x = 0; });
+    this.s.anim(0.7, (_, q) => { t.position.y = Math.sin(q * Math.PI) * 0.35; t.rotation.x = Math.sin(q * Math.PI * 2) * 0.08; }).then(() => { t.position.y = 0; t.rotation.x = 0; });
     if (step >= 2) { const stop = fx.halo(P, 1.0); this.s.wait(3).then(stop); }
   }
+  // the slow hand on the real thing: carry the scoop/jug up over the pail (it tips and pours by itself); tap the
+  // pail to tip it out; or, for a "which one?" question, point at each pail in turn
   showHint(glowOn = true) {
     const t = this.target();
     if (!t) return;
-    if (this.pourTask) {
+    if (this.task === 'pick') { fx.ghostPath(this.tapPails.map((p) => p.mouth().add(V(0, -0.35, 0.3))), { mode: 'scan', maxDur: 3.4 }); return; }
+    if (this.pourTask && !this.over) {
       const P = this.pourerFor();
-      const from = P.position.clone().add(V(0.5, 0.2, 0));
-      const to = t.mouth().add(V(-0.6, 0.7, 0.4));
-      if (glowOn) this.addHalo(t.mid, 1.0 * Math.max(t.sx, t.sy));
-      fx.ghostPath([from, to], { mode: 'drag' });
+      const from = P.position.clone().add(V(0.3, 0.1, 0));
+      const to = t.mouth().add(V(-0.45, 0.7, 0.3));
+      if (glowOn) this.addHalo(t.mid, 0.75 * Math.max(t.sx, t.sy));
+      // carry it over the pail and keep pressing there a while: the pour needs the finger held
+      fx.ghostPath([from, from.clone().add(V(0, 1.2, 0)), to, to.clone().add(V(0.15, -0.05, 0)), to.clone().add(V(0.05, 0, 0)), to.clone().add(V(-0.05, 0, 0))], { mode: 'drag', maxDur: 5.2 });
     } else {
-      if (glowOn) this.addHalo(t.mid, 1.0 * Math.max(t.sx, t.sy));
-      fx.ghostPath([t.mouth().add(V(0, -0.4, 0.3))], { mode: 'tap' });
+      if (glowOn) this.addHalo(t.mid, 0.6 * Math.max(t.sx, t.sy));
+      fx.ghostPath([t.mouth().add(V(0, -0.4, 0.3))], { mode: 'tap', maxDur: 3.4 });
     }
   }
-  choicePoints() {
-    if (this.task === 'more') return this.cands.map((p) => p.mouth().add(V(0, -0.3, 0.3)));
-    return null;
-  }
+  choicePoints() { return null; }
   makeErrorless() {
     const t = this.target();
     if (!t) return;
-    if (this.pourTask) { this.sticky = true; this.addHalo(t.mid, 1.0 * Math.max(t.sx, t.sy)); return; }
-    this.addHalo(t.mid, 1.0 * Math.max(t.sx, t.sy));
-    for (const p of this.tapPails) if (p !== t && p.tapT) { p.tapT.enabled = false; this.s.tween(p.g.scale, { x: 0.85, y: 0.85, z: 0.85 }, 0.3); }
+    if (this.pourTask) { this.sticky = true; this.addHalo(t.mid, 0.75 * Math.max(t.sx, t.sy)); return; }
+    this.addHalo(t.mid, 0.6 * Math.max(t.sx, t.sy));
+    if (this.task === 'more' || this.task === 'tipall') return;   // nothing to switch off: there is no wrong pail
+    for (const p of this.tapPails) if (p !== t && p.tapT) { p.tapT.enabled = false; this.s.tween(p.g.scale, { x: 0.85, y: 0.85, z: 0.85 }, 0.5); }
   }
+
+  // ---------------- feel: camera stations, slow hand demos ----------------
+  feelInit() {
+    this.taught = new Set();
+    this.demoAt = 8;
+    this.demoId = 0;
+    this.offs.push(input.onAny(() => { this.demoAt = 8; this.endDemo(); }));
+  }
+  // glide the camera to a station, eased (the latest glide wins)
+  glide(c, dur = 0.85) {
+    const id = (this.camId = (this.camId || 0) + 1);
+    const p0 = camera.position.clone(), l0 = getLook().clone();
+    if (p0.distanceTo(c.pos) < 0.01 && l0.distanceTo(c.look) < 0.01) return Promise.resolve();
+    return this.s.anim(dur, (e) => { if (this.camId === id) setCamera(_cp.lerpVectors(p0, c.pos, e), _cl.lerpVectors(l0, c.look, e)); }, Ease.inOut);
+  }
+  // a slow hand demo on the real thing; any touch ends it
+  demo(dur = 4.4) {
+    if (this.dead) return;
+    fx.clearHands();
+    this.demoing = true;
+    const id = ++this.demoId;
+    this.showHint(this.task !== 'pick' && this.task !== 'more');
+    this.s.wait(dur).then(() => { if (this.demoId === id) this.endDemo(); });
+  }
+  endDemo() { if (!this.demoing) return; this.demoing = false; this.demoId++; fx.clearHands(); }
+  // say what to do; the first time each kind of action comes up, show it slowly
+  cue() {
+    if (this.dead || this.busy) return;
+    this.prompt();
+    this.demoAt = 8;
+    this.teachNow();
+  }
+  teachNow() {
+    const k = this.action();
+    if (k && !this.taught.has(k)) { this.taught.add(k); this.demo(); }
+  }
+  // stuck for about 8 s: show it again (and again every ~14 s)
+  stuckCheck() {
+    if (this.busy || this.demoing || this.dragP || this.auto || input.dragging() || !this.action()) return;
+    if (this.idle >= this.demoAt) { this.demoAt = this.idle + 14; this.demo(); }
+  }
+
+  // ---------------- the finale: the sandpit with her castles and the see-saw ----------------
+  creationView() { return { pos: V(2.2, 4.9, 12.2), look: V(2.2, 1.1, 1.0) }; }
+  creationObjects() { return [...this.castles, ...this.spills]; }
 
   // ---------------- test hooks ----------------
   // every pail the child can tap this round (this.plank holds the two on the see-saw)
@@ -867,13 +1032,14 @@ export default class BalanceLesson extends Lesson {
 
   // ---------------- every frame ----------------
   update(dt, t) {
+    this.stuckCheck();
     this.pourStep(dt);
     const [mL, mR] = this.masses();
     const ss = this.ss;
     ss.step(dt, mL, mR);
     // a wooden creak when it swings
     this.creakT -= dt;
-    if (Math.abs(ss.omega) > 0.7 && this.creakT <= 0) { this.creakT = 0.5; bal.creak(); }
+    if (Math.abs(ss.omega) > 0.9 && this.creakT <= 0) { this.creakT = 2.0; bal.creak(); }
     // water keeps level with the world: the plank's tilt plus the pail's own lean
     const tilt = (p) => Math.max(-0.9, Math.min(0.9, (p.g.parent === ss.seats[p.side] ? ss.theta : 0) + p.g.rotation.z));
     for (const p of this.seatPails) p.tick(dt, t, tilt(p), ss.acc * 0.002);
@@ -884,7 +1050,7 @@ export default class BalanceLesson extends Lesson {
       const p = this.target();
       if (p) {
         const near = Math.abs(p.level - this.balanceLevel(p)) * p.cap <= ss.tol + 1e-4;
-        if (near && !this.wasNear) { bal.balance(); const s = project(ss.bubble.getWorldPosition(_v)); fx.sparkle(s.x, s.y); }
+        if (near && !this.wasNear) bal.balance();
         this.wasNear = near;
       }
     }
@@ -892,5 +1058,5 @@ export default class BalanceLesson extends Lesson {
 
   dispose() { pourSound.stop(); super.dispose(); }
 }
-const WRONG = { heavy: 'That one is light! Heavy goes down.', light: 'That one is heavy! Light goes up.', full: "That one isn't full yet!" };
+const WRONG = { heavy: "That's the light one!", light: "That's the heavy one!", full: "That one isn't full yet!" };
 const _a = new T.Vector3(), _b = new T.Vector3(), _v = new T.Vector3(), _x = new T.Vector3(1, 0, 0), _zero = new T.Vector3();

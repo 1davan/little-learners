@@ -4,12 +4,13 @@ the game opens them with flap.L.rotation.z = +a, flap.R.rotation.z = -a (about 2
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop
+from rawprop import RawProp
 
 W, H, D, T = 2.3, 1.35, 1.8, 0.1
 CARD, CARD_D, CARD_IN, TAPE = 0xdba76b, 0xc58f55, 0xa8763f, 0xf3dfb4
 FL = 0.07      # flap thickness
 
-p = Prop('prop_box', base=CARD, target_faces=3600)
+p = RawProp('prop_box', base=CARD, target_faces=3600)
 hw, hd = W / 2, D / 2
 p.box((0, T / 2, 0), (hw, T / 2, hd), bevel=0.04)                                   # floor
 p.box((0, H / 2, hd - T / 2), (hw, H / 2, T / 2), bevel=0.05)                       # front
@@ -26,17 +27,19 @@ p.paint_fn(lambda q, n: abs(q.x) < 0.2 and n.y > -0.3, TAPE)                    
 p.paint_fn(lambda q, n: n.y < -0.5, CARD_IN)                                         # flap undersides
 p.layer('skin')
 
-# tape running down the front and back + a white "this way up" label with a red arrow
-p.layer('deco', base=TAPE, target_faces=900, voxel=0.012)
-p.box((0, H - 0.3, hd + 0.012), (0.2, 0.32, 0.02), bevel=0.012)
-p.box((-0.68, 0.72, hd + 0.012), (0.3, 0.3, 0.02), bevel=0.05)
-p.box((-0.68, 0.79, hd + 0.04), (0.035, 0.12, 0.012), bevel=0.01)
-p.box((-0.68, 0.94, hd + 0.04), (0.11, 0.06, 0.012), bevel=0.01)
-for s in (-1, 1):
-    p.box((-0.68 + s * 0.06, 0.96, hd + 0.04), (0.08, 0.025, 0.012), rot=(0, 0, s * 40), bevel=0.01)
-in_label = lambda q: abs(q.x + 0.68) < 0.31 and abs(q.y - 0.72) < 0.31
-p.paint_fn(lambda q, n: in_label(q), 0xfff8ec)
-p.paint_fn(lambda q, n: in_label(q) and q.z > hd + 0.042, 0xe8513f)
+# tape down the front (ending just under the rim, flush), a white "this way up" label and a red arrow: each its own
+# exact layer, so the edges are crisp stickers instead of remeshed blobs
+p.layer('deco', base=TAPE)
+p.raw(0.7)
+p.box((0, H - 0.32, hd + 0.008), (0.2, 0.3, 0.012), bevel=0)
+p.layer('label', base=0xfff8ec)
+p.raw(0.7)
+p.box((-0.68, 0.72, hd + 0.008), (0.3, 0.3, 0.012), bevel=0)
+p.layer('arrow', base=0xe8513f)
+p.raw(0.7)
+p.box((-0.68, 0.70, hd + 0.022), (0.04, 0.13, 0.008), bevel=0)
+for sgn in (-1, 1):
+    p.box((-0.68 + sgn * 0.06, 0.8, hd + 0.022), (0.1, 0.035, 0.008), rot=(0, 0, -sgn * 40), bevel=0)   # the arrow head: ^
 p.layer('skin')
 
 # ---- paint: darker inside, a lighter top edge and a printed corner stripe ----

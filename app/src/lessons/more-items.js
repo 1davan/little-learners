@@ -67,9 +67,10 @@ export const NAME = { shell: 'shells', star: 'stars', ball: 'balls', fish: 'fish
 // towel stripe colour for each kind, so the scene changes with the thing
 export const STRIPES = { shell: [C.red, C.blue], star: [C.purple, C.green], ball: [C.yellow, C.purple], fish: [C.orange, 0x3fb6e0], icecream: [C.green, C.pink], cookie: [C.blue, C.red] };
 
-export function makeThing(kind) {
+export function makeThing(kind, level = 0) {
   const g = new T.Group();
-  g.add(MAKE[kind]());
+  // Level 2's sunset is orange: its stars are pink there, so they never melt into the sand and the sun
+  g.add(kind === 'star' && level === 1 ? makeSeaStar(0xff7ab8, 0.4) : MAKE[kind]());
   g.userData.kind = kind;
   return g;
 }
@@ -163,7 +164,8 @@ export function makeHolder(kind, col = C.blue) {
     g.userData.wheels = wheels;
   }
   // Blender stall / glass jar / wagon (same layout, tinted with the holder colour) replace the code-built ones
-  const pm = propModel({ tray: 'prop_stall', jar: 'prop_jar', cart: 'prop_wagon' }[kind], { tint: col });
+  // (the jar is drawn a little squatter here, so a short row of things never sits at the bottom of a tall empty jar)
+  const pm = propModel({ tray: 'prop_stall', jar: 'prop_jar', cart: 'prop_wagon' }[kind], { tint: col, size: kind === 'jar' ? [1, 0.72, 1] : 1 });
   if (pm) {
     g.clear(); g.add(pm, blobShadow(kind === 'tray' ? 1.8 : 1.7)); g.userData.wheels = [];
     const L = pm.userData.model.userData.layers;
@@ -174,6 +176,19 @@ export function makeHolder(kind, col = C.blue) {
     }
     if (L.shine) { L.shine.mesh.material = toonUnique(0xffffff, { vertexColors: true, transparent: true, opacity: 0.7, depthWrite: false }); L.shine.outline.visible = false; L.shine.mesh.renderOrder = 3; }
     g.userData.lid = pm;
+    if (L.back) L.back.outline.visible = false;
+    if (kind === 'jar') {
+      // here the jar is open-topped (things drop in and hop out through the mouth, nothing hovers over it): the lid and
+      // its clips stay in the cupboard, and the thick glass foot carries the round's colour instead
+      const skin = pm.userData.model.userData.skin;
+      pm.traverse((o) => { if (o.isMesh && skin && o.geometry === skin.geometry) o.visible = false; });
+      if (L.metal) { L.metal.mesh.visible = false; L.metal.outline.visible = false; }
+      for (const k of ['base', 'rim']) if (L[k]) L[k].mesh.material = toonUnique(col, { vertexColors: true });
+    }
+    if (kind === 'cart') floorY = 0.62;
+    if (kind === 'jar') floorY = 0.14 * 0.72;
+    // on the stall, things stand level with the top of the white front roll, so it never hides their lower half
+    if (kind === 'tray') floorY = 1.52;
   }
   g.userData.floorY = floorY;
   g.userData.col = new T.Color(col).getHex();
@@ -182,9 +197,11 @@ export function makeHolder(kind, col = C.blue) {
   // the inside walls of each model (x of their inner faces), where things drop in from (under the stall's awning,
   // through the jar's lifted lid, out of the sky into the open wagon), and the floor + two side walls that match the
   // model exactly (the walls stand a little above the rims, so a bouncing thing never escapes or perches on one)
-  const inner = { tray: 2.08, jar: 2.12, cart: 2.02 }[kind];
+  const inner = { tray: 2.08, jar: 2.1, cart: 2.02 }[kind];
   g.userData.inner = inner;
-  g.userData.dropY = { tray: floorY + 1.75, jar: 3.55, cart: 6.5 }[kind];
+  g.userData.mid = floorY + 0.8;
+  // where things start their fall: under the stall's awning, above the jar's open mouth, out of the sky into the wagon
+  g.userData.dropY = { tray: floorY + 1.45, jar: 3.4, cart: 5.0 }[kind];
   const wallH = { tray: 2.1, jar: 3.2, cart: 1.6 }[kind];
   g.userData.statics = [[0, floorY - 0.1, 0, W + 0.4, 0.2, 1.4], [-inner - 0.1, floorY + wallH / 2, 0, 0.2, wallH, 1.4], [inner + 0.1, floorY + wallH / 2, 0, 0.2, wallH, 1.4]];
   return g;

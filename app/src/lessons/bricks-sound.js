@@ -2,19 +2,18 @@
 // as the count rises), a little hop whoosh, a rattle as the bricks tumble back, a hoot for Owl, a kite flutter and
 // a magic "ta-da" for the finished letter. Synthesized on a small WebAudio context of our own that follows the engine
 // volume (the same approach as dress-sound.js and band-sound.js).
-import { getVolume } from '../engine/audio.js';
+import { getVolume, sharedCtx, cueOut } from '../engine/audio.js';
 
 let ctx = null, out = null;
 function ac() {
   if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC();
+    ctx = sharedCtx();
     const comp = ctx.createDynamicsCompressor();
     out = ctx.createGain();
-    out.connect(comp); comp.connect(ctx.destination);
+    out.connect(cueOut());
   }
   if (ctx.state === 'suspended') ctx.resume();
-  out.gain.value = getVolume() * 0.8;
+  out.gain.value = 1;
   return ctx;
 }
 function env(g, now, vol, attack, dur) {

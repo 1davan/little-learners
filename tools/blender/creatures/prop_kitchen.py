@@ -18,9 +18,23 @@
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop, rounded, circle_poly
-from skit import SProp
+from skit import SProp, star_poly
 
 ONLY = [s for s in os.environ.get('ONLY', '').split(',') if s]
+
+
+class FlatProp(SProp):
+    """SProp whose layers listed in .flat get flat-shaded upward faces (a big flat top shades evenly: no diagonal
+    light/dark triangles), the bevels stay smooth."""
+    flat = ()
+
+    def _skin(self):
+        sk = super()._skin()
+        if self._cur in self.flat:
+            for f in sk.data.polygons:
+                if f.normal.z > 0.985:          # (Blender z = game y, up)
+                    f.use_smooth = False
+        return sk
 TOP = 1.15
 FY = 0.75          # the basin's inner floor
 SINK_X, SINK_Z, SHW, SHD = -3.6, -0.6, 0.62, 0.45
@@ -39,7 +53,7 @@ def inside(poly, x, y):
 
 # ---------------- the island counter ----------------
 def counter():
-    p = SProp('prop_k_counter', base=0xffffff, voxel=0.028, target_faces=5000)   # tinted per level in game
+    p = FlatProp('prop_k_counter', base=0xffffff, voxel=0.028, target_faces=5000)   # tinted per level in game
     HX, HZ = 5.7, 1.06
     # plinth (recessed, darker) and the cupboard body; above y 0.86 the body goes round the sink's well
     p.box((0, 0.09, -0.02), (HX - 0.08, 0.09, HZ - 0.06), bevel=0.03)
@@ -52,16 +66,46 @@ def counter():
     p.box((SINK_X, cy, (z1 + HZ) / 2), (SHW + 0.06, hy, (HZ - z1) / 2), bevel=0.03)
     p.box((SINK_X, cy, (-HZ + z0) / 2), (SHW + 0.06, hy, (z0 + HZ) / 2), bevel=0.03)
     p.paint_fn(lambda q, n: q.y < 0.19, 0xb4b4b4)
-    # the worktop: butcher block, overhanging a little, with the sink hole
+    # the worktop: one butcher-block slab with the sink hole cut in it (no joins), overhanging a little. It is a grid
+    # whose lines fall on the plank borders, so every plank is one clean colour; the top is flat-shaded.
     p.layer('top', base=0xf0c084, voxel=0.024, target_faces=2600)
     TX, TZ, th = 5.85, 1.175, 0.11
-    ty = TOP - th / 2
-    p.box(((-TX + x0) / 2, ty, 0), ((x0 + TX) / 2, th / 2, TZ), bevel=0.04)
-    p.box(((x1 + TX) / 2, ty, 0), ((TX - x1) / 2, th / 2, TZ), bevel=0.04)
-    p.box((SINK_X, ty, (z1 + TZ) / 2), (SHW + 0.07, th / 2, (TZ - z1) / 2), bevel=0.03)
-    p.box((SINK_X, ty, (-TZ + z0) / 2), (SHW + 0.07, th / 2, (z0 + TZ) / 2), bevel=0.03)
-    # wood strips along the top (soft stripes) and a darker edge
-    p.paint_fn(lambda q, n: n.y > 0.7 and int((q.z + 2) / 0.29) % 2 == 0, 0xeab676)
+    hx0, hx1, hz0, hz1 = SINK_X - SHW - 0.03, SINK_X + SHW + 0.03, SINK_Z - SHD - 0.03, SINK_Z + SHD + 0.03
+    PL, GR = 0.29, 0.014                     # plank width, the groove between planks
+    zs = {-TZ, TZ, hz0, hz1}
+    zz = -TZ
+    while zz < TZ:
+        zs.add(round(zz, 4)); zs.add(round(min(TZ, zz + GR), 4)); zz += PL
+    zs = sorted(z for z in zs if -TZ <= z <= TZ)
+    xs = sorted({-TX, TX, hx0, hx1} | {round(-TX + i * 0.58, 4) for i in range(1, 21) if -TX + i * 0.58 < TX})
+    hole = lambda x, z: hx0 <= x < hx1 and hz0 <= z < hz1
+    V, F, idx = [], [], {}
+    def vid(x, y, z):
+        k = (round(x, 4), round(y, 4), round(z, 4))
+        if k not in idx:
+            idx[k] = len(V); V.append(k)
+        return idx[k]
+    yt, yb = TOP, TOP - th
+    for i in range(len(xs) - 1):
+        for j in range(len(zs) - 1):
+            x0, x1, z0, z1 = xs[i], xs[i + 1], zs[j], zs[j + 1]
+            if hole((x0 + x1) / 2, (z0 + z1) / 2):
+                continue
+            F.append((vid(x0, yt, z0), vid(x0, yt, z1), vid(x1, yt, z1), vid(x1, yt, z0)))
+            F.append((vid(x0, yb, z0), vid(x1, yb, z0), vid(x1, yb, z1), vid(x0, yb, z1)))
+            # walls where this cell borders the outside or the hole
+            for (ax, az, bx, bz, ox, oz) in ((x0, z0, x1, z0, 0, -1), (x1, z0, x1, z1, 1, 0), (x1, z1, x0, z1, 0, 1), (x0, z1, x0, z0, -1, 0)):
+                cx, cz = (ax + bx) / 2 + ox * 1e-3, (az + bz) / 2 + oz * 1e-3
+                if abs(cx) > TX or abs(cz) > TZ or hole(cx, cz):
+                    F.append((vid(ax, yt, az), vid(bx, yt, bz), vid(bx, yb, bz), vid(ax, yb, az)))
+    p.mesh(V, F, bevel=0.035)
+    p.flat = ('top',)
+    def plank(q, n):
+        k = math.floor((q.z + TZ + 1e-4) / PL)
+        f = (q.z + TZ + 1e-4) - k * PL
+        return n.y > 0.7 and f < GR
+    p.paint_fn(lambda q, n: n.y > 0.7 and int(math.floor((q.z + TZ + 1e-4) / PL)) % 2 == 0, 0xeab676)
+    p.paint_fn(plank, 0xd9a062)
     p.paint_fn(lambda q, n: n.y < 0.7, 0xd99e5c)
     # the steel basin: a rounded tub let into the hole (walls + floor), with a drain
     p.layer('basin', base=0xd6e2ee, voxel=0.016, target_faces=1800)
@@ -73,10 +117,15 @@ def counter():
         p.box((SINK_X, (fy + TOP) / 2 - 0.01, SINK_Z + s * (SHD + bw / 2)), (SHW + 0.06, (TOP - fy) / 2 + 0.02, bw / 2 + 0.02), bevel=0.02)
     # a rolled rim round the hole
     rim = rounded([(SINK_X - SHW - 0.03, SINK_Z - SHD - 0.03), (SINK_X + SHW + 0.03, SINK_Z - SHD - 0.03),
-                   (SINK_X + SHW + 0.03, SINK_Z + SHD + 0.03), (SINK_X - SHW - 0.03, SINK_Z + SHD + 0.03)], 0.12, n=4, closed=True)
+                   (SINK_X + SHW + 0.03, SINK_Z + SHD + 0.03), (SINK_X - SHW - 0.03, SINK_Z + SHD + 0.03)], 0.05, n=4, closed=True)
     p.tube([(x, TOP + 0.005, z) for x, z in rim], 0.035, closed=True, rseg=10)
-    p.paint_fn(lambda q, n: q.y < fy + 0.04 and n.y > 0.6, 0xb9c8d8)
-    p.paint_fn(lambda q, n: n.y > 0.6 and q.y < fy + 0.04 and math.hypot(q.x - SINK_X, q.z - SINK_Z) < 0.1, 0x7d8ea3)
+    inside = lambda q: abs(q.x - SINK_X) < SHW + 0.005 and abs(q.z - SINK_Z) < SHD + 0.005
+    p.paint_fn(lambda q, n: inside(q) and q.y < TOP - 0.02 and n.z > 0.5, 0xb4c3d4)                 # back wall (faces us)
+    p.paint_fn(lambda q, n: inside(q) and q.y < TOP - 0.02 and abs(n.x) > 0.5, 0xc4d1df)            # side walls
+    p.paint_fn(lambda q, n: inside(q) and q.y < TOP - 0.02 and n.z < -0.5, 0xe4edf5)                # front wall (lit)
+    p.paint_fn(lambda q, n: q.y < fy + 0.04 and n.y > 0.6, 0xa3b4c8)                               # floor
+    p.paint_fn(lambda q, n: n.y > 0.6 and q.y < fy + 0.04 and math.hypot(q.x - SINK_X, q.z - SINK_Z) < 0.11, 0x6f8196)
+    p.paint_fn(lambda q, n: n.y > 0.6 and q.y < fy + 0.04 and 0.11 <= math.hypot(q.x - SINK_X, q.z - SINK_Z) < 0.14, 0xd8e3ee)
     # cupboard doors on the front: raised panels, two drawers over the sink end
     p.layer('doors', base=0xffffff, voxel=0.02, target_faces=2600)   # tinted per level in game
     FZ = HZ
@@ -119,23 +168,61 @@ def tap():
     p.layer('shine', base=0xffffff, target_faces=150, voxel=0.006)
     p.capsule((-0.05, 0.12, 0.06), (-0.05, 0.26, 0.055), 0.016, group='s1')
     p.layer('skin')
-    # the cross handle on the right (own bone): a hub and four round-ended spokes, red / blue dots
+    # the lever on the right (own bone): a short round arm out of the column, a chunky round knob on it with a
+    # domed cap that is half red (hot) and half blue (cold)
     p.layer('handle', base=CHROME, target_faces=900, voxel=0.009)
     HX = 0.3
-    p.capsule((0.06, 0.14, 0), (HX, 0.14, 0), 0.045, group='arm')
-    p.cyl((HX, 0.12, 0), 0.07, 0.12, bevel=0.025, seg=20)
-    for k in range(4):
-        a = k * math.pi / 2 + math.pi / 4
-        p.capsule((HX, 0.25, 0), (HX + 0.17 * math.cos(a), 0.27, 0.17 * math.sin(a)), 0.035, group='sp%d' % k)
-        p.blob((HX + 0.19 * math.cos(a), 0.27, 0.19 * math.sin(a)), (0.05, 0.045, 0.05), group='sp%d' % k)
-    p.blob((HX, 0.27, 0), (0.07, 0.04, 0.07), group='hub')
-    p.layer('dot', base=0x4a9cff, target_faces=160, voxel=0.006)
-    p.blob((HX, 0.315, 0), (0.045, 0.012, 0.045), group='dot')
+    p.capsule((0.06, 0.15, 0), (HX - 0.02, 0.15, 0), 0.05, group='arm')
+    p.cyl((HX, 0.08, 0), 0.105, 0.17, r2=0.095, bevel=0.04, seg=28)
+    p.capsule((HX, 0.24, 0), (HX + 0.13, 0.29, 0), 0.042, group='lever')
+    p.blob((HX + 0.15, 0.295, 0), (0.06, 0.05, 0.06), group='lever')
+    p.layer('dot', base=0xff5a5a, target_faces=360, voxel=0.006)
+    p.lathe(rounded([(0.0, 0.0), (0.075, 0.0), (0.072, 0.02), (0.0, 0.035)], 0.012, n=2), pos=(HX, 0.25, 0), seg=28)
+    p.paint_fn(lambda q, n: q.z < 0, 0x4a9cff)
     p.layer('skin')
     p.bone('body', (0, 0, 0), (0, 0.9, 0))
-    p.bone('handle', (HX, 0.1, 0), (HX, 0.4, 0), parent='body', region=lambda q: q.x > 0.18 and q.y > 0.05 and q.y < 0.36)
+    p.bone('handle', (HX, 0.1, 0), (HX, 0.4, 0), parent='body', region=lambda q: q.x > 0.18 and q.y > 0.05 and q.y < 0.4)
     p.anchor('spout', (0, 0.7, 0.78), 'body')
     p.extras['outline'] = 0.018
+    p.build()
+
+
+def tapsnack():
+    """prop_k_tapsnack: Snack chef's low tap, so it never comes up in front of a friend's face (nothing higher than
+    y 0.55): a chunky chrome pillar (origin at its foot, on the worktop) with a round lever knob on top (bone 'handle',
+    turns about y; a paddle points back (-z); the cap is half red (hot), half blue (cold)), and a long low spout that
+    reaches out along +z and turns down at its tip: the water leaves at (0, 0.28, 0.72) (anchor 'spout')."""
+    p = Prop('prop_k_tapsnack', base=CHROME, target_faces=2400, voxel=0.011, smooth=3)
+    p.cyl((0, 0, 0), 0.16, 0.06, r2=0.145, bevel=0.025, seg=28)            # the round foot
+    p.cyl((0, 0.04, 0), 0.095, 0.33, r2=0.085, bevel=0.02, seg=28)         # the pillar
+    # the spout: straight out at y 0.29, a soft bend down at the tip, a little flared nozzle
+    R = 0.07
+    Y = 0.37
+    path = [(0, Y, 0.0), (0, Y, 0.3), (0, Y, 0.72 - R)]
+    for i in range(1, 7):
+        a = (math.pi / 2) * i / 6
+        path.append((0, Y - R * (1 - math.cos(a)), 0.72 - R + R * math.sin(a)))
+    p.tube(path, 0.056, rseg=16)
+    p.cyl((0, Y - 0.09, 0.72), 0.062, 0.03, r2=0.058, bevel=0.01, seg=20)
+    p.paint_fn(lambda q, n: n.y < -0.5 and q.y < Y - 0.08 and q.z > 0.66, 0x8fa3b8)
+    p.paint_fn(lambda q, n: q.y < 0.07 and q.z < 0.3, CHROME_D)
+    p.layer('shine', base=0xffffff, target_faces=150, voxel=0.006)
+    p.capsule((-0.044, Y + 0.028, 0.12), (-0.044, Y + 0.032, 0.5), 0.012, group='s1')
+    p.capsule((-0.07, 0.1, 0.04), (-0.07, 0.28, 0.04), 0.013, group='s2')
+    p.layer('skin')
+    # the lever: a chunky round knob on top of the pillar with a short paddle pointing back, and a red / blue cap
+    p.layer('handle', base=CHROME, target_faces=900, voxel=0.009)
+    p.cyl((0, 0.37, 0), 0.105, 0.11, r2=0.095, bevel=0.04, seg=28)
+    p.capsule((0, 0.44, -0.04), (0, 0.46, -0.21), 0.04, group='lever')
+    p.blob((0, 0.465, -0.23), (0.06, 0.045, 0.06), group='lever')
+    p.layer('dot', base=0xff5a5a, target_faces=360, voxel=0.006)
+    p.lathe(rounded([(0.0, 0.0), (0.075, 0.0), (0.072, 0.02), (0.0, 0.034)], 0.012, n=2), pos=(0, 0.475, 0), seg=28)
+    p.paint_fn(lambda q, n: q.x > 0, 0x4a9cff)
+    p.layer('skin')
+    p.bone('body', (0, 0, 0), (0, 0.37, 0))
+    p.bone('handle', (0, 0.37, 0), (0, 0.55, 0), parent='body', region=lambda q: (q.y > 0.405 and q.z < 0.12) or (q.y > 0.37 and q.z < -0.03))
+    p.anchor('spout', (0, Y - 0.09, 0.72), 'body')
+    p.extras['outline'] = 0.012
     p.build()
 
 
@@ -162,23 +249,134 @@ def soap():
 
 
 # ---------------- towel ----------------
+def smooth01(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
+
+def cloth(p, W, front, back, thick=0.036, bar=0.034, nu=28, nv=40, corner=0.09, wave=0.034, folds=3.5):
+    """A hand towel draped over a bar that runs along x through the origin: a soft fold over the top, a front flap
+    (+z side) `front` long and a back flap `back` long, each with a rounded hem and a few soft vertical folds that
+    deepen toward the hem. Built as one closed thick sheet (outer and inner skins joined round the edges)."""
+    R = bar + thick / 2                            # the fold's mid-surface radius round the bar
+    arc = math.pi * R
+    L = back + arc + front                         # the length of the cloth's mid-line, back hem -> front hem
+
+    def mid(v):
+        """the mid-line point (y, z) and its outward normal (ny, nz) at distance v from the back hem"""
+        if v < back:                                # back flap: hangs down at z = -R, a little flare at the hem
+            d = back - v
+            fl = 0.05 * smooth01(d / back) ** 2
+            return (-d, -R - fl), (0.0, -1.0)
+        if v < back + arc:                          # the fold over the bar
+            a = (v - back) / R                      # 0..pi, from the back round over the top to the front
+            return (R * math.sin(a), -R * math.cos(a)), (math.sin(a), -math.cos(a))
+        d = v - back - arc                          # front flap
+        fl = 0.075 * smooth01(d / front) ** 2
+        return (-d, R + fl), (0.0, 1.0)
+
+    def hem_cut(u):
+        """how far each hem is trimmed at this x (rounded bottom corners)"""
+        ax = abs(u)
+        if ax <= W - corner:
+            return 0.0
+        dx = ax - (W - corner)
+        return corner - math.sqrt(max(0.0, corner * corner - dx * dx))
+
+    verts, faces = [], []
+    grid = {}
+    for side, sgn in (('o', 1), ('i', -1)):
+        for iu in range(nu + 1):
+            u = -W + 2 * W * iu / nu
+            cut = hem_cut(u)
+            for iv in range(nv + 1):
+                v = cut + (L - 2 * cut) * iv / nv
+                (y, z), (ny, nz) = mid(v)
+                # soft vertical folds on the flaps (none over the bar), deeper toward the hems
+                if v < back:
+                    k = smooth01((back - v) / back)
+                elif v > back + arc:
+                    k = smooth01((v - back - arc) / front)
+                else:
+                    k = 0.0
+                w = wave * k * math.sin(u / W * math.pi * folds + 0.6)
+                ox = 0.012 * k * math.sin(u / W * math.pi * folds * 2)
+                pos = (u + ox, y + ny * (w + sgn * thick / 2), z + nz * (w + sgn * thick / 2))
+                grid[(side, iu, iv)] = len(verts)
+                verts.append(pos)
+    q = lambda *k: grid[k]
+    for iu in range(nu):
+        for iv in range(nv):
+            faces.append((q('o', iu, iv), q('o', iu + 1, iv), q('o', iu + 1, iv + 1), q('o', iu, iv + 1)))
+            faces.append((q('i', iu, iv), q('i', iu, iv + 1), q('i', iu + 1, iv + 1), q('i', iu + 1, iv)))
+    for iu in range(nu):            # the two hems
+        for iv in (0, nv):
+            faces.append((q('o', iu, iv), q('i', iu, iv), q('i', iu + 1, iv), q('o', iu + 1, iv)))
+    for iv in range(nv):            # the two side edges
+        for iu in (0, nu):
+            faces.append((q('o', iu, iv), q('o', iu, iv + 1), q('i', iu, iv + 1), q('i', iu, iv)))
+    p.mesh(verts, faces)
+    return R
+
+
+TOWEL = dict(W=0.25, front=0.36, back=0.3)
+
+
 def towel():
-    p = Prop('prop_k_towel', base=0xffb84d, target_faces=1800, voxel=0.012, smooth=2)
-    W, D = 0.42, 0.85
-    # folded over the rail: a front flap (longer) and a back flap, a soft rounded fold on top
-    for z, h in ((0.07, D), (-0.06, D * 0.7)):
-        p.box((0, -h / 2 + 0.02, z), (W, h / 2, 0.035), bevel=0.03)
-    p.box((0, 0.03, 0.005), (W, 0.05, 0.08), bevel=0.05)
-    # stripes near the bottom of the front flap and a fringe line
-    p.paint_fn(lambda q, n: q.z > 0.09 and (-D + 0.2 < q.y < -D + 0.27 or -D + 0.33 < q.y < -D + 0.37), 0xffffff)
-    p.paint_fn(lambda q, n: q.z > 0.09 and -D + 0.05 < q.y < -D + 0.1, 0xff8a3d)
-    p.layer('rail', base=CHROME, target_faces=700, voxel=0.01)
-    p.tube([(-W - 0.12, 0.0, -0.16), (-W - 0.12, 0.0, 0.0), (W + 0.12, 0.0, 0.0), (W + 0.12, 0.0, -0.16)], 0.03, rseg=10)
+    """prop_k_towel: a soft terry hand towel draped over a bar (origin = the bar's centre; the bar runs along x).
+    Coral with two white stripes and a darker woven band near each hem. Bones: 'body', and 'flapF' / 'flapB' that
+    swing the front / back flap open (rotation.x) so it can drape over a friend's paws."""
+    # (no remesh: the stripes follow the cloth's own rows, so they stay clean)
+    p = SProp('prop_k_towel', base=0xff8f6b, target_faces=2600, voxel=0.0105, smooth=2)
+    W, F, B = TOWEL['W'], TOWEL['front'], TOWEL['back']
+    R = cloth(p, W, F, B)
+    # stripes and the woven hem band: by height, on both flaps (the flaps hang straight down from y 0)
+    for y0, y1, c in ((-F + 0.035, -F + 0.075, 0xe8664a), (-F + 0.13, -F + 0.165, 0xffffff), (-F + 0.2, -F + 0.225, 0xffffff)):
+        p.paint_fn(lambda q, n, y0=y0, y1=y1: q.z > 0.02 and y0 < q.y < y1, c)
+    for y0, y1, c in ((-B + 0.035, -B + 0.075, 0xe8664a), (-B + 0.13, -B + 0.165, 0xffffff), (-B + 0.2, -B + 0.225, 0xffffff)):
+        p.paint_fn(lambda q, n, y0=y0, y1=y1: q.z < -0.02 and y0 < q.y < y1, c)
+    p.paint_fn(lambda q, n: abs(q.x) > W - 0.028 and q.y < -0.06, 0xf57a58)    # the hemmed side edges
+    p.bone('body', (0, -0.02, 0), (0, 0.06, 0))
+    p.bone('flapF', (0, 0.0, R), (0, -F, R + 0.03), parent='body', region=lambda q: q.z > 0.0 and q.y < -0.02)
+    p.bone('flapB', (0, 0.0, -R), (0, -B, -R - 0.03), parent='body', region=lambda q: q.z < 0.0 and q.y < -0.02)
+    p.extras['outline'] = 0.016
+    p.build()
+
+
+def towelrail():
+    """prop_k_towelrail: a chrome rail screwed to a cupboard front (origin = the bar's centre, the brackets go back
+    to z -0.16). The towel hangs over it (prop_k_towel at the same origin)."""
+    p = SProp('prop_k_towelrail', base=CHROME, voxel=0.008, target_faces=900)
+    HW = 0.36
+    p.tube(rounded([(-HW, 0.0, -0.15), (-HW, 0.0, 0.0), (HW, 0.0, 0.0), (HW, 0.0, -0.15)], 0.05, n=4), 0.026, rseg=12)
     for s in (-1, 1):
-        p.cyl((s * (W + 0.12), 0.0, -0.18), 0.07, 0.04, rot=(90, 0, 0), bevel=0.015, seg=16)
+        p.cyl((s * HW, 0.0, -0.17), 0.065, 0.035, rot=(90, 0, 0), bevel=0.012, seg=20)
+    p.paint_fn(lambda q, n: q.z < -0.13, CHROME_D)
+    p.bone('body', (0, -0.1, 0), (0, 0.1, 0))
+    p.extras['outline'] = 0.014
+    p.build()
+
+
+TOWELSTAND_H = 0.44
+
+
+def towelstand():
+    """prop_k_towelstand: a little chrome towel stand for the worktop: an oval foot, two posts and a bar at y 0.44
+    (origin on the worktop under the bar's middle). The towel hangs over the bar."""
+    p = SProp('prop_k_towelstand', base=CHROME, voxel=0.008, target_faces=1400)
+    H, HW = TOWELSTAND_H, 0.3
+    p.cyl((0, 0, 0), 0.37, 0.05, bevel=0.022, scale=(1.0, 0.45), seg=40)
+    # one chrome arch: up the left post, over the top (the towel bar), down the right post
+    arch = rounded([(-HW, 0.03, 0.0), (-HW, H, 0.0), (HW, H, 0.0), (HW, 0.03, 0.0)], 0.09, n=6)
+    p.tube(arch, 0.028, rseg=12)
+    for sx in (-1, 1):
+        p.cyl((sx * HW, 0.03, 0), 0.05, 0.05, r2=0.035, bevel=0.012, seg=16)
+    p.paint_fn(lambda q, n: q.y < 0.04, CHROME_D)
+    p.layer('feet', base=0x9aa9ba, voxel=0.008, target_faces=200)
+    p.cyl((0, -0.005, 0), 0.35, 0.012, bevel=0.004, scale=(1.0, 0.43), seg=32)
     p.layer('skin')
-    p.bone('body', (0, -D, 0), (0, 0.1, 0))
-    p.extras['outline'] = 0.018
+    p.bone('body', (0, 0, 0), (0, H, 0))
+    p.extras['outline'] = 0.014
     p.build()
 
 
@@ -201,18 +399,26 @@ def fridge():
     # the inside: pale, with two shelves
     inner = lambda q: abs(q.x) < W - wall + 0.01 and q.z > -D + wall + 0.01 and 0.5 - 0.01 < q.y < H - 0.36 + 0.01
     p.paint_fn(lambda q, n: inner(q), 0xeaf6ff)
-    p.layer('shelves', base=0xffffff, voxel=0.014, target_faces=900)
+    p.paint_fn(lambda q, n: inner(q) and q.z < -D + wall + 0.03, 0xcfe9fb)          # the back wall, a cool blue
+    p.layer('shelves', base=0xffffff, voxel=0.014, target_faces=1400)
     for y in SHELVES:
         p.box((0, y - 0.04, (FZ - D + wall) / 2 - 0.03), (W - wall - 0.005, 0.04, (FZ + D - wall) / 2 - 0.06), bevel=0.02)
+        # a rounded lip along the front of each shelf
+        p.tube([(-(W - wall - 0.02), y + 0.01, FZ - 0.1), (W - wall - 0.02, y + 0.01, FZ - 0.1)], 0.03, rseg=10)
+    # the drawer at the bottom (salad crisper) with a handle groove
+    p.box((0, 0.68, (FZ - D + wall) / 2 - 0.02), (W - wall - 0.01, 0.16, (FZ + D - wall) / 2 - 0.05), bevel=0.04)
+    p.paint_fn(lambda q, n: q.y < 0.86 and n.z > 0.5 and abs(q.y - 0.74) < 0.03 and abs(q.x) < 0.3, 0xbfe0f5)
+    p.layer('light', base=0xfff2a8, voxel=0.008, target_faces=300)
+    p.blob((0, H - 0.4, -0.2), (0.16, 0.05, 0.1), group='lamp')
     p.layer('skin')
     # the door: a thick rounded slab in front of the opening, handle on the right
     p.layer('door', base=0x9ed8f0, voxel=0.02, target_faces=1600)
     DZ = FZ + 0.16       # the door slab's back face sits 0.05 in front of the cabinet rim
     p.box((0, H / 2 + 0.02, DZ), (W - 0.02, H / 2 - 0.08, 0.11), bevel=0.1)
     p.paint_fn(lambda q, n: n.z < -0.5, 0xd6eefa)                     # the door's inner face is pale
-    p.paint_fn(lambda q, n: n.z > 0.5 and abs(q.y - 3.0) < 0.035, 0x7cc0e0)   # a line between freezer and fridge
+    p.paint_fn(lambda q, n: n.z > 0.5 and abs(q.y - 3.0) < 0.05, 0x5aa8d0)    # a clear split line between freezer and fridge
     p.layer('handle', base=CHROME, voxel=0.01, target_faces=600)
-    p.tube([(-W + 0.32, 3.25, DZ + 0.1), (-W + 0.24, 3.25, DZ + 0.22), (-W + 0.24, 1.75, DZ + 0.22), (-W + 0.32, 1.75, DZ + 0.1)], 0.045, rseg=10)
+    p.tube([(-W + 0.34, 3.3, DZ + 0.1), (-W + 0.24, 3.3, DZ + 0.25), (-W + 0.24, 1.7, DZ + 0.25), (-W + 0.34, 1.7, DZ + 0.1)], 0.07, rseg=12)   # chunky handle
     p.layer('magnets', base=0xff6b6b, voxel=0.008, target_faces=900)
     for (x, y, c, k) in ((0.45, 3.55, 0xff6b6b, 0), (0.1, 3.45, 0xffd23f, 1), (0.25, 2.2, 0x6bd968, 2), (-0.25, 1.4, 0xb38cff, 3)):
         p.blob((x, y, DZ + 0.12), (0.11, 0.11, 0.05), group='m%d' % k)
@@ -243,88 +449,276 @@ def fridge():
 
 # ---------------- board ----------------
 def board():
-    p = SProp('prop_k_board', base=0xe6b37a, voxel=0.014, target_faces=1400)
+    """prop_k_board: a wooden chopping board 1.7 x 1.0 x 0.1 (bottom at y 0, x -0.85..0.85 plus a handle tab to x 1.17)
+    with a hanging hole in the tab. One clean slab: a flat-shaded top with a soft juice groove round its edge and a
+    few long grain lines, darker sides."""
+    p = FlatProp('prop_k_board', base=0xe9b77e, voxel=0.014, target_faces=1400)
     L, Wd, H = 0.85, 0.5, 0.1
     poly = rounded([(-L, -Wd), (L, -Wd), (L, -0.16), (L + 0.32, -0.12), (L + 0.32, 0.12), (L, 0.16), (L, Wd), (-L, Wd)], 0.1, n=4, closed=True)
     p.prism(poly, 0.0, H, bevel=0.03, axis='y')
+    p.layers['skin']['edge'] = 0.22
+    p.flat = ('skin',)
     p.paint_fn(lambda q, n: n.y < 0.6, 0xcf965a)
     p.paint_fn(lambda q, n: n.y > 0.6 and math.hypot(q.x - (L + 0.18), q.z) < 0.065, 0x9a6a3a)   # the hanging hole
-    p.paint_fn(lambda q, n: n.y > 0.6 and q.x < L and int((q.z + 1) / 0.2) % 2 == 0 and abs(q.z) < Wd - 0.06, 0xdfab70)
+    # the juice groove: a thin darker band 0.1 in from the edge of the cutting area
+    groove = lambda q: q.x < L - 0.02 and (L - 0.13 < max(abs(q.x + 0.0), 0) < L - 0.1 and abs(q.z) < Wd - 0.1 or Wd - 0.13 < abs(q.z) < Wd - 0.1 and abs(q.x) < L - 0.1)
+    p.paint_fn(lambda q, n: n.y > 0.6 and groove(q), 0xd9a265)
+    for gz in (-0.27, -0.05, 0.19):
+        p.paint_fn(lambda q, n, gz=gz: n.y > 0.6 and abs(q.z - gz - 0.03 * math.sin(q.x * 3)) < 0.008 and abs(q.x) < L - 0.2 and abs(q.z) < Wd - 0.16, 0xdcaa6e)
     p.bone('body', (0, 0, 0), (0, H, 0))
     p.extras['outline'] = 0.018
     p.build()
 
 
 # ---------------- divided plates ----------------
-def plate(name, R, sections):
-    """sections: list of (test(x, z) -> bool, floor colour, print polygon or None, print colour, print centre)"""
-    p = Prop(name, base=0xfffbf4, target_faces=3000, voxel=0.012, smooth=2)
-    p.quadriflow = False
-    p.lathe(rounded([(0.0, 0.02), (R * 0.62, 0.0), (R * 0.8, 0.04), (R, 0.15), (R, 0.18), (R * 0.95, 0.19), (R * 0.76, 0.075), (0.0, 0.07)], 0.03, n=3), seg=72)
-    p.paint_fn(lambda q, n: n.y < -0.3, 0xe8e2d8)
-    for test, col, poly, pcol, (cx, cz) in sections:
-        p.paint_fn(lambda q, n, test=test: n.y > 0.85 and q.y < 0.1 and math.hypot(q.x, q.z) < R * 0.75 and test(q.x, q.z), col)
-        if poly:
-            p.paint_fn(lambda q, n, poly=poly, cx=cx, cz=cz: n.y > 0.85 and q.y < 0.1 and inside(poly, q.x - cx, -(q.z - cz)), pcol)
-    return p
+FLOOR = 0.075
 
 
-def dividers(p, R, lines):
-    p.layer('divider', base=0xffffff, target_faces=900, voxel=0.01)
-    for a, b in lines:
-        p.tube([a, b], 0.05, rseg=10)
-    p.layer('skin')
+def flat_icon(p, poly, cx, cz, y=FLOOR + 0.004, t=0.012, s=1.0):
+    """a flat cut-out lying on the plate floor: poly is (x, up) with 'up' pointing away from us (-z)"""
+    pts = [(cx + x * s, cz - yy * s) for x, yy in poly]
+    n = len(pts)
+    mx, mz = sum(q[0] for q in pts) / n, sum(q[1] for q in pts) / n
+    verts = [(mx, y, mz), (mx, y + t, mz)] + [(x, y, z) for x, z in pts] + [(x, y + t, z) for x, z in pts]
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((0, 2 + j, 2 + i))
+        faces.append((1, 2 + n + i, 2 + n + j))
+        faces.append((2 + i, 2 + j, 2 + n + j, 2 + n + i))
+    p.mesh(verts, faces)
 
 
-def strawberry_poly(s):
-    pts = []
-    for i in range(24):
-        a = i / 24 * math.tau
-        x = math.sin(a) * 0.5 * (1 - 0.35 * max(0, -math.cos(a)))
-        y = -math.cos(a) * 0.6 if math.cos(a) > 0 else -math.cos(a) * 0.45
-        pts.append((x * s, (y - 0.05) * s))
+def circ(r, n=14, sx=1.0, sy=1.0, ox=0.0, oy=0.0):
+    return [(ox + r * sx * math.cos(math.tau * i / n), oy + r * sy * math.sin(math.tau * i / n)) for i in range(n)]
+
+
+def berry_poly():
+    out = []
+    for i in range(28):
+        a = i / 28 * math.tau
+        x = math.sin(a) * 0.5 * (1 - 0.3 * max(0, -math.cos(a)))
+        y = 0.42 * math.cos(a) if math.cos(a) > 0 else 0.62 * math.cos(a)
+        out.append((x, y - 0.02))
+    return out
+
+
+def leaf_star(r=0.2, oy=0.42):
+    return [(x, y + oy) for x, y in star_poly(r, inner=0.45, n=5, rot=90)]
+
+
+def carrot_shape():
+    pts = [(0.0, -0.66)]
+    for i in range(1, 9):
+        a = math.pi * i / 8
+        pts.append((0.2 * math.cos(math.pi - a) * -1 if False else 0.2 * -math.cos(a), 0.28 + 0.1 * math.sin(a)))
+    pts = [(0.0, -0.66), (0.17, 0.0)] + [(0.2 * math.cos(a), 0.28 + 0.06 * math.sin(a)) for a in [i * math.pi / 8 for i in range(9)]] + [(-0.17, 0.0)]
     return pts
 
 
-def carrot_poly(s):
-    return [(x * s, y * s) for x, y in [(0.0, -0.62), (0.2, 0.25), (0.15, 0.4), (0.35, 0.65), (0.08, 0.5), (0.0, 0.72), (-0.08, 0.5), (-0.35, 0.65), (-0.15, 0.4), (-0.2, 0.25)]]
+def carrot_leaves():
+    return [(0.0, 0.3), (0.16, 0.55), (0.1, 0.62), (0.03, 0.46), (0.0, 0.68), (-0.03, 0.46), (-0.1, 0.62), (-0.16, 0.55)]
 
 
-def bread_poly(s):
-    out = [(-0.45, -0.5), (0.45, -0.5), (0.45, 0.2)]
-    out += [(0.25 * math.cos(a) + (0.2 if a < math.pi / 2 else -0.2) * 1.0, 0.3 + 0.28 * math.sin(a)) for a in [i / 12 * math.pi for i in range(13)]]
-    out += [(-0.45, 0.2)]
-    return [(x * s, y * s) for x, y in out]
+def bread_shape():
+    pts = [(-0.4, -0.5), (0.4, -0.5), (0.4, 0.12)]
+    pts += [(0.22 + 0.22 * math.cos(a), 0.2 + 0.26 * math.sin(a)) for a in [i * math.pi / 8 for i in range(1, 9)]][:-1]
+    pts += [(-0.22 + 0.22 * math.cos(a), 0.2 + 0.26 * math.sin(a)) for a in [i * math.pi / 8 for i in range(1, 9)]]
+    pts += [(-0.4, 0.12)]
+    return rounded(pts, 0.06, n=2, closed=True)
 
 
-def bottle_poly(s):
-    return [(x * s, y * s) for x, y in [(-0.3, -0.6), (0.3, -0.6), (0.3, 0.15), (0.13, 0.35), (0.13, 0.6), (-0.13, 0.6), (-0.13, 0.35), (-0.3, 0.15)]]
+def bread_inner():
+    return [(x * 0.74, y * 0.74 - 0.04) for x, y in bread_shape()]
+
+
+def bottle_shape():
+    return rounded([(-0.26, -0.58), (0.26, -0.58), (0.26, 0.12), (0.12, 0.3), (0.12, 0.46), (-0.12, 0.46), (-0.12, 0.3), (-0.26, 0.12)], 0.07, n=2, closed=True)
+
+
+def cap_shape():
+    return rounded([(-0.14, 0.44), (0.14, 0.44), (0.14, 0.6), (-0.14, 0.6)], 0.04, n=2, closed=True)
+
+
+ICONS = {
+    # food: [(layer colour, polygon, scale tweak)]
+    'fruit': [(0xff4f6a, berry_poly()), (0x5cc552, leaf_star(0.2, 0.42))] + [(0xffe066, circ(0.035, 8, ox=x, oy=y)) for x, y in ((-0.18, 0.12), (0.16, 0.14), (0.0, -0.08), (-0.14, -0.26), (0.12, -0.3), (0.0, 0.26))],
+    'veg': [(0xff8a2a, carrot_shape()), (0x5cc552, carrot_leaves())] + [(0xe86f12, [(x - 0.07, y), (x + 0.05, y - 0.02), (x + 0.05, y + 0.02)]) for x, y in ((0.0, -0.1), (0.02, -0.35))],
+    'grain': [(0xd38a3c, bread_shape()), (0xffe0a1, bread_inner())],
+    'dairy': [(0xffffff, bottle_shape()), (0x4a8cff, cap_shape()), (0x9fd0ff, rounded([(-0.2, -0.35), (0.2, -0.35), (0.2, -0.05), (-0.2, -0.05)], 0.04, n=2, closed=True))],
+}
+
+
+def plate(name, R, rim_col, floor_cols, cuts, icons, divider):
+    """A chunky toddler plate (origin on the table, floor top at y 0.075, rim top ~0.2): white with a coloured rim
+    band, pastel sections, one moulded rounded divider, and a crisp outlined food picture in each section."""
+    # (built without remeshing: the cut-out pictures and the divider keep crisp edges)
+    p = SProp(name, base=0xfffdf8, target_faces=3600, voxel=0.012, smooth=2)
+    p.lathe(rounded([(0.0, 0.02), (R * 0.62, 0.0), (R * 0.8, 0.04), (R, 0.15), (R, 0.19), (R * 0.95, 0.2), (R * 0.78, FLOOR + 0.005), (0.0, FLOOR)], 0.03, n=3), seg=72)
+    p.paint_fn(lambda q, n: n.y < -0.3, 0xe8e2d8)
+    for test, col in floor_cols:
+        p.paint_fn(lambda q, n, test=test: n.y > 0.85 and q.y < FLOOR + 0.02 and math.hypot(q.x, q.z) < R * 0.79 and test(q.x, q.z), col)
+    # the coloured rim band (its own layer: a crisp edge and ink)
+    p.layer('rim', base=rim_col, target_faces=1200, voxel=0.01)
+    p.lathe(rounded([(R * 0.82, FLOOR + 0.035), (R * 0.985, 0.185), (R * 0.99, 0.215), (R * 0.81, FLOOR + 0.06)], 0.012, n=2, closed=True), closed=True, seg=72)
+    # the divider: one rounded moulded piece
+    p.layer('divider', base=0xffffff, target_faces=900, voxel=0.01)
+    for (x0, z0), (x1, z1) in divider:
+        L = math.hypot(x1 - x0, z1 - z0)
+        ang = math.degrees(math.atan2(x1 - x0, z1 - z0))
+        p.box(((x0 + x1) / 2, FLOOR + 0.045, (z0 + z1) / 2), (0.035, 0.05, L / 2), rot=(0, ang, 0), bevel=0.03)
+    # the pictures
+    cols = {}
+    for g, (cx, cz), k in icons:
+        for col, poly in ICONS[g]:
+            cols.setdefault(col, []).append((poly, cx, cz, k))
+    for i, (col, items) in enumerate(cols.items()):
+        p.layer('pic%d' % i, base=col, target_faces=500, voxel=0.006)
+        for poly, cx, cz, k in items:
+            lift = 0.0 if col in (0xff4f6a, 0xff8a2a, 0xd38a3c, 0xffffff) else 0.012
+            flat_icon(p, poly, cx, cz, y=FLOOR + 0.004 + lift, s=k)
+    p.layer('skin')
+    p.bone('body', (0, 0, 0), (0, 0.2, 0))
+    p.extras['outline'] = 0.016
+    p.build()
 
 
 def plate2():
     R = 1.05
-    PINK, PINK_D, GRN, GRN_D = 0xffc2d3, 0xff95b3, 0xc8eeae, 0x98d873
-    p = plate('prop_k_plate2', R, [
-        (lambda x, z: x < 0, PINK, strawberry_poly(0.5), PINK_D, (-0.4, 0.0)),
-        (lambda x, z: x >= 0, GRN, carrot_poly(0.5), GRN_D, (0.4, 0.0))])
-    dividers(p, R, [((0, 0.1, -R * 0.78), (0, 0.1, R * 0.78))])
-    p.bone('body', (0, 0, 0), (0, 0.2, 0))
-    p.extras['outline'] = 0.02
-    p.build()
+    w = R * 0.79
+    plate('prop_k_plate2', R, 0x56c7a0, [(lambda x, z: x < 0, 0xffd3df), (lambda x, z: x >= 0, 0xd5f1c0)], None,
+          [('fruit', (-0.46, 0.0), 0.5), ('veg', (0.46, 0.0), 0.5)], [((0, -w), (0, w))])
 
 
 def plate4():
     R = 1.25
-    sec = [
-        (lambda x, z: x < 0 and z < 0, 0xffc2d3, strawberry_poly(0.42), 0xff95b3, (-0.42, -0.42)),
-        (lambda x, z: x >= 0 and z < 0, 0xc8eeae, carrot_poly(0.42), 0x98d873, (0.42, -0.42)),
-        (lambda x, z: x < 0 and z >= 0, 0xffe39a, bread_poly(0.42), 0xffc94a, (-0.42, 0.42)),
-        (lambda x, z: x >= 0 and z >= 0, 0xc4e2ff, bottle_poly(0.44), 0x8cc2ff, (0.42, 0.42)),
-    ]
-    p = plate('prop_k_plate4', R, sec)
-    dividers(p, R, [((0, 0.1, -R * 0.78), (0, 0.1, R * 0.78)), ((-R * 0.78, 0.1, 0), (R * 0.78, 0.1, 0))])
-    p.bone('body', (0, 0, 0), (0, 0.2, 0))
+    w = R * 0.79
+    plate('prop_k_plate4', R, 0xffa94d, [
+        (lambda x, z: x < 0 and z < 0, 0xffd3df), (lambda x, z: x >= 0 and z < 0, 0xd5f1c0),
+        (lambda x, z: x < 0 and z >= 0, 0xffeab0), (lambda x, z: x >= 0 and z >= 0, 0xcfe6ff)], None,
+          [('fruit', (-0.47, -0.45), 0.42), ('veg', (0.47, -0.45), 0.42), ('grain', (-0.47, 0.45), 0.42), ('dairy', (0.47, 0.45), 0.42)],
+          [((0, -w), (0, w)), ((-w, 0), (w, 0))])
+
+
+# ---------------- fruit bowl ----------------
+def fruitbowl():
+    """prop_k_bowl: Snack chef's deep fruit bowl (origin on the worktop at its middle): a glazed ceramic bowl, rim radius
+    0.97 at y 0.47, a wide flat floor (radius 0.62) at y 0.13 for the fruit, a cream inside you can see into, a sunny
+    coral outside with white polka dots, and a rolled white rim."""
+    p = Prop('prop_k_bowl', base=0xff8a6e, target_faces=3200, voxel=0.011, smooth=2)
+    p.quadriflow = False
+    outer = [(0.0, 0.0), (0.5, 0.0), (0.56, 0.035), (0.8, 0.14), (0.95, 0.3), (0.99, 0.43)]
+    inner = [(0.93, 0.455), (0.9, 0.33), (0.78, 0.2), (0.62, 0.135), (0.0, 0.13)]
+    p.lathe(rounded(outer + inner, 0.03, n=3), seg=72)
+    p.paint_fn(lambda q, n: q.y > 0.115 and math.hypot(q.x, q.z) < 0.935 and (n.x * q.x + n.z * q.z) <= 0.1 * math.hypot(q.x, q.z) + 1e-6 and n.y > -0.3, 0xfff1df)
+    p.paint_fn(lambda q, n: q.y > 0.115 and math.hypot(q.x, q.z) < 0.6 and n.y > 0.8, 0xffe6cc)
+    p.paint_fn(lambda q, n: q.y < 0.05, 0xe86a52)
+    p.layer('rim', base=0xffffff, target_faces=800, voxel=0.01)
+    p.ring((0, 0.452, 0), 0.955, 0.04, seg=72, rseg=10)
+    p.layer('dots', base=0xffffff, target_faces=900, voxel=0.006)
+
+    def outer_r(y):
+        for (r0, y0), (r1, y1) in zip(outer[1:], outer[2:]):
+            if y0 <= y <= y1:
+                return r0 + (r1 - r0) * (y - y0) / (y1 - y0)
+        return outer[-1][0]
+    k = 0
+    for row, (yy, n, off) in enumerate(((0.33, 14, 0.0), (0.18, 12, 0.5))):
+        for i in range(n):
+            ang = (i + off) / n * math.tau
+            p.sticker(circle_poly(0.045, 14), yy, outer_r, thick=0.012, ang=ang, lift=0.004)
+            k += 1
+    p.layer('skin')
+    p.bone('body', (0, 0, 0), (0, 0.5, 0))
     p.extras['outline'] = 0.02
+    p.build()
+
+
+# ---------------- the dining table ----------------
+def diningtable():
+    """prop_k_table: the long table in the dining corner (origin on the floor at its middle): top 8.1 x 2.5 at y 0.92
+    (x +-4.05, z +-1.25), under a red-and-white checked cloth that hangs in soft folds to y ~0.3 all round (it hides
+    the friends' legs and the stools), with a scalloped white trim (layer 'edge'). Chunky wooden legs show below."""
+    p = SProp('prop_k_table', base=0xc98a4e, voxel=0.02, target_faces=1200)
+    HX, HZ, Y = 4.05, 1.25, 0.92
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.cyl((sx * (HX - 0.35), 0.0, sz * (HZ - 0.3)), 0.11, 0.6, r2=0.13, bevel=0.03, seg=16)
+    p.box((0, Y - 0.12, 0), (HX - 0.05, 0.1, HZ - 0.05), bevel=0.04)
+    p.paint_fn(lambda q, n: q.y < 0.05, 0xa86c38)
+    # the cloth: a slab on top and a skirt all round, rippled into soft folds, double-skinned
+    p.layer('cloth', base=0xffffff, voxel=0.018, target_faces=5000)
+    T, LO = 0.03, 0.34
+    C = 0.3375                                  # one check (the top's grid lines fall on the check borders)
+    # the cloth's top: a grid of quads, one per check, so each check is one crisp colour
+    nx, nz = int(round(2 * (HX + 0.06) / C)), int(round(2 * (HZ + 0.06) / C))
+    gx, gz = (HX + 0.06) * 2 / nx, (HZ + 0.06) * 2 / nz
+    tv, tf = [], []
+    for yy in (Y + 0.045, Y - 0.005):
+        for i in range(nx + 1):
+            for j in range(nz + 1):
+                tv.append((-(HX + 0.06) + i * gx, yy, -(HZ + 0.06) + j * gz))
+    G = lambda layer, i, j: layer * (nx + 1) * (nz + 1) + i * (nz + 1) + j
+    for i in range(nx):
+        for j in range(nz):
+            tf.append((G(0, i, j), G(0, i, j + 1), G(0, i + 1, j + 1), G(0, i + 1, j)))
+            tf.append((G(1, i, j), G(1, i + 1, j), G(1, i + 1, j + 1), G(1, i, j + 1)))
+    for i in range(nx):
+        for j in (0, nz):
+            tf.append((G(0, i, j), G(0, i + 1, j), G(1, i + 1, j), G(1, i, j)) if j == 0 else (G(0, i, j), G(1, i, j), G(1, i + 1, j), G(0, i + 1, j)))
+    for j in range(nz):
+        for i in (0, nx):
+            tf.append((G(0, i, j), G(1, i, j), G(1, i, j + 1), G(0, i, j + 1)) if i == 0 else (G(0, i, j), G(0, i, j + 1), G(1, i, j + 1), G(1, i, j)))
+    p.mesh(tv, tf)
+    CHK = (gx, gz)
+
+    def perim(t):
+        """a point on the cloth's outline (rounded rectangle) at t in [0, 1), and its outward normal"""
+        L1, L2 = 2 * HX, 2 * HZ
+        tot = 2 * (L1 + L2)
+        d = t * tot
+        if d < L1: return (-HX + d, HZ + 0.06), (0, 1)
+        d -= L1
+        if d < L2: return (HX + 0.06, HZ - d), (1, 0)
+        d -= L2
+        if d < L1: return (HX - d, -HZ - 0.06), (0, -1)
+        d -= L1
+        return (-HX - 0.06, -HZ + d), (-1, 0)
+    N, M = 176, 4
+    verts, faces = [], []
+    for side, off in ((0, 0.0), (1, -T)):
+        for i in range(N):
+            t = i / N
+            (x, z), (nx, nz) = perim(t)
+            for j in range(M + 1):
+                v = j / M
+                y = Y + 0.02 - (Y + 0.02 - LO) * v
+                w = (0.05 * math.sin(t * N / 2.6) + 0.015 * math.sin(t * N / 1.3 + 1.0)) * v * v     # folds deepen downward
+                o = 0.015 + w + off + 0.05 * v * v
+                hem = 0.03 * (0.5 + 0.5 * math.cos(i * math.pi)) if j == M else 0.0
+                verts.append((x + nx * o, y - hem, z + nz * o))
+    idx = lambda side, i, j: side * N * (M + 1) + (i % N) * (M + 1) + j
+    for i in range(N):
+        for j in range(M):
+            faces.append((idx(0, i, j), idx(0, i + 1, j), idx(0, i + 1, j + 1), idx(0, i, j + 1)))
+            faces.append((idx(1, i, j), idx(1, i, j + 1), idx(1, i + 1, j + 1), idx(1, i + 1, j)))
+        faces.append((idx(0, i, M), idx(0, i + 1, M), idx(1, i + 1, M), idx(1, i, M)))
+        faces.append((idx(0, i, 0), idx(1, i, 0), idx(1, i + 1, 0), idx(0, i + 1, 0)))
+    p.mesh(verts, faces)
+    def check(q):
+        if q.y > Y - 0.012 and abs(q.x) < HX + 0.07 and abs(q.z) < HZ + 0.07:
+            a, b = (q.x + HX + 0.06) / CHK[0] + 0.5, (q.z + HZ + 0.06) / CHK[1] + 0.5
+            return (int(math.floor(a - 0.5)) + int(math.floor(b - 0.5))) % 2 == 0
+        a = q.x if abs(q.z) > HZ else q.z
+        return (int(math.floor(a / C)) + int(math.floor(q.y / C))) % 2 == 0
+    p.paint_fn(lambda q, n: check(q), 0xff9a9a)
+    # a white ribbon trim along the top edge and a red one along the hem
+    p.layer('edge', base=0xffffff, voxel=0.012, target_faces=1600)
+    loop = rounded([(-HX - 0.1, Y + 0.035, -HZ - 0.1), (HX + 0.1, Y + 0.035, -HZ - 0.1), (HX + 0.1, Y + 0.035, HZ + 0.1), (-HX - 0.1, Y + 0.035, HZ + 0.1)], 0.12, n=4, closed=True)
+    p.tube(loop, 0.035, closed=True, rseg=10)
+    p.layer('skin')
+    p.bone('body', (0, 0, 0), (0, Y, 0))
+    p.extras['outline'] = 0.022
     p.build()
 
 
@@ -348,8 +742,9 @@ def jars():
     p.build()
 
 
-MODELS = dict(prop_k_jars=jars, prop_k_counter=counter, prop_k_tap=tap, prop_k_soap=soap, prop_k_towel=towel, prop_k_fridge=fridge,
-              prop_k_board=board, prop_k_plate2=plate2, prop_k_plate4=plate4)
+MODELS = dict(prop_k_jars=jars, prop_k_counter=counter, prop_k_tap=tap, prop_k_tapsnack=tapsnack, prop_k_soap=soap, prop_k_towel=towel, prop_k_towelrail=towelrail,
+              prop_k_towelstand=towelstand, prop_k_fridge=fridge,
+              prop_k_board=board, prop_k_bowl=fruitbowl, prop_k_table=diningtable, prop_k_plate2=plate2, prop_k_plate4=plate4)
 for name, fn in MODELS.items():
     if not ONLY or name in ONLY:
         fn()

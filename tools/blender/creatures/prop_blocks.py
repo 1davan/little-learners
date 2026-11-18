@@ -31,6 +31,7 @@ from lib import G, hexcol
 ONLY = [s for s in os.environ.get('ONLY', '').split(',') if s]
 WHITE = 0xffffff
 WOOD, WOOD_L, WOOD_D, WOOD_R = 0xe8bf86, 0xf3d4a4, 0xc98f55, 0xd9a86c
+FLOOR = 0xf8e4c0      # the tray's floor: a clearly paler wood than any sandpit
 INV = Matrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))   # blender -> game
 BEV = 0.085
 
@@ -186,7 +187,7 @@ def cyl():
         a = math.pi / 2 * k / 4
         prof.append((R - b + b * math.cos(a), H - b + b * math.sin(a)))
     prof += [(r, H) for r in reversed(ends)] + [(0, H)]
-    p.lathe(prof, seg=40)
+    p.lathe(prof, seg=72)   # fine segments: the toon bands sweep smoothly round the side (no vertical creases)
     # the flat ends are bare wood with end-grain rings; the rounded rims and the side are painted
     p.rule(lambda q, n: abs(n.y) > 0.95 and math.hypot(q.x, q.z) < R - b + 0.002, WOOD)
     for r0, r1, c in ((0, 0.11, WOOD_L), (0.11, 0.22, WOOD), (0.22, 0.32, WOOD_L), (0.32, R - b + 0.002, WOOD_R)):
@@ -196,20 +197,29 @@ def cyl():
 
 def cone():
     p = new('prop_blk_cone')
-    R, H, b, tip = 0.5, 1.0, 0.07, 0.1
+    R, H, b, rt = 0.5, 1.0, 0.07, 0.11
     prof = [(0, 0), (0.2, 0), (R - b, 0)]
     for k in range(1, 4):
         a = math.pi / 2 * k / 4
         prof.append((R - b + b * math.sin(a), b - b * math.cos(a)))
-    # the slanted side up to a soft round tip
-    sl = (H - tip * 1.2 - b) / 1.0
-    for k in range(0, 6):
-        t = k / 5
-        prof.append((R * (1 - t) + 0.06 * t, b + (H - tip - b) * t))
-    for k in range(1, 4):
-        a = math.pi / 2 * k / 3
-        prof.append((0.06 * math.cos(a), H - tip + 0.06 + tip * 0.4 * math.sin(a)))
-    p.lathe(prof, seg=40)
+    # the straight side runs up to touch one round cap (a sphere of radius rt at the top): no knob, no pinch
+    P = (R, b)
+    C = (0.0, H - rt)
+    dx, dy = P[0] - C[0], P[1] - C[1]
+    d = math.hypot(dx, dy)
+    base_a = math.atan2(dy, dx)
+    off = math.acos(rt / d)
+    ta = base_a + off                 # the tangent point's angle on the cap circle (the upper of the two tangents)
+    T = (C[0] + rt * math.cos(ta), C[1] + rt * math.sin(ta))
+    for k in range(1, 9):
+        t = k / 9
+        prof.append((P[0] + (T[0] - P[0]) * t, P[1] + (T[1] - P[1]) * t))
+    n = 8
+    for k in range(0, n + 1):
+        a = ta + (math.pi / 2 - ta) * k / n
+        prof.append((max(0.0, rt * math.cos(a)), C[1] + rt * math.sin(a)))
+    prof[-1] = (0, H)
+    p.lathe(prof, seg=72)
     p.rule(lambda q, n: n.y < -0.95, WOOD)
     finish(p)
 
@@ -217,10 +227,11 @@ def cone():
 def ball():
     p = new('prop_blk_ball')
     R = 0.5
-    prof = [(R * math.sin(math.pi * k / 20), R - R * math.cos(math.pi * k / 20)) for k in range(21)]
+    N = 36
+    prof = [(R * math.sin(math.pi * k / N), R - R * math.cos(math.pi * k / N)) for k in range(N + 1)]
     prof[0] = (0, 0)
     prof[-1] = (0, 2 * R)
-    p.lathe(prof, seg=40)
+    p.lathe(prof, seg=72)   # fine and even: one soft toon shade, no faceted patches
     finish(p)
 
 
@@ -257,12 +268,27 @@ def mat():
     p.box((0, T + 0.015, 0), (W / 2 - 0.22, 0.03, D / 2 - 0.22), bevel=0.02)
     p.layer('grid', base=WHITE)
     fw, fd = W / 2 - 0.42, D / 2 - 0.42
-    xs = [i * 0.8 for i in range(-3, 4)]
-    zs = [i * 0.8 for i in range(-1, 2)]
+    # a few bold, softly rounded guide lines (every other grid line) and a stitched border round the felt
+    xs = [i * 1.6 for i in range(-1, 2)]
+    zs = [0.0]
     for x in xs:
-        p.box((x, T + 0.046, 0), (0.022, 0.006, fd), bevel=0)
+        p.box((x, T + 0.05, 0), (0.04, 0.012, fd), bevel=0.01)
     for z in zs:
-        p.box((0, T + 0.046, z), (fw, 0.006, 0.022), bevel=0)
+        p.box((0, T + 0.05, z), (fw, 0.012, 0.04), bevel=0.01)
+    bx, bz = W / 2 - 0.32, D / 2 - 0.32
+    per = 2 * (2 * bx + 2 * bz)
+    nd = int(per / 0.42)
+    for k in range(nd):                                   # stitches: short rounded dashes along the felt edge
+        u = (k + 0.5) / nd * per
+        if u < 2 * bx:
+            x, z, rot = -bx + u, -bz, 0
+        elif u < 2 * bx + 2 * bz:
+            x, z, rot = bx, -bz + (u - 2 * bx), 90
+        elif u < 4 * bx + 2 * bz:
+            x, z, rot = bx - (u - 2 * bx - 2 * bz), bz, 0
+        else:
+            x, z, rot = -bx, bz - (u - 4 * bx - 2 * bz), 90
+        p.box((x, T + 0.048, z), (0.08, 0.01, 0.024), rot=(0, rot, 0), bevel=0.0)
     p.layer('skin')
     p.extras['outline'] = 0.02
     p.bone('body', (0, 0, 0), (0, 0.3, 0))
@@ -290,18 +316,82 @@ def stand():
     p.build()
 
 
-def tray():
-    p = new('prop_blk_tray', base=WOOD)
-    L, D, F, Hr, t = 11.0, 1.7, 0.12, 0.34, 0.14
-    p.box((0, F / 2, 0), (L / 2, F / 2, D / 2), bevel=0.04)
+def tray(kind='prop_blk_tray', L=11.0):
+    p = new(kind, base=FLOOR)
+    D, F, Hr, t = 1.7, 0.12, 0.34, 0.14
+    # the floor sits inside the rim (never level with it, so no two faces fight under the rim)
+    p.box((0, F / 2, 0), (L / 2 - t + 0.01, F / 2, D / 2 - t + 0.01), bevel=0.03)
+    p.rule(lambda q, n: n.y < -0.9, WOOD_D)
     p.layer('rim', base=0x2fb7ad)
+    # one closed frame: long sides run the full length, the ends fit between them
     for s in (-1, 1):
         p.box((0, Hr / 2, s * (D / 2 - t / 2)), (L / 2, Hr / 2, t / 2), bevel=0.05)
-        p.box((s * (L / 2 - t / 2), Hr / 2, 0), (t / 2, Hr / 2, D / 2), bevel=0.05)
+        p.box((s * (L / 2 - t / 2), Hr / 2, 0), (t / 2, Hr / 2, D / 2 - t + 0.002), bevel=0.05)
+    p.rule(lambda q, n: n.y > 0.9 and q.y > Hr - 0.02, 0x5fd6cc)     # a lighter top edge on the rim
     p.layer('skin')
-    p.rule(lambda q, n: n.y < -0.9, WOOD_D)
     p.extras['outline'] = 0.02
     p.bone('body', (0, 0, 0), (0, 0.3, 0))
+    p.build()
+
+
+def tray_s():
+    tray('prop_blk_tray_s', 6.2)
+
+
+def shelf():
+    """the keepsake shelf: a long low wooden bench (top at y 0.72, 5.8 x 0.9) on two chunky teal end panels"""
+    p = new('prop_blk_shelf', base=WOOD)
+    L, D, T, top = 5.8, 0.9, 0.14, 0.72
+    p.box((0, top - T / 2, 0), (L / 2, T / 2, D / 2), bevel=0.05)
+    p.rule(lambda q, n: n.y < -0.9, WOOD_D)
+    p.rule(lambda q, n: n.y > 0.9 and abs(q.z) < D / 2 - 0.12 and abs(q.x) < L / 2 - 0.12, WOOD_L)   # the top, paler inside a darker edge
+    p.layer('legs', base=0x2fb7ad)
+    for s in (-1, 1):
+        p.box((s * (L / 2 - 0.42), (top - T) / 2, 0), (0.16, (top - T) / 2, D / 2 - 0.06), bevel=0.05)
+    p.box((0, 0.16, -D / 2 + 0.14), (L / 2 - 0.5, 0.06, 0.05), bevel=0.03)                   # a back stretcher
+    p.rule(lambda q, n: n.y > 0.9, 0x5fd6cc)
+    p.layer('skin')
+    p.extras['outline'] = 0.02
+    p.bone('body', (0, 0, 0), (0, 0.7, 0))
+    p.build()
+
+
+def flag():
+    """a little flag on a stick, about 0.95 tall: a wooden stick (origin at its foot), a yellow knob on top and a
+    waving pennant cloth to +x, painted WHITE so the game can colour it"""
+    p = new('prop_blk_flag', base=WHITE)
+    # the cloth: a pennant from y 0.52 to 0.86 at the stick, tapering to a point at x 0.52, with a gentle wave in z
+    nx, th = 14, 0.028
+    top, bot = [], []
+    for i in range(nx + 1):
+        u = i / nx
+        x = 0.035 + 0.5 * u
+        h = 0.17 * (1 - u) + 0.012 * u
+        yc = 0.69 - 0.03 * u
+        z = 0.05 * math.sin(u * math.pi * 1.6)
+        top.append((x, yc + h, z)); bot.append((x, yc - h, z))
+    verts, faces = [], []
+    for side in (-1, 1):
+        for i in range(nx + 1):
+            verts.append((top[i][0], top[i][1], top[i][2] + side * th / 2))
+            verts.append((bot[i][0], bot[i][1], bot[i][2] + side * th / 2))
+    m = 2 * (nx + 1)
+    for i in range(nx):
+        a, b2, c, d = 2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2
+        faces.append((a, d, c, b2))                         # front (-z side)
+        faces.append((m + a, m + b2, m + c, m + d))         # back
+        faces.append((a, m + a, m + d, d))                  # top edge
+        faces.append((b2, c, m + c, m + b2))                # bottom edge
+    faces.append((0, 1, m + 1, m))                          # at the stick
+    faces.append((2 * nx, 2 * nx + 1, m + 2 * nx + 1, m + 2 * nx)[::-1])
+    p.mesh(verts, faces, bevel=0)
+    p.cyl((0, 0, 0), 0.042, 0.88, bevel=0.015, seg=20)
+    p.lathe([(math.sin(math.pi * k / 12) * 0.075, 0.875 + 0.075 - math.cos(math.pi * k / 12) * 0.075) for k in range(13)], seg=24)
+    # one mesh (the game recolours its white): the stick wood, the knob yellow, the cloth stays white
+    p.rule(lambda q, n: math.hypot(q.x, q.z) < 0.047 and q.y < 0.88, WOOD_R)
+    p.rule(lambda q, n: q.y > 0.87 and math.hypot(q.x, q.z) < 0.09, 0xffd23a)
+    p.extras['outline'] = 0.014
+    p.bone('body', (0, 0, 0), (0, 0.9, 0))
     p.build()
 
 
@@ -344,13 +434,29 @@ def ramp():
         j = (i + 1) % m
         faces.append((i, m + i, m + j, j))
     p.mesh(verts, faces, bevel=0.06)
+    a = math.atan2(H - 0.04, L)
     p.rule(lambda q, n: n.y > 0.5, 0xffd23a)        # the slope
     p.rule(lambda q, n: n.y < -0.9, WOOD_D)
-    # two white lane lines on the slope (thin strips lying on it)
+    p.rule(lambda q, n: n.z > 0.9, 0x2f6fd8)        # the low front face
+    # the sides: an orange trim strip just under the slope edge and a wooden foot band (thin plates on the side)
+    p.layer('trim', base=0xff9a2e)
+    for sx in (-1, 1):
+        x0, x1 = sx * (W / 2 - 0.01), sx * (W / 2 + 0.025)
+        ys = lambda z: 0.04 + (H - 0.04) * (L / 2 - z) / L
+        z0, z1 = L / 2 - 0.35, -L / 2 + 0.08
+        poly = [(z0, ys(z0) - 0.2), (z1, ys(z1) - 0.2), (z1, ys(z1) - 0.03), (z0, ys(z0) - 0.03)]
+        verts = [(x0, y, z) for z, y in poly] + [(x1, y, z) for z, y in poly]
+        faces = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+        if sx < 0: faces = [f[::-1] for f in faces]
+        p.mesh(verts, faces, bevel=0.012)
+        p.box((sx * (W / 2 + 0.008), 0.07, -0.25), (0.018, 0.07, L / 2 - 0.45), bevel=0.012)
+    p.rule(lambda q, n: q.y < 0.16, WOOD)
+    # low lane rails along the slope (on the lane borders and the outer edges: a rolling ball never touches them)
     p.layer('lanes', base=WHITE)
-    a = math.atan2(H - 0.04, L)
-    for x in (-0.77, 0.77):
-        p.box((x, (H + 0.04) / 2 + 0.014 / math.cos(a), 0), (0.05, 0.012, L / 2 / math.cos(a) - 0.25), rot=(math.degrees(a), 0, 0), bevel=0)
+    for x in (-2.22, -0.765, 0.765, 2.22):
+        w = 0.06 if abs(x) < 1 else 0.08
+        p.box((x, (H + 0.04) / 2 + 0.03 / math.cos(a), 0), (w, 0.03, L / 2 / math.cos(a) - 0.08), rot=(math.degrees(a), 0, 0), bevel=0.02)
+    p.rule(lambda q, n: abs(q.x) > 1.5, 0xff5a4f)   # the outer rails red, the lane lines white
     p.layer('skin')
     p.extras['outline'] = 0.022
     p.bone('body', (0, 0, 0), (0, 1, 0))
@@ -359,7 +465,7 @@ def ramp():
 
 MODELS = dict(prop_blk_cube=cube, prop_blk_cuboid=cuboid, prop_blk_cyl=cyl, prop_blk_cone=cone, prop_blk_ball=ball,
               prop_blk_roof=roof, prop_blk_arch=arch, prop_blk_mat=mat, prop_blk_stand=stand, prop_blk_tray=tray,
-              prop_blk_box=box, prop_blk_ramp=ramp)
+              prop_blk_box=box, prop_blk_ramp=ramp, prop_blk_tray_s=tray_s, prop_blk_shelf=shelf, prop_blk_flag=flag)
 for name, fn in MODELS.items():
     if not ONLY or name in ONLY:
         fn()

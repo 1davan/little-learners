@@ -64,9 +64,41 @@ const frameFns = new Set();
 export function onFrame(fn) { frameFns.add(fn); return () => frameFns.delete(fn); }
 // Presentation layer: purely visual offsets (walk cycles, look-at, impact squash) applied just before the render
 // and undone right after, so game logic never sees or fights them.
-const beforeFns = new Set(), afterFns = new Set();
+// The after-render hooks run in reverse order of registration (last in, first out), so layers that snapshot and
+// restore the same object (the motion layer, personal space, the grab feel in input.js) always unwind correctly.
+const beforeFns = new Set();
+let afterFns = [];
 export function onBeforeRender(fn) { beforeFns.add(fn); return () => beforeFns.delete(fn); }
-export function onAfterRender(fn) { afterFns.add(fn); return () => afterFns.delete(fn); }
+export function onAfterRender(fn) { afterFns.unshift(fn); return () => { afterFns = afterFns.filter((f) => f !== fn); }; }
+
+// A photo of the next rendered frame (3D scene only, no DOM overlays), fitted whole inside a 4:3 card and
+// scaled to w px wide, as a JPEG data URL (about 15 KB at 320 px). Resolves null if it fails or the window is
+// hidden for over 1.5 s.
+let snapReqs = [];
+export function snapshot(w = 320, quality = 0.7) {
+  return new Promise((res) => {
+    const r = { w, quality, res };
+    snapReqs.push(r);
+    setTimeout(() => { if (snapReqs.includes(r)) { snapReqs = snapReqs.filter((x) => x !== r); res(null); } }, 1500);
+  });
+}
+function takeSnaps() {
+  const reqs = snapReqs; snapReqs = [];
+  const src = renderer.domElement;
+  for (const r of reqs) {
+    try {
+      // keep the WHOLE frame (wide creations must never be cut): fit it inside 4:3, soft paper bands fill the rest
+      const c = document.createElement('canvas');
+      c.width = r.w; c.height = Math.round((r.w * 3) / 4);
+      const g = c.getContext('2d');
+      g.fillStyle = '#fbf3df'; g.fillRect(0, 0, c.width, c.height);
+      const k = Math.min(c.width / src.width, c.height / src.height);
+      const dw = src.width * k, dh = src.height * k;
+      g.drawImage(src, 0, 0, src.width, src.height, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+      r.res(c.toDataURL('image/jpeg', r.quality));
+    } catch (e) { r.res(null); }
+  }
+}
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -95,6 +127,7 @@ function loop() {
   camera.updateMatrixWorld();
   for (const f of beforeFns) f(dt, t);
   renderer.render(scene, camera);
+  if (snapReqs.length) takeSnaps(); // same task as the render, so the drawing buffer is still there
   for (const f of afterFns) f(dt, t);
   autoQuality(dt);
 }

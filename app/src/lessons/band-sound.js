@@ -2,19 +2,18 @@
 // a pumpkin drum and a milk churn.
 // The engine's sfx has the two drums; the others are synthesized here on a small WebAudio context of our own
 // (the engine's context is private), following the engine volume.
-import { sfx, getVolume } from '../engine/audio.js';
+import { sfx, getVolume, sharedCtx, cueOut } from '../engine/audio.js';
 
 let ctx = null, out = null;
 function ac() {
   if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC();
+    ctx = sharedCtx();
     const comp = ctx.createDynamicsCompressor();
     out = ctx.createGain();
-    out.connect(comp); comp.connect(ctx.destination);
+    out.connect(cueOut());
   }
   if (ctx.state === 'suspended') ctx.resume();
-  out.gain.value = getVolume() * 0.8;
+  out.gain.value = 1;
   return ctx;
 }
 function env(g, now, vol, attack, dur) {

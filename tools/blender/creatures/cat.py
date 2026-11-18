@@ -199,4 +199,77 @@ for k, p in dict(nose=(0, HY - 0.05), eyeL=(-0.36 * RE, HY + 0.12 * RE), eyeR=(0
                  handL=(-0.84, 0.64), handR=(0.84, 0.64),
                  footL=(-0.3, 0.11), footR=(0.3, 0.11), earL=(-0.48, HY + 0.5), earR=(0.48, HY + 0.5)).items():
     c.anchor(k, p, 'head' if p[1] > 1.2 else 'body')
+
+# ---------------- polish: soft normals (clean outline, smooth toon bands) ----------------
+def soften_normals(me, iters=8, calm=()):
+    """Diffuse the vertex normals over the surface and store them as custom normals. The game's ink outline pushes
+    back faces out along the normals, so where a crease (armpit, tummy over the feet) turns the normal faster than
+    the outline is thick, the hull folds inside out and shows as ink specks; softened normals keep the hull one clean
+    shell, so the ink stays a single line on the silhouette. calm = [(centre, half-size, passes)]: extra smoothing
+    inside these game-space ellipsoids (fading out at their edge) so the toon bands sweep smoothly across a big
+    gentle patch like the tummy instead of breaking into facet wedges."""
+    import numpy as np
+    V = len(me.vertices)
+    N = np.empty(V * 3); me.vertices.foreach_get('normal', N); N = N.reshape(V, 3)
+    co = np.empty(V * 3); me.vertices.foreach_get('co', co); co = co.reshape(V, 3)
+    gp = np.stack([co[:, 0], co[:, 2], -co[:, 1]], 1)          # blender -> game
+    E = len(me.edges)
+    ed = np.empty(E * 2, dtype=np.int64); me.edges.foreach_get('vertices', ed); ed = ed.reshape(E, 2)
+    deg = np.maximum(np.bincount(ed.ravel(), minlength=V).astype(float), 1)[:, None]
+    def diffuse(N, k, w):
+        for _ in range(k):
+            acc = np.zeros_like(N)
+            np.add.at(acc, ed[:, 0], N[ed[:, 1]])
+            np.add.at(acc, ed[:, 1], N[ed[:, 0]])
+            N = N + w * (acc / deg - N)
+            N /= np.linalg.norm(N, axis=1, keepdims=True) + 1e-12
+        return N
+    N = diffuse(N, iters, 0.5)
+    for c0, s0, k in calm:
+        q = np.sqrt((((gp - np.array(c0)) / np.array(s0)) ** 2).sum(1))
+        w = np.clip((1.0 - q) / 0.35, 0, 1)[:, None] * 0.6
+        N = diffuse(N, k, w)
+    me.normals_split_custom_set_from_vertices([tuple(n) for n in N])
+def polish(c, iters=8, calm=()):
+    paint0 = c._paint
+    def paint(skin):
+        paint0(skin)
+        if c._cur == 'skin':
+            soften_normals(skin.data, iters, calm)
+    c._paint = paint
+def soft_joints(c, joints):
+    """joints = [(bone, pivot, radius, share)]: after the normal skinning, hand part of the 'body' weight of the skin
+    round each shoulder pivot to the arm (most at the pivot, none at radius), so a raised arm bends the shoulder as one
+    soft curve instead of shearing a thin ring of skin into a crease (dark ink folds, a broken side outline)."""
+    w0 = c._weights
+    def weights(skin, ao, smooth_iters=None):
+        w0(skin, ao, smooth_iters)
+        if c._cur != 'skin':
+            return
+        import numpy as np
+        me = skin.data
+        V = len(me.vertices)
+        vgs = skin.vertex_groups
+        names = [g.name for g in vgs]
+        W = np.zeros((V, len(names)))
+        for v in me.vertices:
+            for g in v.groups:
+                W[v.index, g.group] = g.weight
+        co = np.array([v.co[:] for v in me.vertices])
+        gp = np.stack([co[:, 0], co[:, 2], -co[:, 1]], 1)
+        jb = names.index('body')
+        for bone, pivot, rad, share in joints:
+            j = names.index(bone)
+            t = np.clip(1 - np.linalg.norm(gp - np.array(pivot), axis=1) / rad, 0, 1)
+            move = W[:, jb] * share * t * t * (3 - 2 * t)
+            W[:, jb] -= move
+            W[:, j] += move
+        for v in range(V):
+            for j in np.nonzero(W[v] > 0.002)[0]:
+                vgs[j].add([v], float(W[v, j]), 'REPLACE')
+            for j in np.nonzero((W[v] <= 0.002) & (W[v] > 0))[0]:
+                vgs[j].remove([v])
+    c._weights = weights
+polish(c, calm=[((0, 0.74, 0.42), (0.4, 0.46, 0.32), 40)])
+soft_joints(c, [('arm.L', SH(-1), 0.28, 0.6), ('arm.R', SH(1), 0.28, 0.6)])
 c.build()

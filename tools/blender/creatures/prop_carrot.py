@@ -1,7 +1,7 @@
 """Carrot (Share the snacks, Who says moo?, Sizes, the farm). A plump, tapered orange root ~1.04 long, centred on the
 origin (soft round tip at y -0.52, a rounded shoulder at y +0.5), with gentle groove rings (shallow dents painted a deeper
-orange) and a lush tuft of five feathery fronds. Each frond is a spring chain (bones tuftA.1/2 ... tuftE.1/2) so the
-leaves wobble when the carrot is moved or lands. A face anchor on the shoulder (hidden by default in game, for hero moments)."""
+orange) and a clean tuft of three broad feathery fronds that melt into one leafy shape (no ink inside the tuft). Each
+frond is a spring chain (bones tuftA.1/2 ... tuftC.1/2, each moving only its own sector of the tuft) so the leaves wobble when the carrot is moved or lands. A face anchor on the shoulder (hidden by default in game, for hero moments)."""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop, rounded
@@ -92,7 +92,7 @@ p.layer('leaves', base=LEAF, target_faces=1300, voxel=0.0085)
 p.resolution = 0.009                     # fine metaballs: the stalks are thin
 TOP = Vector((0, 0.49, 0))
 # (lean in x (deg), lean in z (deg), length, blade width)
-FRONDS = [(-40, -4, 0.46, 0.9), (-16, 12, 0.6, 1.0), (2, -16, 0.66, 1.0), (19, 10, 0.58, 1.0), (42, -3, 0.44, 0.9)]
+FRONDS = [(-30, 6, 0.52, 1.12), (0, -8, 0.64, 1.18), (30, 6, 0.52, 1.12)]
 
 
 def leaflet(pos, axis, normal, size, group, stiff=2.0):
@@ -111,7 +111,7 @@ def bez(a, b, c, t):
 
 chains = []
 for fi, (lx, lz, L, wk) in enumerate(FRONDS):
-    tag = 'ABCDE'[fi]
+    tag = 'ABC'[fi]
     ax, az = math.radians(lx), math.radians(lz)
     d = Vector((math.sin(ax), math.cos(ax) * math.cos(az), math.sin(az))).normalized()
     side = Vector((math.cos(ax), -math.sin(ax), 0)).normalized()        # across the frond, in the fan plane
@@ -119,11 +119,11 @@ for fi, (lx, lz, L, wk) in enumerate(FRONDS):
     if nrm.z < 0:
         nrm = -nrm
     out = 1 if lx > 0 else -1
-    curl = abs(lx) / 40
+    curl = abs(lx) / 30
     base = TOP + d * 0.01
     ctrl = base + d * L * 0.55
     tipp = base + d * L + side * out * 0.07 * curl - Vector((0, 0.03 * curl, 0))
-    g = 'f%s' % tag
+    g = 'tuft'   # one group: the fronds melt together where they meet, so the tuft has one clean outline
     p.curve([tuple(base), tuple(bez(base, ctrl, tipp, 0.5)), tuple(tipp)], [0.034, 0.026, 0.02], group=g, per=6)
     # leaflets: alternating sides, growing then shrinking toward the tip
     LEAF_T = [(0.3, -1, 0.058), (0.39, 1, 0.07), (0.49, -1, 0.084), (0.59, 1, 0.094), (0.69, -1, 0.094), (0.79, 1, 0.088), (0.88, -1, 0.078)]
@@ -137,15 +137,19 @@ for fi, (lx, lz, L, wk) in enumerate(FRONDS):
         leaflet(pt + a2 * sz * 0.86, a2, nrm, (sz * 0.6, sz, 0.03), g)
     tan = (tipp - bez(base, ctrl, tipp, 0.92)).normalized()
     leaflet(tipp + tan * 0.06, tan, nrm, (0.062 * wk, 0.1 * wk, 0.03), g)
-    chains.append((tag, [tuple(base), tuple(bez(base, ctrl, tipp, 0.5)), tuple(tipp + tan * 0.15)], [g]))
+    chains.append((tag, [tuple(base), tuple(bez(base, ctrl, tipp, 0.5)), tuple(tipp + tan * 0.15)], lx))
 # a neat little collar where the fronds sprout out of the root
-p.blob((0, 0.515, 0), (0.085, 0.05, 0.085), group='crown')
+p.blob((0, 0.515, 0), (0.085, 0.05, 0.085), group='tuft')
 p.paint_fn(lambda q, n: q.y < 0.56 and math.hypot(q.x, q.z) < 0.1, LEAF_D)
 p.layer('skin')
 
 p.bone('body', (0, -0.52, 0), (0, 0.5, 0))
-for tag, pts, groups in chains:
-    p.chain('tuft' + tag, pts, 'body', group=groups)
+# each frond's spring bones move only its own sector of the tuft (by the angle out of the shoulder)
+def sector(lx):
+    lo, hi = {-30: (-90, -15), 0: (-15, 15), 30: (15, 90)}[lx]
+    return lambda q: q.y > 0.52 and lo <= math.degrees(math.atan2(q.x, max(1e-4, q.y - 0.49))) <= hi
+for tag, pts, lx in chains:
+    p.chain('tuft' + tag, pts, 'body', region=sector(lx))
 p.face(center=(0, 0.2, 0), radius=0.27, bone='body', faceScale=1.0)
 p.extras['outline'] = 0.018
 p.build()

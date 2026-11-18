@@ -40,13 +40,12 @@ WH = ((-0.45, 0.24), (0.5, 0.24))
 for x, r in WH:
     for z in (-1, 1):
         p.cyl((x, 0.12, z * 0.42), r, 0.1, rot=(90 * z, 0, 0), bevel=0.03, seg=28)
-p.box((0.02, 0.12, 0.53), (0.5, 0.025, 0.02), bevel=0.012)                         # connecting rod (front side)
 p.layer('hubs', base=HUB, target_faces=240, voxel=0.01)
 for x, r in WH:
     for z in (-1, 1):
         p.blob((x, 0.12, z * 0.53), (0.08, 0.08, 0.035), group='h%d%d' % (x * 10, z))
 p.layer('skin')
-wheel = lambda x: (lambda q: abs(q.x - x) < 0.27 and q.y < 0.38 and abs(q.z) > 0.36 and not (abs(q.z) > 0.5 and abs(q.y - 0.12) < 0.04 and abs(q.x - 0.02) < 0.52 and abs(q.x - x) > 0.09))
+wheel = lambda x: (lambda q: abs(q.x - x) < 0.27 and q.y < 0.38 and abs(q.z) > 0.36)   # (no connecting rod: spun with the wheels it broke into ink cracks)
 chim = lambda q: q.y > 0.97 and abs(q.x - 0.62) < 0.22
 p.bone('root', (0, 0, 0), (0, 0.6, 0), region=lambda q: not (wheel(-0.45)(q) or wheel(0.5)(q) or chim(q)))
 p.bone('wheel.F', (0.5, 0.12, 0), (0.5, 0.42, 0), parent='root', region=wheel(0.5))

@@ -105,8 +105,15 @@ def stand():
     p.paint_fn(lambda q, n: abs(q.x) > W - 0.24, WOOD_D)
     p.paint_fn(lambda q, n: q.y > H - 0.16, WOOD_L)
     p.layer('badge', base=0xfff4dc, target_faces=500, voxel=0.01)
-    p.cyl((0, 0.62, D - 0.02), 0.36, 0.08, rot=(90, 0, 0), bevel=0.03, seg=36)
-    p.paint_fn(lambda q, n: math.hypot(q.x, q.y - 0.62) > 0.3, 0xffd889)
+    # a round label plate (the game shows its dice dots on it): a golden rolled rim, a thin inner ring and four nail heads
+    p.cyl((0, 0.62, D - 0.02), 0.36, 0.08, rot=(90, 0, 0), bevel=0.03, seg=48)
+    p.ring((0, 0.62, D + 0.055), 0.335, 0.025, rot=(90, 0, 0), seg=48, rseg=8)
+    p.paint_fn(lambda q, n: math.hypot(q.x, q.y - 0.62) > 0.3, 0xffcc66)
+    p.paint_fn(lambda q, n: abs(math.hypot(q.x, q.y - 0.62) - 0.27) < 0.012 and n.z > 0.6, 0xf2d9a8)
+    for a in range(4):
+        t = math.radians(45 + 90 * a)
+        p.blob((0.3 * math.cos(t), 0.62 + 0.3 * math.sin(t), D + 0.07), (0.028, 0.028, 0.015), group='nail%d' % a)
+    p.paint_fn(lambda q, n: q.z > D + 0.06 and any(math.hypot(q.x - 0.3 * math.cos(math.radians(45 + 90 * a)), q.y - 0.62 - 0.3 * math.sin(math.radians(45 + 90 * a))) < 0.03 for a in range(4)), 0xb09060)
     # dice dots (one layer per count)
     R = 0.085
     dots = {1: [(0, 0)], 2: [(-0.12, 0.12), (0.12, -0.12)], 3: [(-0.15, 0.15), (0, 0), (0.15, -0.15)],
@@ -198,19 +205,47 @@ def shell_mesh(p, y_lo, y_hi_fn, cap_top, thick=0.04, nseg=56, rows=14):
 
 
 def eggcrack():
-    p = Prop('prop_st_eggcrack', base=EGG, target_faces=2200, voxel=0.01)
+    """The egg is cracking: a clear jagged hole near the top with a dark inside, a pale shell edge round it, a
+    little orange beak poking out of the hole, and two zigzag cracks running down from the hole."""
+    p = Prop('prop_st_eggcrack', base=EGG, target_faces=2600, voxel=0.009)
     prof = [(0, 0)] + [(egg_r(y), y) for y in [0.01 + k * 0.03 for k in range(31)]] + [(0, EC + ET)]
-    p.lathe(prof, seg=48)
+    p.lathe(prof, seg=56)
     p.paint_fn(lambda q, n: n.y < -0.6, EGG_D)
-    for (x, y) in [(-0.18, 0.28), (0.2, 0.2), (0.1, 0.72), (-0.22, 0.6)]:
+    for (x, y) in [(-0.18, 0.28), (0.2, 0.2), (-0.22, 0.6)]:
         p.decal(None, (x, y), (0.035, 0.03, 0.2), 0xe7c79a)
-    # a zigzag crack across the front and a chip near the top with a little orange beak poking out
-    crack = lambda q: abs(q.y - (0.5 + 0.06 * (1 - 4 * abs(((q.x + 0.4) * 3.2) % 1 - 0.5)))) < 0.017
-    p.paint_fn(lambda q, n: q.z > 0.05 and crack(q) and abs(q.x) < 0.3, 0x8a5a3a)
-    p.paint_fn(lambda q, n: q.z > 0.05 and math.hypot(q.x - 0.06, q.y - 0.66) < 0.085, 0x5a3a2a)
-    p.layer('beak', base=0xff9a2e, target_faces=150, voxel=0.006)
-    z0 = egg_r(0.66) * math.cos(math.asin(min(1, 0.06 / egg_r(0.66))))
-    p.blob((0.06, 0.66, z0 + 0.0), (0.05, 0.035, 0.07), rot=(-10, 0, 0), group='bk')
+    HX, HY = 0.04, 0.6
+
+    def tri(u):
+        u = u % 1.0
+        return 1 - 4 * abs(u - 0.5)
+
+    def jag(a):                     # the hole's jagged edge (radius by angle)
+        return 0.145 + 0.036 * tri(a / TAU * 8 + 0.1)
+
+    def polar(q):
+        dx, dy = q.x - HX, q.y - HY
+        return math.hypot(dx, dy), math.atan2(dy, dx)
+
+    def seg_d(px, py, ax, ay, bx, by):
+        vx, vy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy)))
+        return math.hypot(px - ax - vx * t, py - ay - vy * t)
+
+    CRACKS = [[(HX - 0.12, HY - 0.1), (-0.14, 0.44), (-0.09, 0.36), (-0.18, 0.27), (-0.15, 0.19)],
+              [(HX + 0.14, HY - 0.07), (0.22, 0.47), (0.17, 0.39), (0.25, 0.3)]]
+
+    def on_crack(q):
+        return any(seg_d(q.x, q.y, *c[i], *c[i + 1]) < 0.0135 for c in CRACKS for i in range(len(c) - 1))
+    front = lambda q, n: q.z > 0.04 and n.z > 0.15
+    p.paint_fn(lambda q, n: front(q, n) and on_crack(q) and polar(q)[0] > jag(polar(q)[1]), 0x8a5a3a)
+    # the hole: a pale shell edge, then the dark inside
+    p.paint_fn(lambda q, n: front(q, n) and polar(q)[0] < jag(polar(q)[1]), EGG_IN)
+    p.paint_fn(lambda q, n: front(q, n) and polar(q)[0] < jag(polar(q)[1]) - 0.018, 0x4f3324)
+    # the beak poking out of the hole (its own layer so it has a clean outline)
+    p.layer('beak', base=0xff9a2e, target_faces=260, voxel=0.006)
+    z0 = egg_r(HY) * math.cos(math.asin(min(1, HX / egg_r(HY))))
+    p.blob((HX, HY - 0.01, z0 + 0.02), (0.085, 0.058, 0.1), rot=(-12, 0, 0), group='bk')
+    p.paint_fn(lambda q, n: q.y < HY - 0.022, 0xf07d1c)
     p.layer('skin')
     fin(p, 0, 0.9, 0.022)
 

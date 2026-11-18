@@ -36,6 +36,8 @@ export function makeItem(kind, { golden = false } = {}) {
   if (pm) {
     if (golden && I[1] === null) gild(pm);
     pm.scale.setScalar(I[2]);
+    // a cookie lies (almost) flat on its plate / tray, tipped a little toward the child so its chips show
+    if (kind === 'cookie') pm.rotation.x = -1.15;
     g = new T.Group();
     g.add(pm);
     g.userData.r = I[3];

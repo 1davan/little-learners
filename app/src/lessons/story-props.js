@@ -49,9 +49,14 @@ export function tintSkin(c, col) {
 }
 
 // The story card: frame + scene. The scene group sits on the turf (y = 0 is the grass inside the frame).
+const SKY_MAT = new T.MeshBasicMaterial({ vertexColors: true });
 export function makeCard(tint) {
   const g = new T.Group();
   const f = prop('prop_st_frame', { tint });
+  // the painted sky panel at the back is unlit, so it stays a clear bright sky under every level's light (the autumn
+  // look turned it grey-green), and it has no ink line (its edge showed as a hairline beside the side walls)
+  const back = f.userData.model?.userData.layers?.back;
+  if (back) { back.mesh.material = SKY_MAT; back.outline.visible = false; }
   g.add(f);
   const dio = new T.Group();
   dio.position.y = CARD.floor;

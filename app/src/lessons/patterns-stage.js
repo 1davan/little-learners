@@ -72,7 +72,7 @@ export function makeCart(col) {
     g.add(pm);
     const b = pm.userData.bones;
     const wheels = [b.wheelF, b.wheelB].filter(Boolean);
-    g.userData = { surf: 0.29, wheels, half: 0.62, spin: (a) => wheels.forEach((w) => (w.rotation.z = a)) };
+    g.userData = { surf: 0.45, wheels, half: 0.62, spin: (a) => wheels.forEach((w) => (w.rotation.z = a)) };
     return g;
   }
   const bed = mesh(geo.box(1.36, 0.18, 1.0), col, { hull: 1.04, outline: 0 });
@@ -144,6 +144,9 @@ export function makePodium(col, rowY) {
   const p = new T.Group();
   const pm = propModel('prop_podium', { tint: col, size: [1, rowY / 2.25, 1] });
   if (pm) {
+    // the bunting and foot band are flush stickers: their own ink line showed edge-on as a stray tick on the body
+    const tl = pm.userData.model?.userData.layers?.trim;
+    if (tl?.outline) tl.outline.visible = false;
     p.add(pm);
     g.add(p);
     g.userData = { inner: p, surf: 0 };

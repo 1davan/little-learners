@@ -3,7 +3,7 @@
 // Every icon, pedestal, level hat and sticker crown is a Blender model (tools/blender/creatures/prop_icon_*.py, plus the
 // shared creatures and props); the old code-built shapes stay only as fallbacks for when a model isn't built.
 import * as T from './three.js';
-import { scene, onFrame, camera, getLook, CAM_HOME, setSky } from './engine/stage.js';
+import { scene, onFrame, camera, getLook, CAM_HOME, setSky, project } from './engine/stage.js';
 import { scope, Ease } from './engine/tween.js';
 import { input } from './engine/input.js';
 import { speech } from './engine/speech.js';
@@ -15,7 +15,7 @@ import { C, makePip, makeAnimal, makeFace, hop, dance, breathe, popIn } from './
 import { makeScenery, makeTree, animateScenery, makeStarfish, makePumpkin, makeLantern, glow } from './engine/scenery.js';
 import { theme } from './engine/theme.js';
 import { physics } from './engine/physics.js';
-import { renderShelf, checkSleepy, setPageHandler, renderPages, setLevelHandler, setUiWorld, setJumpHandler } from './engine/ui.js';
+import { renderShelf, checkSleepy, setPageHandler, renderPages, setLevelHandler, setUiWorld, setJumpHandler, showPhoto, flyPhoto } from './engine/ui.js';
 import { WORLDS } from './lessons/meta.js';
 import { makeCreature, hasCreature, garmentProp } from './engine/creature.js';
 import { propModel, propAnchor } from './engine/prop-models.js';
@@ -29,6 +29,9 @@ import { makeCard as storyCard } from './lessons/story-props.js';
 import { TALES as STORY_TALES } from './lessons/story-tales.js';
 import { makeTank as sinkTank, makeItem as sinkItem, TANK as SINK_TANK } from './lessons/sink-items.js';
 import { makeBalanceIcon } from './lessons/balance-props.js';
+import { makeRollIcon } from './lessons/roll-pieces.js';
+import { iconPuzzles } from './lessons/puzzles-parts.js';
+import { makeFriend as letterFriend } from './lessons/letters-stage.js';
 import { makeFood as snackFood } from './lessons/snack-foods.js';
 
 let greeted = false;
@@ -229,6 +232,14 @@ function iconBricks() {
   [[1.0, 0.75, 0.15, cols[5]], [-1.05, 0.62, -0.1, cols[6]]].forEach(([x, z, r, c]) => { const b = makeBrick(c, 0.55, k); b.position.set(x, 0.25 * k, z); b.rotation.set(-Math.PI / 2, 0, r); g.add(b); });
   return g;
 }
+// Letter friends: letter friends A and B standing side by side on their little shoes.
+function iconLetters() {
+  const g = new T.Group();
+  const a = letterFriend('A'); a.scale.setScalar(1.5); a.position.set(-0.5, 0, 0.05); a.rotation.y = 0.15;
+  const b = letterFriend('B'); b.scale.setScalar(1.3); b.position.set(0.72, 0, -0.1); b.rotation.y = -0.2;
+  g.add(a, b);
+  return g;
+}
 // Block builder: a little house of painted wooden blocks (arch, long block, roof) with a cylinder and cone tree.
 function iconBlocks() {
   const g = new T.Group(), k = 0.6;
@@ -287,9 +298,53 @@ function iconSnack() {
   }
   return g;
 }
+// Cook a soup: a little steel pot of orange soup with a smiling carrot peeking out over the rim
+function iconCook() {
+  const g = new T.Group();
+  const pot = propModel('prop_cookpot', { size: 0.8 });
+  if (pot) {
+    g.add(pot);
+    const h = pot.userData.model.userData.layers?.handles;
+    if (h) h.mesh.material = toon(0xff6a50, { vertexColors: true });
+  }
+  const soup = new T.Mesh(geo.circle(0.69, 32), toon(0xffa646));
+  soup.rotation.x = -Math.PI / 2;
+  soup.position.y = 0.6;
+  g.add(soup);
+  const c = propModel('prop_carrot', { size: 0.8 });
+  if (c) { c.position.set(0.15, 0.92, -0.1); c.rotation.set(-0.15, -0.3, -0.45); g.add(c); }
+  return g;
+}
+// Candy beats: the singing blue swirl lollipop with a striped candy cane leaning beside it
+function iconCandy() {
+  const g = new T.Group();
+  const l = propModel('prop_cd_lolly', { size: 0.95 });
+  if (l) { l.position.set(-0.22, 0, 0); g.add(l); }
+  const c = propModel('prop_cd_cane', { size: 0.95 });
+  if (c) { c.position.set(0.62, 0, -0.05); c.rotation.set(0, -0.35, -0.12); g.add(c); }
+  return g;
+}
+// Paint & mix: a squat pot of blue paint with the fat brush standing in it, its bristles loaded
+function iconPaint() {
+  const g = new T.Group();
+  const pot = propModel('prop_pt_pot', { size: 1.7 });
+  if (pot) { tintLayer(pot.userData.model, 'paint', 0x4a90ff); g.add(pot); }
+  const b = propModel('prop_pt_brush', { size: 1.7 });
+  if (b) { tintLayer(b.userData.model, 'tip', 0x4a90ff); b.position.set(0.05, 0.6, 0.02); b.rotation.z = -0.38; g.add(b); }
+  return g;
+}
+// Word world: a puppy and an apple, two first words
+function iconWords() {
+  const g = new T.Group();
+  const d = propModel('prop_word_dog', { size: 0.6 });
+  if (d) { d.position.set(-0.4, 0, 0); d.rotation.y = 0.3; g.add(d); }
+  const a = propModel('prop_word_apple', { size: 0.42 });
+  if (a) { a.position.set(0.72, 0, 0.3); a.rotation.y = -0.3; g.add(a); }
+  return g;
+}
 const ICONS = { colours: iconColours, counting: iconCounting, shapes: iconShapes, feelings: iconFeelings, sizes: iconSizes,
-  patterns: iconPatterns, where: iconWhere, more: iconMore, body: iconBody,
-  moo: iconMoo, share: iconShare, band: iconBand, pots: iconPots, story: iconStory, dress: iconDress, myday: iconMyday, snack: iconSnack, bricks: iconBricks, blocks: iconBlocks, sink: iconSink, balance: makeBalanceIcon };
+  patterns: iconPatterns, where: iconWhere, more: iconMore, body: iconBody, puzzles: iconPuzzles,
+  moo: iconMoo, share: iconShare, band: iconBand, pots: iconPots, story: iconStory, dress: iconDress, myday: iconMyday, snack: iconSnack, cook: iconCook, candy: iconCandy, bricks: iconBricks, blocks: iconBlocks, sink: iconSink, balance: makeBalanceIcon, roll: makeRollIcon, letters: iconLetters, words: iconWords, paint: iconPaint };
 // Where the games stand, by how many a world has: spread across the stage in a gentle arc (the middle one a little
 // further back); a world with fewer games shows them a little bigger. More than five squeeze into the same width.
 const LAYOUTS = {
@@ -306,7 +361,7 @@ function layoutFor(n) {
 }
 const PED_TOP = 0.22; // icons stand on top of their pedestal
 const GREETING = { meadow: 'The meadow! Tap a game!', beach: 'The beach! Tap a game!', farm: 'The farm! Tap a game!', dressup: 'Home sweet home! Tap a game!', build: 'The building site! Tap a game!' };
-const CENTER_Y = { colours: 1, counting: 1.8, shapes: 1.1, feelings: 1.7, sizes: 1.1, patterns: 0.8, where: 1.0, more: 0.5, body: 1.2, moo: 1.4, share: 1.0, band: 0.6, pots: 0.8, story: 1.0, dress: 1.3, myday: 1.0, snack: 0.5, bricks: 1.2, blocks: 0.9, sink: 0.7, balance: 0.9 };
+const CENTER_Y = { colours: 1, counting: 1.8, shapes: 1.1, feelings: 1.7, sizes: 1.1, patterns: 0.8, where: 1.0, more: 0.5, body: 1.2, moo: 1.4, share: 1.0, band: 0.6, pots: 0.8, story: 1.0, dress: 1.3, myday: 1.0, snack: 0.5, cook: 0.75, candy: 0.9, bricks: 1.2, blocks: 0.9, sink: 0.7, balance: 0.9, roll: 0.9, puzzles: 0.9, letters: 0.85, words: 0.9, paint: 0.8 };
 
 // Gold sticker crown (3+ stickers): band radius ~0.42, base at y 0.
 function makeCrown() {
@@ -577,6 +632,29 @@ function decoratePedestal(parent, world, level, col, x, z, i, k = 1) {
   return { out, anim: null };
 }
 
+// The creation gallery (docs/SATISFACTION.md E4): the latest finale photo of a game, in a small standing picture
+// frame on the grass at the front-right of its pedestal. Built around a bottom pivot, leaning back a little.
+const PHOTO_W = 1.0, PHOTO_H = 0.75;
+function makePhotoFrame(url) {
+  const g = new T.Group();
+  const lean = new T.Group();
+  lean.rotation.x = -0.2; // top leans away from the camera, like a frame on its stand
+  const board = new T.Group();
+  board.position.y = (PHOTO_H + 0.18) / 2 + 0.02;
+  const frame = mesh(geo.box(PHOTO_W + 0.18, PHOTO_H + 0.18, 0.07), 0xfff8ec, { outline: 0.03 });
+  const tex = new T.TextureLoader().load(url);
+  tex.colorSpace = T.SRGBColorSpace;
+  const pic = new T.Mesh(new T.PlaneGeometry(PHOTO_W, PHOTO_H), new T.MeshBasicMaterial({ map: tex, fog: false }));
+  pic.position.z = 0.04;
+  board.add(frame, pic);
+  lean.add(board);
+  const strut = mesh(geo.box(0.07, 0.62, 0.05), 0xc98b4f, { outline: 0.015 });
+  strut.position.set(0, 0.3, -0.16); strut.rotation.x = 0.42;
+  g.add(lean, strut);
+  g.userData.board = board;
+  return g;
+}
+
 export class Home {
   constructor(router, opts = {}) {
     this.router = router;
@@ -629,6 +707,25 @@ export class Home {
       if (deco.anim) this.decoAnims.push(deco.anim);
       if (store.stickers(l.id) >= 3) addCrown(o, hat, wearer || o, l.id);
       input.addTap(o, { radius: 1.45 * big, offset: new T.Vector3(0, (CENTER_Y[l.id] ?? 1) * big, 0), onTap: () => this.pick(o), onRelease: true });
+      // the latest thing the child made in this game, framed beside its pedestal (tap: see it big)
+      const url = store.latestCreation(l.id);
+      if (url) {
+        const fr = makePhotoFrame(url);
+        const k = 0.74 * pedK;
+        fr.scale.setScalar(k);
+        fr.userData.baseScale = k;
+        fr.position.set(x + 0.95 * pedK, 0, z + 2.1 * pedK); // on the grass, clear of the pedestal's rim
+        fr.rotation.y = -0.12 - x * 0.025;
+        this.root.add(fr);
+        const show = () => {
+          if (this.picking) return;
+          const c = project(fr.userData.board.getWorldPosition(new T.Vector3()));
+          hop(this.s, fr, 0.25, 0.35);
+          showPhoto(url, { from: c });
+        };
+        input.addTap(fr, { radius: 0.8 * k, offset: new T.Vector3(0, 0.45 * k, 0), onTap: show, onRelease: true });
+        if (this.opts.newPhoto === l.id) { fr.visible = false; this.newFrame = { fr, url, k }; }
+      }
       return o;
     });
     this.pip = makePip();
@@ -666,6 +763,18 @@ export class Home {
 
     await this.s.wait(0.4);
     if (this.opts.relevel) { sfx.sparkle(); dance(this.s, this.pip); speech.say(`Level ${this.level + 1}! ${theme(this.world.id, this.level).name}!`); }
+    else if (this.newFrame) {
+      // the new photo flies in from the home-button corner onto its frame by the pedestal
+      const { fr, url, k } = this.newFrame;
+      this.newFrame = null;
+      const c = project(fr.userData.board.getWorldPosition(new T.Vector3()));
+      sfx.swoosh();
+      await flyPhoto(url, c.x, c.y);
+      if (this.dead) return;
+      popIn(this.s, fr, k, 0.45, { sound: false });
+      sfx.step(5, 6, { soft: true });
+      speech.say('You made this!');
+    }
     else if (this.opts.newSticker) { sfx.sparkle(); speech.say('Look! A new sticker! Tap another game!'); }
     else if (this.opts.from || this.opts.fromMap || !greeted) { greeted = true; sfx.sparkle(); speech.say(GREETING[this.world.id] || 'Tap a game!'); }
     else speech.say('Tap one!');

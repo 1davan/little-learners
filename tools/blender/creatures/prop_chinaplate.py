@@ -9,7 +9,9 @@ p = Prop('prop_chinaplate', base=0xffffff, target_faces=1200, voxel=0.01, smooth
 # the coloured band on the rim (skin = tinted): a soft flat ring lying on the rim slope
 p.lathe(rounded([(0.775, 0.13), (0.955, 0.172), (0.96, 0.21), (0.77, 0.168)], 0.012, n=2, closed=True), closed=True, seg=64)
 p.layer('china', base=0xfffbf4, target_faces=1400, voxel=0.014)
-p.lathe(rounded([(0.0, 0.02), (0.6, 0.0), (0.8, 0.045), (1.0, 0.14), (1.0, 0.17), (0.95, 0.182), (0.74, 0.125), (0.0, 0.118)], 0.03, n=3), seg=64)
+# (the foot is tucked in under the plate - a soft curve from the floor up to the rim - so its ink never shows as a
+# second line under the rim)
+p.lathe(rounded([(0.0, 0.0), (0.55, 0.0), (0.72, 0.03), (0.9, 0.09), (1.0, 0.145), (1.0, 0.17), (0.95, 0.182), (0.74, 0.125), (0.0, 0.118)], 0.04, n=4), seg=72)
 p.paint_fn(lambda q, n: n.y < -0.3, 0xe8e2d8)
 p.layer('dots', base=0xffffff, target_faces=400, voxel=0.008)
 for i in range(14):
@@ -20,5 +22,5 @@ p.layer('skin')
 p.bone('body', (0, 0, 0), (0, 0.2, 0))
 p.extras['argMode'] = 'tint'
 p.extras['argDefault'] = 0xff5a5a
-p.extras['outline'] = 0.02
+p.extras['outline'] = 0.017
 p.build()

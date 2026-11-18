@@ -36,7 +36,7 @@ c = Frog('frog', base=SKIN, target_faces=12500)
 
 # ---- body: squat soft pear ----
 c.blob((0, 0.66, -0.1), (0.6, 0.56, 0.52))
-c.blob((0, 0.42, -0.04), (0.6, 0.36, 0.5))
+c.blob((0, 0.47, -0.04), (0.6, 0.31, 0.5))   # tummy bottom clear of the floor between the legs, so its ink line shows
 # ---- head: wide, slightly flattened, sits low on the body ----
 c.blob((0, 1.48, -0.02), (1.0, 0.48, 0.6))
 c.mirror(lambda s: c.blob((s * 0.45, 1.36, 0.08), (0.4, 0.3, 0.42)))   # wide jowls
@@ -118,4 +118,76 @@ for k, p in dict(nose=(0, 1.62), eyeL=(-EX, EY), eyeR=(EX, EY), mouth=(0, MOUTH_
                  tummy=(0, 0.66), handL=(-0.9, 0.6, 0.6), handR=(0.9, 0.6, 0.6),
                  footL=(-0.75, 0.08, 0.62), footR=(0.75, 0.08, 0.62), earL=(-0.9, 1.5, 0.1), earR=(0.9, 1.5, 0.1)).items():
     c.anchor(k, p, 'head' if p[1] > 1.1 else 'body')
+
+# ---------------- polish: soft normals (clean outline, smooth toon bands) ----------------
+def soften_normals(me, iters=8, calm=()):
+    """Diffuse the vertex normals over the surface and store them as custom normals. The game's ink outline pushes
+    back faces out along the normals, so where a crease (armpit, tummy over the feet) turns the normal faster than
+    the outline is thick, the hull folds inside out and shows as ink specks; softened normals keep the hull one clean
+    shell, so the ink stays a single line on the silhouette. calm = [(centre, half-size, passes)]: extra smoothing
+    inside these game-space ellipsoids (fading out at their edge) so the toon bands sweep smoothly across a big
+    gentle patch like the tummy instead of breaking into facet wedges."""
+    import numpy as np
+    V = len(me.vertices)
+    N = np.empty(V * 3); me.vertices.foreach_get('normal', N); N = N.reshape(V, 3)
+    co = np.empty(V * 3); me.vertices.foreach_get('co', co); co = co.reshape(V, 3)
+    gp = np.stack([co[:, 0], co[:, 2], -co[:, 1]], 1)          # blender -> game
+    E = len(me.edges)
+    ed = np.empty(E * 2, dtype=np.int64); me.edges.foreach_get('vertices', ed); ed = ed.reshape(E, 2)
+    deg = np.maximum(np.bincount(ed.ravel(), minlength=V).astype(float), 1)[:, None]
+    def diffuse(N, k, w):
+        for _ in range(k):
+            acc = np.zeros_like(N)
+            np.add.at(acc, ed[:, 0], N[ed[:, 1]])
+            np.add.at(acc, ed[:, 1], N[ed[:, 0]])
+            N = N + w * (acc / deg - N)
+            N /= np.linalg.norm(N, axis=1, keepdims=True) + 1e-12
+        return N
+    N = diffuse(N, iters, 0.5)
+    for c0, s0, k in calm:
+        q = np.sqrt((((gp - np.array(c0)) / np.array(s0)) ** 2).sum(1))
+        w = np.clip((1.0 - q) / 0.35, 0, 1)[:, None] * 0.6
+        N = diffuse(N, k, w)
+    me.normals_split_custom_set_from_vertices([tuple(n) for n in N])
+def polish(c, iters=8, calm=()):
+    paint0 = c._paint
+    def paint(skin):
+        paint0(skin)
+        if c._cur == 'skin':
+            soften_normals(skin.data, iters, calm)
+    c._paint = paint
+def soft_joints(c, joints):
+    """joints = [(bone, pivot, radius, share)]: after the normal skinning, hand part of the 'body' weight of the skin
+    round each shoulder pivot to the arm (most at the pivot, none at radius), so a raised arm bends the shoulder as one
+    soft curve instead of shearing a thin ring of skin into a crease (dark ink folds, a broken side outline)."""
+    w0 = c._weights
+    def weights(skin, ao, smooth_iters=None):
+        w0(skin, ao, smooth_iters)
+        if c._cur != 'skin':
+            return
+        import numpy as np
+        me = skin.data
+        V = len(me.vertices)
+        vgs = skin.vertex_groups
+        names = [g.name for g in vgs]
+        W = np.zeros((V, len(names)))
+        for v in me.vertices:
+            for g in v.groups:
+                W[v.index, g.group] = g.weight
+        co = np.array([v.co[:] for v in me.vertices])
+        gp = np.stack([co[:, 0], co[:, 2], -co[:, 1]], 1)
+        jb = names.index('body')
+        for bone, pivot, rad, share in joints:
+            j = names.index(bone)
+            t = np.clip(1 - np.linalg.norm(gp - np.array(pivot), axis=1) / rad, 0, 1)
+            move = W[:, jb] * share * t * t * (3 - 2 * t)
+            W[:, jb] -= move
+            W[:, j] += move
+        for v in range(V):
+            for j in np.nonzero(W[v] > 0.002)[0]:
+                vgs[j].add([v], float(W[v, j]), 'REPLACE')
+            for j in np.nonzero((W[v] <= 0.002) & (W[v] > 0))[0]:
+                vgs[j].remove([v])
+    c._weights = weights
+polish(c, calm=[((0, 0.62, 0.4), (0.48, 0.52, 0.36), 40)])
 c.build()

@@ -17,7 +17,7 @@ export const WORDS = {
   C: { word: 'Cat', creature: 'cat', show: 'call', call: 'meow', col: 0xff9a2e },
   D: { word: 'Duck', creature: 'duck', show: 'call', call: 'quack', col: 0xffd23a },
   E: { word: 'Egg', kind: 'prop_word_egg', show: 'wobble', col: 0xf2e8d8, fit: 2.3 },
-  F: { word: 'Fish', kind: 'prop_fish', show: 'flip', float: 1.1, col: 0x3f8cff, fit: 1.6, wide: 2.8 },
+  F: { word: 'Fish', kind: 'prop_fish', show: 'flip', float: 0.55, col: 0x3f8cff, fit: 1.6, wide: 2.8 },
   G: { word: 'Grapes', kind: 'prop_word_grapes', show: 'jiggle', col: 0x9b6dff },
   H: { word: 'Hat', kind: 'prop_hat', show: 'spin', col: 0xffd23a, fit: 1.4, wide: 2.8 },
   I: { word: 'Ice cream', kind: 'prop_word_icecream', show: 'wobble', col: 0xff7fbf },
@@ -26,9 +26,9 @@ export const WORDS = {
   L: { word: 'Leaf', kind: 'prop_word_leaf', show: 'flutter', float: 0.9, col: 0x4cc75a, fit: 2.4 },
   M: { word: 'Moon', kind: 'prop_word_moon', show: 'rock', float: 1.0, col: 0xffd23a, look: true },
   N: { word: 'Nest', kind: 'prop_word_nest', show: 'wobble', col: 0xd8924f, fit: 1.7, wide: 2.8 },
-  O: { word: 'Owl', kind: 'prop_word_owl', show: 'hoot', col: 0xb07a4a, look: true },
+  O: { word: 'Octopus', kind: 'prop_word_octopus', show: 'wobble', col: 0xff7fbf, look: true },
   P: { word: 'Pig', creature: 'pig', show: 'call', call: 'oink', col: 0xff9ec4 },
-  Q: { word: "Queen's crown", kind: 'prop_word_crown', show: 'sparkle', col: 0xffc21a, fit: 1.9, wide: 2.6 },
+  Q: { word: 'Queen', kind: 'prop_word_queen', show: 'wobble', col: 0xffc21a, look: true },
   R: { word: 'Rabbit', creature: 'bunny', show: 'call', call: 'hop', col: 0xf2e8d8 },
   S: { word: 'Sun', kind: 'prop_word_sun', show: 'spin', float: 1.0, col: 0xffc21a, look: true },
   T: { word: 'Tree', kind: 'prop_word_tree', show: 'sway', col: 0x4cc75a, fit: 3.1 },
@@ -68,16 +68,14 @@ export function makeWord(ch) {
   return g;
 }
 
-// Its pop-out show (about 0.9 s). s = tween scope, g = makeWord() group already placed and popped in.
+// Its pop-out show (about 1.3 s, calm; no boings: the letter's ta-da has just rung, only creatures call out). s = tween scope, g = makeWord() group already placed and popped in.
 export function showWord(s, g) {
   const u = g.userData, W = u.w, inner = u.inner;
   const y0 = g.position.y;
   const face = inner.userData.face || inner.userData.model?.userData.face;
   switch (W.show) {
     case 'bounce': {
-      bsfx.boing();
-      s.wait(0.42).then(() => bsfx.boing());
-      return s.anim(0.9, (_, p) => {
+      return s.anim(1.3, (_, p) => {
         const hops = [[0, 0.5, 1.1], [0.5, 0.85, 0.45], [0.85, 1, 0.12]];
         let y = 0;
         for (const [a, b2, h] of hops) if (p >= a && p < b2) { const q = (p - a) / (b2 - a); y = Math.sin(q * Math.PI) * h; }
@@ -90,12 +88,12 @@ export function showWord(s, g) {
     }
     case 'call': {
       const call = { meow: sfx.meow, quack: sfx.quack, oink: sfx.oink }[W.call];
-      if (call) call(); else sfx.boing2 && sfx.boing2();
+      if (call) call();
       if (face) { setFace(face, 'joy'); s.wait(1.2).then(() => setFace(face, 'happy')); }
       const arms = inner.userData.arms || inner.userData.wings, r0 = arms ? arms.map((a) => a.rotation.z) : null;
       // (creatures only: props have no limbs)
       inner.userData.kick?.(new T.Vector3(0, 4, 0));
-      return s.anim(0.9, (_, p) => {
+      return s.anim(1.3, (_, p) => {
         const hop = W.call === 'hop' ? Math.abs(Math.sin(p * Math.PI * 3)) * 0.6 : Math.sin(Math.min(1, p * 2) * Math.PI) * 0.5;
         g.position.y = y0 + hop * (1 - p * 0.3);
         if (arms) arms.forEach((a, i) => (a.rotation.z = r0[i] + (i ? -1 : 1) * Math.sin(p * Math.PI) * 1.4));
@@ -103,41 +101,31 @@ export function showWord(s, g) {
       }).then(() => { g.position.y = y0; inner.rotation.y = 0; if (arms) arms.forEach((a, i) => (a.rotation.z = r0[i])); });
     }
     case 'wobble':
-      sfx.boing2 && sfx.boing2();
       // rocks on its round bottom (lifted as it tips, so it rolls on the ground instead of sinking in)
-      return s.anim(0.9, (_, p) => { const r = Math.sin(p * Math.PI * 5) * 0.28 * (1 - p); inner.rotation.z = r; g.position.y = y0 + Math.abs(Math.sin(r)) * 0.35; }).then(() => { inner.rotation.z = 0; g.position.y = y0; });
+      return s.anim(1.3, (_, p) => { const r = Math.sin(p * Math.PI * 4) * 0.28 * (1 - p); inner.rotation.z = r; g.position.y = y0 + Math.abs(Math.sin(r)) * 0.35; }).then(() => { inner.rotation.z = 0; g.position.y = y0; });
     case 'flip':
-      sfx.splash && sfx.splash();
-      return s.anim(0.8, (e, p) => { inner.rotation.z = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.9; }, Ease.inOut).then(() => { inner.rotation.z = 0; g.position.y = y0; });
+      return s.anim(1.2, (e, p) => { inner.rotation.z = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.9; }, Ease.inOut).then(() => { inner.rotation.z = 0; g.position.y = y0; });
     case 'jiggle':
-      sfx.boing2 && sfx.boing2();
-      return s.anim(0.8, (_, p) => { const w = 1 + Math.sin(p * Math.PI * 6) * 0.12 * (1 - p); inner.scale.set(u.k * w, (u.k / w), u.k * w); }).then(() => inner.scale.setScalar(u.k));
+      return s.anim(1.2, (_, p) => { const w = 1 + Math.sin(p * Math.PI * 4) * 0.12 * (1 - p); inner.scale.set(u.k * w, (u.k / w), u.k * w); }).then(() => inner.scale.setScalar(u.k));
     case 'spin':
-      sfx.twinkle();
-      return s.anim(0.85, (e, p) => { inner.rotation.y = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.4; }, Ease.inOut).then(() => { inner.rotation.y = 0; g.position.y = y0; });
+      return s.anim(1.3, (e, p) => { inner.rotation.y = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.4; }, Ease.inOut).then(() => { inner.rotation.y = 0; g.position.y = y0; });
     case 'float':
-      bsfx.flutter();
-      return s.anim(0.9, (_, p) => { g.position.y = y0 + Math.sin(p * Math.PI * 2) * 0.3; const w = 1 + Math.sin(p * Math.PI * 4) * 0.1; inner.scale.set(u.k * w, u.k / w, u.k * w); }).then(() => { g.position.y = y0; inner.scale.setScalar(u.k); });
+      return s.anim(1.3, (_, p) => { g.position.y = y0 + Math.sin(p * Math.PI * 2) * 0.3; const w = 1 + Math.sin(p * Math.PI * 4) * 0.1; inner.scale.set(u.k * w, u.k / w, u.k * w); }).then(() => { g.position.y = y0; inner.scale.setScalar(u.k); });
     case 'fly':
-      bsfx.flutter();
-      return s.anim(0.9, (_, p) => { g.position.y = y0 + Math.sin(p * Math.PI) * 0.8; inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.3; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
+      return s.anim(1.3, (_, p) => { g.position.y = y0 + Math.sin(p * Math.PI) * 0.8; inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.3; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
     case 'flutter':
-      bsfx.flutter();
-      return s.anim(0.9, (_, p) => { g.position.y = y0 + (1 - p) * 0.7; inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.45 * (1 - p * 0.5); g.position.x += Math.cos(p * Math.PI * 3) * 0.01; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
+      return s.anim(1.3, (_, p) => { g.position.y = y0 + (1 - p) * 0.7; inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.45 * (1 - p * 0.5); g.position.x += Math.cos(p * Math.PI * 3) * 0.01; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
     case 'rock':
-      sfx.twinkle();
-      return s.anim(0.9, (_, p) => { inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.3 * (1 - p); }).then(() => { inner.rotation.z = 0; });
+      return s.anim(1.3, (_, p) => { inner.rotation.z = Math.sin(p * Math.PI * 3) * 0.3 * (1 - p); }).then(() => { inner.rotation.z = 0; });
     case 'hoot':
       bsfx.hoot();
       if (face) { setFace(face, 'joy'); s.wait(1.2).then(() => setFace(face, 'happy')); }
-      return s.anim(0.9, (_, p) => { g.position.y = y0 + Math.abs(Math.sin(p * Math.PI * 2)) * 0.3; inner.rotation.z = Math.sin(p * Math.PI * 2) * 0.18; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
+      return s.anim(1.3, (_, p) => { g.position.y = y0 + Math.abs(Math.sin(p * Math.PI * 2)) * 0.3; inner.rotation.z = Math.sin(p * Math.PI * 2) * 0.18; }).then(() => { g.position.y = y0; inner.rotation.z = 0; });
     case 'sparkle':
-      sfx.sparkle();
-      return s.anim(0.9, (e, p) => { inner.rotation.y = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.35; }, Ease.inOut).then(() => { inner.rotation.y = 0; g.position.y = y0; });
+      return s.anim(1.3, (e, p) => { inner.rotation.y = e * Math.PI * 2; g.position.y = y0 + Math.sin(p * Math.PI) * 0.35; }, Ease.inOut).then(() => { inner.rotation.y = 0; g.position.y = y0; });
     case 'sway':
     default:
-      bsfx.flutter();
-      return s.anim(0.9, (_, p) => { const r = Math.sin(p * Math.PI * 3) * 0.12 * (1 - p); inner.rotation.z = r; g.position.y = y0 + Math.abs(Math.sin(r)) * 0.3; }).then(() => { inner.rotation.z = 0; g.position.y = y0; });
+      return s.anim(1.3, (_, p) => { const r = Math.sin(p * Math.PI * 3) * 0.12 * (1 - p); inner.rotation.z = r; g.position.y = y0 + Math.abs(Math.sin(r)) * 0.3; }).then(() => { inner.rotation.z = 0; g.position.y = y0; });
   }
 }
 export { fx };

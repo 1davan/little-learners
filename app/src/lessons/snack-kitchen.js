@@ -13,14 +13,39 @@ export const TOP = 1.15;                                  // the worktop surface
 export const COUNTER_X = -1.4;                            // the counter model's centre (it is 11.6 long)
 export const SINK = new T.Vector3(-5.0, TOP, -0.6);      // the basin's centre at worktop height (floor 0.42 lower)
 export const BASIN_FLOOR = 0.75;
-export const PLATE = new T.Vector3(-1.4, TOP, 0.2);
+export const PLATE = new T.Vector3(-1.6, TOP, 0.02);      // the stations sit close together so the camera can
+                                                          // frame each one tightly (every plate fits the worktop's depth;
+                                                          // a friend at the plate never meets one at the sink)
 export const LANE_Z = -1.97;                              // friends walk behind the counter
-export const BOWL = new T.Vector3(1.05, TOP, 0.05);
-export const BOARD = new T.Vector3(3.3, TOP, 0.25);
-export const FRIDGE = new T.Vector3(6.9, 0, -3.65);
+export const BOWL = new T.Vector3(1.3, TOP, 0.05);        // (far enough from the plate that a lifted plate never meets it)
+export const BOARD = new T.Vector3(3.2, TOP, 0.25);
+// Snack chef stands the fridge at the island's right end, in line with it (so the friends can walk on behind it to
+// the dining corner); Cook a soup keeps it against the back wall (makeKitchen without { snack: true }).
+export const FRIDGE = new T.Vector3(5.4, 0, 0.05);
+const FRIDGE_WALL = new T.Vector3(5.4, 0, -3.65);
 export const FRIDGE_SHELVES = [1.35, 2.45];
 const WINDOW = { x: -5.0, y: 5.05, hw: 1.5, hh: 1.05 };
 const TAP_AT = new T.Vector3(-5.76, TOP, -0.6);
+// Snack chef's sink: the tap stands at the basin's back right corner and pours to the left, so the water falls near
+// the back of the basin, where the friends' paws can reach it from behind the counter; its lever faces us. The soap
+// stands to the left of the basin and the hand towel hangs on a little stand at the worktop's left end.
+// (its own low model, prop_k_tapsnack: a pillar at the right of the basin and a long low spout reaching left)
+export const SNACK_TAP = { at: new T.Vector3(-4.02, TOP, -0.86), ry: -Math.PI / 2, k: 1.0 };
+export const SOAP_AT = new T.Vector3(-6.82, TOP, -0.42);
+// a small hand towel hangs over a low chrome stand on the worktop's back edge just left of the basin, where a friend
+// at the sink can step over and take it in its paws (the soap stands at the front left)
+export const TOWEL_STAND = new T.Vector3(-6.0, TOP, -0.93);
+export const TOWEL_STAND_H = 0.44;
+// the dining corner beyond the fridge: a long table with a cloth; fed friends sit behind it with their plates, left
+// to right (later friends walk on behind the ones already sitting); Pip waits at the far end
+export const TABLE = new T.Vector3(10.65, 0, 2.45);         // the table's centre (its top is 8.1 x 2.5)
+export const SEATS = [7.9, 10.65, 13.4];
+export const SEAT_Z = 0.25;
+export const TABLE_TOP = 0.92;
+export const PIP_HOST = new T.Vector3(15.6, 0, 1.95);
+// the fruit bowl's inside (prop_k_bowl, worktop-relative): the floor height, the radius and height of its physics
+// wall, and where three fruits sit without touching
+export const BOWL_IN = { floor: 0.13, r: 0.8, h: 0.34, spots: [[-0.32, -0.17], [0.32, -0.17], [0, 0.36]] };
 
 export const LOOKS = {
   morning: { cab: 0x8ed6c0, door: 0xb9eedc, wall: ['#fff3e0', '#ffe6c8'], tile: ['#ffffff', '#cdf0e4'], floor: ['#f6d7a8', '#efc58c'], sky: ['#7fcaff', '#dff3ff'], sun: true, curtain: 0xff9ec4 },
@@ -100,7 +125,7 @@ function hideInnerInk(w) {
 // A static prop layer list (missing layers are skipped).
 const sc = (kind, layers = {}, base = {}) => scProp(kind, layers, base);
 
-export function makeKitchen(look = 'morning') {
+export function makeKitchen(look = 'morning', { snack = false } = {}) {
   const L = LOOKS[look] || LOOKS.morning;
   const g = new T.Group();
   // ---- walls and floor ----
@@ -153,29 +178,61 @@ export function makeKitchen(look = 'morning') {
   // ---- the island counter (tinted per level) ----
   const counter = sc('prop_k_counter', { prop_k_counter: { tint: L.cab }, top: {}, basin: {}, doors: { tint: L.door }, knobs: {} });
   if (counter) { counter.position.set(COUNTER_X, 0, 0); g.add(counter); }
-  // the tap (its spout pours toward +x into the basin) and its handle bone
-  const tap = propModel('prop_k_tap');
-  if (tap) { tap.position.copy(TAP_AT); tap.rotation.y = Math.PI / 2; tap.scale.setScalar(0.85); g.add(tap); }
+  // the tap and its lever bone (Snack chef: back right corner, pouring left; Cook: the left side, pouring right)
+  const tap = (snack && propModel('prop_k_tapsnack')) || propModel('prop_k_tap');
+  // its shine streaks have no ink (ink on thin chrome reads as scratches)
+  if (tap) for (const [name, l] of Object.entries(tap.userData.model.userData.layers || {})) if (/^shine/.test(name) && l.outline) l.outline.visible = false;
+  if (tap) {
+    if (snack) { tap.position.copy(SNACK_TAP.at); tap.rotation.y = SNACK_TAP.ry; tap.scale.setScalar(SNACK_TAP.k); }
+    else { tap.position.copy(TAP_AT); tap.rotation.y = Math.PI / 2; tap.scale.setScalar(0.85); }
+    g.add(tap);
+  }
   const soap = propModel('prop_k_soap');
-  if (soap) { soap.position.set(-3.85, TOP, -0.72); soap.rotation.y = -0.5; soap.scale.setScalar(1.15); g.add(soap); }
+  if (soap) {
+    if (snack) { soap.position.copy(SOAP_AT); soap.rotation.y = 0.35; soap.scale.setScalar(1.1); }
+    else { soap.position.set(-6.55, TOP, -0.72); soap.rotation.y = -0.4; soap.scale.setScalar(1.15); }
+    g.add(soap);
+  }
+  // the hand towel hangs over its own rail or stand (which stays put when the towel is taken). Origins: the bar's
+  // centre for the towel and the rail, the foot for the stand.
+  let towelAt;
+  const towelRail = snack ? sc('prop_k_towelstand', { feet: {} }, { ink: 0.014 }) : sc('prop_k_towelrail', {}, { ink: 0.014 });
+  if (snack) { towelAt = TOWEL_STAND.clone().add(new T.Vector3(0, TOWEL_STAND_H, 0)); if (towelRail) towelRail.position.copy(TOWEL_STAND); }
+  else { towelAt = new T.Vector3(-6.5, TOP - 0.17, 1.27); if (towelRail) towelRail.position.copy(towelAt); }
+  if (towelRail) g.add(towelRail);
   const towel = propModel('prop_k_towel');
-  if (towel) { towel.position.set(-6.5, TOP - 0.17, 1.27); g.add(towel); }
+  if (towel) { towel.position.copy(towelAt); g.add(towel); }
   // the plate is the game's (it changes per level); the fruit bowl and the chopping board stay
-  const bowl = propModel('prop_woodbowl', { tint: 0xff8fbd });
-  if (bowl) { bowl.scale.setScalar(0.82); bowl.position.copy(BOWL); g.add(bowl); }
+  let bowl = snack ? propModel('prop_k_bowl') : null;
+  if (bowl) { bowl.position.copy(BOWL); g.add(bowl); }
+  else {
+    bowl = propModel('prop_woodbowl', { tint: 0xff8fbd });
+    if (bowl) { bowl.scale.setScalar(0.82); bowl.position.copy(BOWL); g.add(bowl); }
+  }
   const board = scProp('prop_k_board');
-  if (board) { board.position.copy(BOARD); board.position.x -= 0.15; g.add(board); }
+  if (board) { board.position.copy(BOARD); g.add(board); }
 
   // ---- the fridge ----
   const fridge = propModel('prop_k_fridge');
-  if (fridge) { fridge.position.copy(FRIDGE); hideInnerInk(fridge); g.add(fridge); }
+  if (fridge) { fridge.position.copy(snack ? FRIDGE : FRIDGE_WALL); hideInnerInk(fridge); g.add(fridge); }
+
+  // ---- Snack chef's dining corner: the table the fed friends sit at, a clock and a picture over it ----
+  let table = null;
+  if (snack) {
+    table = sc('prop_k_table', { cloth: {}, edge: {} });
+    if (table) { table.position.copy(TABLE); g.add(table); }
+    const clock = sc('prop_md_clock', {}, { ink: 0.02 });
+    if (clock) { clock.scale.setScalar(1.1); clock.position.set(TABLE.x - 1.6, 5.6, WALL_Z + 0.1); g.add(clock); }
+    const pic2 = sc('prop_frame', { canvas: { tint: 0xffd6e6, ink: 0 }, art: { ink: 0.012 } }, { ink: 0.02 });
+    if (pic2) { pic2.position.set(TABLE.x + 1.8, 5.3, WALL_Z); g.add(pic2); }
+  }
 
   for (const p of [tap, soap, towel, bowl, fridge]) if (p) { const u = p.userData.model.userData; u.noWalk = true; u.noLook = true; }
   const K = {
-    group: g, counter, tap, soap, towel, bowl, board, fridge, look: L,
+    group: g, counter, tap, soap, towel, towelRail, bowl, board, fridge, table, look: L,
     handle: tap?.userData.bones?.handle, pump: soap?.userData.bones?.pump, door: fridge?.userData.bones?.door,
     // where the water leaves the spout (world)
-    spout: tap ? (tap.updateMatrixWorld(true), tap.localToWorld(new T.Vector3(0, 0.72, 0.78))) : new T.Vector3(SINK.x - 0.1, TOP + 0.7, SINK.z),
+    spout: tap ? (tap.updateMatrixWorld(true), tap.localToWorld(spoutLocal(tap))) : new T.Vector3(SINK.x - 0.1, TOP + 0.7, SINK.z),
     update(dt, t) {
       for (const d of drops) { d.position.y -= dt * 0.9; if (d.position.y < WINDOW.y - WINDOW.hh) d.position.y += WINDOW.hh * 2; }
     },
@@ -183,20 +240,75 @@ export function makeKitchen(look = 'morning') {
   return K;
 }
 
+// where the water leaves a tap model (its 'spout' anchor), in the wrapper's space
+function spoutLocal(tap) {
+  const m = tap.userData.model, a = m?.userData.anchors?.spout;
+  return a ? new T.Vector3(a[0] * m.scale.x, a[1] * m.scale.y, a[2] * m.scale.z) : new T.Vector3(0, 0.72, 0.78);
+}
+
 // the plate for a level: 'plain' (china plate, three spots), 'plate2' (fruit | veg) or 'plate4' (four groups)
 export function makePlate(kind) {
   if (kind === 'plain') {
     const p = prop('prop_chinaplate', { tint: 0x7fd0ff });
-    if (p) { p.scale.setScalar(1.15); p.userData.floor = 0.118 * 1.15; p.userData.R = 0.95 * 1.15; }
+    if (p) { const k = 1.05; p.scale.setScalar(k); p.userData.floor = 0.118 * k; p.userData.R = 1.0 * k; p.userData.k = k; }
     return p;
   }
   const p = propModel(kind === 'plate2' ? 'prop_k_plate2' : 'prop_k_plate4');
   if (!p) return null;
-  const k = kind === 'plate2' ? 1.25 : 1.15;
+  const k = kind === 'plate2' ? 1.0 : 0.92;
   p.scale.setScalar(k);
   p.userData.floor = 0.075 * k;
   p.userData.R = (kind === 'plate2' ? 1.05 : 1.25) * k;
   p.userData.k = k;
   const u = p.userData.model.userData; u.noWalk = true; u.noLook = true;
   return p;
+}
+
+// ---- friends behind the counter ----
+export const COUNTER_BACK = -1.18;                         // the back face of the island (the worktop's back edge)
+// the back of the visible props on the worktop (the soap, the tap): a friend's arms walking past stay short of it
+export function propBack(K) {
+  K.group.updateMatrixWorld(true);
+  return Math.min(...[K.tap, K.soap].filter((o) => o && o.visible).map((o) => new T.Box3().setFromObject(o).min.z), 0);
+}
+// From the friend's real (skinned) shape: the lane where its tummy and feet clear the back of the counter facing
+// us, and the 'carry' arm tuck it walks with sideways along the counter.
+export function fitBehindCounter(f, propBack = 0) {
+  const u = f.userData, arms = u.arms, r = u.rest || (u.rest = (arms || []).map((b) => b.rotation.clone()));
+  const p0 = f.position.clone(), ry0 = f.rotation.y;
+  f.position.set(0, 0, 0); f.rotation.y = 0;
+  const v = new T.Vector3();
+  // what can be seen cutting the worktop is the band of the body just under its surface (anything lower is
+  // inside the cabinet, hidden by it): its furthest forward / sideways reach, and the sideways reach above the
+  // worktop (where the soap and the tap stand), with the arms swung out (+) or tucked in (-) by a
+  const scan = (a) => {
+    if (arms && r.length === 2) { arms[0].rotation.set(r[0].x, r[0].y, r[0].z + a); arms[1].rotation.set(r[1].x, r[1].y, r[1].z - a); }
+    f.updateMatrixWorld(true);
+    let front = 0, side = 0, up = 0;
+    f.traverse((m) => {
+      if (!m.isMesh || !m.visible || m.material?.side === T.BackSide) return;
+      const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 2) {
+        m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld);
+        if (v.y > TOP + 0.05) { if (v.y < TOP + 0.9) up = Math.max(up, Math.abs(v.x)); continue; }
+        if (v.y < TOP - 0.4) continue;
+        front = Math.max(front, v.z); side = Math.max(side, Math.abs(v.x));
+      }
+    });
+    return { a, front, side, up };
+  };
+  const rest = scan(0);
+  const tries = [rest];
+  for (let a = -0.1; a >= -1.0; a -= 0.1) tries.push(scan(a));
+  for (let a = 0.1; a <= 0.8; a += 0.1) tries.push(scan(a));
+  // the narrowest band; among nearly as narrow poses, the one closest to resting
+  const best = Math.min(...tries.map((t) => Math.max(t.side, t.up)));
+  const c = tries.filter((t) => Math.max(t.side, t.up) <= best + 0.05).sort((x, y) => Math.abs(x.a) - Math.abs(y.a))[0];
+  u.carry = c.a; u.sideW = c.side;
+  u.standZ = Math.min(LANE_Z, COUNTER_BACK - rest.front - 0.14);   // (room to lean over the sink)
+  u.laneZ = Math.min(u.standZ, COUNTER_BACK - c.side - 0.06, propBack - c.up - 0.05);
+  u.fit = { rest, c };
+  if (arms && r.length === 2) arms.forEach((b, i) => b.rotation.copy(r[i]));
+  f.position.copy(p0); f.rotation.y = ry0;
+  f.updateMatrixWorld(true);
 }

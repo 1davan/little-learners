@@ -32,7 +32,7 @@ export function makeStage(kind, c) {
     // the Blender picnic hill (blanket draped over the front), a picnic basket and flowers round the foot
     g.add(hill);
     const bk = propModel('prop_picnic');
-    if (bk) { bk.scale.setScalar(0.55); bk.position.set(-2.35, TOP, -0.95); bk.rotation.y = 0.35; g.add(bk); } // back-left: clear of the friend who hops up
+    if (bk) { bk.scale.setScalar(0.55); bk.position.set(-2.35, TOP, -0.55); bk.rotation.y = 0.35; g.add(bk); } // back-left: clear of the friend who hops up
     // flowers on the grass just beyond the hill's foot (radius ~4.6), never inside it
     for (const [x, z, col] of [[-4.6, 2.0, C.pink], [4.5, 2.2, C.yellow], [4.95, 0.5, C.purple], [-5.0, 0.2, 0xffffff], [-5.1, 1.0, C.yellow], [5.1, 1.2, C.pink]]) {
       const f = flowerProp(col, 2.0); f.position.set(x, 0, z); f.rotation.y = x * 0.1; g.add(f);
@@ -116,7 +116,7 @@ export function makeStage(kind, c) {
     // the Blender tree stump with mushrooms at its roots
     g.add(prop('prop_m_stump'));
     // (the right-hand mushroom stays clear of the acorn basket on the grass at world (3.4, -0.4))
-    for (const [x, z, s, col] of [[-3.8, 2.3, 0.5, C.red], [-4.5, 1.5, 0.36, C.orange], [4.7, 1.0, 0.44, C.red]]) {
+    for (const [x, z, s, col] of [[-3.8, 2.3, 0.5, C.red], [-4.9, 1.2, 0.36, C.orange], [4.7, 1.0, 0.44, C.red]]) {
       const m = prop('prop_m_mushroom', { tint: col }); m.scale.setScalar(s); m.position.set(x, 0, z); m.rotation.y = -x * 0.08; g.add(m);
     }
   } else {

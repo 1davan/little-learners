@@ -1,19 +1,18 @@
 // Dress Monkey sounds the engine doesn't have: Monkey's "ooh-ooh-aah", a wardrobe creak, a fabric whoomp
 // and a puff. Synthesized on a small WebAudio context of our own (the engine's is private), following the
 // engine volume — the same approach as band-sound.js.
-import { getVolume } from '../engine/audio.js';
+import { getVolume, sharedCtx, cueOut } from '../engine/audio.js';
 
 let ctx = null, out = null;
 function ac() {
   if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC();
+    ctx = sharedCtx();
     const comp = ctx.createDynamicsCompressor();
     out = ctx.createGain();
-    out.connect(comp); comp.connect(ctx.destination);
+    out.connect(cueOut());
   }
   if (ctx.state === 'suspended') ctx.resume();
-  out.gain.value = getVolume() * 0.8;
+  out.gain.value = 1;
   return ctx;
 }
 function env(g, now, vol, attack, dur) {
@@ -84,7 +83,13 @@ export const msfx = {
   }),
   // soft fabric flop as a garment lands
   flop: safe(() => { noise({ dur: 0.12, vol: 0.14, type: 'lowpass', f: 900, f1: 300 }); tone({ f0: 200, f1: 120, dur: 0.08, vol: 0.08 }); }),
-  // magic puff when clothes snap on
+  // the garment pulled on snug: one soft cloth "fwump" (no sparkle)
+  cloth: safe(() => { const k = V(); noise({ dur: 0.22, vol: 0.13, type: 'lowpass', f: 1400 * k, f1: 380, attack: 0.04 }); tone({ f0: 170 * k, f1: 110, dur: 0.12, vol: 0.05, attack: 0.02 }); }),
+  // a wooden hanger hooking onto the rail: a small soft "tok"
+  tok: safe(() => { const k = V(); tone({ type: 'triangle', f0: 880 * k, f1: 620 * k, dur: 0.07, vol: 0.06 }); noise({ dur: 0.04, vol: 0.04, f: 2400, q: 2 }); }),
+  // the empty hanger sliding along the rail
+  slide: safe(() => { noise({ dur: 0.35, vol: 0.035, type: 'bandpass', f: 3200, f1: 2600, q: 3, attack: 0.05 }); }),
+  // magic puff (no longer used: clothes are pulled on, not magicked on)
   puff: safe(() => {
     noise({ dur: 0.25, vol: 0.16, f: 2500, f1: 600, q: 0.8, attack: 0.01 });
     for (const [i, f] of [[0, 1047], [1, 1319], [2, 1568]]) tone({ type: 'triangle', f0: f, dur: 0.12, vol: 0.06, t: 0.05 + i * 0.05 });

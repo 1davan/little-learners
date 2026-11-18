@@ -16,8 +16,9 @@ const SAND = 0xf2cf7e, SAND_DK = 0xd9b062;
 function pail(color, r, h, upsideDown) {
   const holder = new T.Group();
   const pm = propModel('prop_bucket', { tint: color, size: [r, h / 1.3, r] });
-  if (pm) { // Blender pail: upside down = turned over about z (sticker stays in front), handle flopped against the front
-    if (upsideDown) { pm.userData.bones.handle.rotation.x = 1.85; pm.rotation.z = Math.PI; pm.position.set(0, h, r); holder.position.z = -r; }
+  if (pm) { // Blender pail: upside down = turned over about z (sticker stays in front), handle lying on the sand behind
+    // (in front it would cross the friend scooting under / peeking out)
+    if (upsideDown) { pm.userData.bones.handle.rotation.x = -1.1; pm.rotation.z = Math.PI; pm.position.set(0, h, r); holder.position.z = -r; }
     holder.add(pm);
     holder.userData.handle = pm.userData.bones.handle;
     return holder;
@@ -61,11 +62,11 @@ function makeBucketProp(mode) {
     // fit: the friend shrinks a little inside so its claws stay clear of the walls; the handle flops back out of its way
     g.userData.zones = { in: { pos: V(0, 1.9, 0), rest: V(0, 0.55, 0.05), radius: 1.5, rim: h, fit: 0.78 } };
     const hb = body.userData.handle;
-    if (hb) g.userData.flop = (s) => s.tween(hb.rotation, { x: -1.75 }, 0.25, Ease.out).then(() => sfx.tap());
+    if (hb) g.userData.flop = (s) => s.tween(hb.rotation, { x: -1.75 }, 0.45, Ease.inOut);
   } else {
     g.userData.zones = {
       on: { pos: V(0, 2.4, 0), rest: V(0, h + 0.04, 0), radius: 1.3 },
-      under: { pos: V(0, 0.55, 1.3), rest: V(0, 0, 0), radius: 1.2, fit: 0.72 },
+      under: { pos: V(0, 0.55, 1.3), rest: V(0, 0, 0), radius: 1.2, fit: 0.55 },   // a crab is 3.5 wide: 0.55 keeps its claws inside the pail
     };
     g.userData.cover = liftCover(body, 2.1, 0.42);
   }
@@ -83,7 +84,7 @@ function makeBoxProp(mode) {
   const pm = propModel('prop_box'); // Blender box (same size); open = its two top flaps folded out
   if (pm) {
     box.add(pm);
-    if (mode === 'open') { pm.userData.bones.flapL.rotation.z = 2.0; pm.userData.bones.flapR.rotation.z = -2.0; }
+    if (mode === 'open') { pm.userData.bones.flapL.rotation.z = 3.5; pm.userData.bones.flapR.rotation.z = -3.5; }   // folded right out, lying open beside the rim (checked in the viewer)
   }
   const panel = (w, h, d, x, y, z, c = col) => { const m = mesh(geo.box(w, h, d), c, { hull: 1.03, outline: 0 }); m.position.set(x, y, z); if (!pm) box.add(m); return m; };
   panel(W, t, D, 0, t / 2, 0, dk);
@@ -106,7 +107,7 @@ function makeBoxProp(mode) {
     const inside = new T.Mesh(geo.box(W - 2 * t, 0.02, D - 2 * t), basic(0x8a5a32));
     inside.position.y = t + 0.01;
     if (!pm) box.add(inside);
-    g.userData.zones = { in: { pos: V(0, 1.8, 0), rest: V(0, t, 0.05), radius: 1.5, rim: H, fit: 0.9 } };
+    g.userData.zones = { in: { pos: V(0, 1.8, 0), rest: V(0, 0.35, 0.05), radius: 1.5, rim: H, fit: 0.9 } };   // sits up: head and bill above the rim
   } else {
     g.userData.zones = {
       on: { pos: V(0, 2.1, 0), rest: V(0, H + t, 0), radius: 1.3 },
@@ -125,55 +126,120 @@ function makeBoxProp(mode) {
 // Lifts the whole prop up (friend scoots under), drops it with a thunk, then tips the front up for a peek.
 function liftCover(holder, lift, tip) {
   return {
-    async lift(s) { sfx.swoosh(); await s.tween(holder.position, { y: lift }, 0.16, Ease.out); },
-    async drop(s) {
-      await s.tween(holder.position, { y: 0 }, 0.12, Ease.in);
+    async lift(s, dur = 0.45) { await s.tween(holder.position, { y: lift }, dur, Ease.inOut); },
+    async drop(s, dur = 0.35) {
+      await s.tween(holder.position, { y: 0 }, dur, Ease.in);
       sfx.thunk();
-      await s.anim(0.12, (_, p) => { holder.scale.set(1 + Math.sin(p * Math.PI) * 0.08, 1 - Math.sin(p * Math.PI) * 0.1, 1 + Math.sin(p * Math.PI) * 0.08); });
+      await s.anim(0.25, (_, p) => { holder.scale.set(1 + Math.sin(p * Math.PI) * 0.08, 1 - Math.sin(p * Math.PI) * 0.1, 1 + Math.sin(p * Math.PI) * 0.08); });
       holder.scale.setScalar(1);
     },
-    tip(s) { return s.tween(holder.rotation, { x: -tip }, 0.18, Ease.back); },
-    reset() { holder.position.y = 0; holder.rotation.x = 0; holder.scale.setScalar(1); },
+    tip(s) { return s.tween(holder.rotation, { x: -tip }, 0.4, Ease.inOut); },
+    // after the peek: back down low, just a crack open for the eyes (it never stays hovering)
+    settle(s) { return s.tween(holder.rotation, { x: -Math.min(tip, 0.14) }, 0.45, Ease.inOut); },
+    // open: lifted clear, so the friend can hop out from under it without passing through it
+    open(s) { return Promise.all([s.tween(holder.position, { y: lift }, 0.45, Ease.inOut), s.tween(holder.rotation, { x: 0 }, 0.45, Ease.inOut)]); },
+    // with a scheduler it settles back smoothly; without one it snaps (round reset)
+    reset(s) {
+      holder.scale.setScalar(1);
+      if (!s) { holder.position.y = 0; holder.rotation.x = 0; return; }
+      return Promise.all([s.tween(holder.position, { y: 0 }, 0.45, Ease.inOut), s.tween(holder.rotation, { x: 0 }, 0.45, Ease.inOut)]).then(() => sfx.tap());
+    },
     hides: true,
   };
 }
 
+// The boat floats in a little sand-banked pool. Boat-local: hull bottom 0.02, waterline ~0.24, plank deck top 0.44,
+// rim 0.95. The water is a flat oval with a hull-shaped hole well inside the waterline (the hull and deck always hide
+// it), so water never shows inside the boat. `bob` (driven every frame by userData.tick) gives a gentle buoyant
+// heave and roll; a friend IN the boat becomes bob's child (userData.ride) so it rides along on the deck.
+const BOAT = { SX: 2.0, SZ: 1.05, WATER: 0.26, WL: 0.24, DECK: 0.44, RIM: 0.95, PX: 2.35, PZ: 1.3 };
+function ovalShape(rx, rz, hole = null, n = 64) {
+  const sh = new T.Shape();
+  sh.absellipse(0, 0, rx, rz, 0, Math.PI * 2, false, 0);
+  if (hole) { const h = new T.Path(); h.absellipse(0, 0, hole[0], hole[1], 0, Math.PI * 2, true, 0); sh.holes.push(h); }
+  const g = new T.ShapeGeometry(sh, n);
+  g.rotateX(-Math.PI / 2);
+  return g;
+}
 function makeBoatProp() {
   const g = new T.Group();
-  const hullCol = C.red;
+  const { SX, SZ, WATER, WL, DECK, RIM, PX, PZ } = BOAT;
+  const Y0 = WATER - WL;   // the bob group's rest height: the hull's waterline sits on the water
+  // the pool: water with a hole the hull always covers, a soft sand bank round the edge, a few pebbles
+  const pool = new T.Group();
+  const water = new T.Mesh(ovalShape(PX, PZ, [0.42 * SX, 0.42 * SZ]), toon(0x6fd2ec));
+  water.position.y = WATER;
+  const ripples = [0.86, 1.08].map((k, i) => {
+    const r = new T.Mesh(ovalShape(0.66 * SX * k + 0.07, 0.66 * SZ * k + 0.07, [0.66 * SX * k, 0.66 * SZ * k]), basic(i ? 0xb9ecf8 : 0xe6fbff));
+    r.position.y = WATER + 0.006 + i * 0.002;
+    r.userData.k = k;
+    return r;
+  });
+  const bankPts = [];
+  for (let i = 0; i < 96; i++) {
+    const a = (i / 96) * Math.PI * 2;
+    bankPts.push(new T.Vector3(Math.cos(a) * (PX + 0.1), 0.08 + Math.sin(a * 5) * 0.012, Math.sin(a) * (PZ + 0.1)));
+  }
+  const bank = mesh(new T.TubeGeometry(new T.CatmullRomCurve3(bankPts, true), 120, 0.17, 10, true), 0xe6b765, { outline: 0.022 });   // damp sand
+  bank.scale.y = 1.25;
+  const tp = propModel('prop_tidepool');   // Blender tide pool: damp sand bank, pebbles, deep and shallow water, glints
+  if (tp) pool.add(tp, ...ripples);
+  else {
+    pool.add(water, ...ripples, bank);
+    for (const [a, s, col] of [[0.5, 0.11, 0xc9c1b6], [0.62, 0.075, 0xe8e0d4], [2.4, 0.09, 0xd8cfc2], [3.9, 0.1, 0xc9c1b6], [4.05, 0.065, 0xffd6c9]]) {
+      const pb = mesh(geo.sphere(1, 12, 8), col, { outline: 0.012 });
+      pb.scale.set(s * 1.3, s * 0.7, s);
+      pb.position.set(Math.cos(a) * (PX + 0.12), 0.24, Math.sin(a) * (PZ + 0.12));
+      pool.add(pb);
+    }
+  }
+  // the old code hull (fallback only)
   const hullGeo = new T.SphereGeometry(1, 28, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
-  const hull = mesh(hullGeo, hullCol, { outline: 0.03 });
-  hull.material = new T.MeshToonMaterial({ color: hullCol, gradientMap: hull.material.gradientMap, side: T.DoubleSide });
-  hull.scale.set(2.0, 0.95, 1.05);
-  hull.position.y = 0.95;
-  const inner = new T.Mesh(hullGeo, new T.MeshBasicMaterial({ color: 0x8a3b30, side: T.BackSide }));
-  inner.scale.set(1.92, 0.9, 0.98);
-  inner.position.y = 0.96;
+  const hull = mesh(hullGeo, C.red, { outline: 0.03 });
+  hull.scale.set(SX, RIM, SZ);
+  hull.position.y = RIM;
+  const deck = mesh(geo.cyl(1, 1, 0.06, 32), 0xc98b4f, { outline: 0.01 });
+  deck.scale.set(SX * 0.6, 1, SZ * 0.6);
+  deck.position.y = DECK - 0.03;
   const rim = mesh(geo.torus(1, 0.08, Math.PI * 2, 8, 40), 0xffffff, { outline: 0.02 });
   rim.rotation.x = Math.PI / 2;
-  rim.scale.set(2.0, 1.05, 1);
-  rim.position.y = 0.95;
-  const stripe = mesh(geo.torus(1, 0.05, Math.PI * 2, 6, 40), 0xffffff, { outline: 0 });
-  stripe.rotation.x = Math.PI / 2;
-  stripe.scale.set(1.75, 0.92, 1);
-  stripe.position.y = 0.55;
-  // little flag at the back
-  const mast = mesh(geo.cyl(0.04, 0.04, 1.1, 6), 0xa86f3a, { outline: 0.01 });
-  mast.position.set(-1.75, 1.45, 0);
-  const flag = new T.Mesh(geo.cone(0.22, 0.5, 3), toon(C.yellow));
-  flag.rotation.z = -Math.PI / 2;
-  flag.position.set(-1.5, 1.8, 0);
-  const puddle = new T.Mesh(geo.circle(2.4, 32), toon(0x7fd8ee));
-  puddle.rotation.x = -Math.PI / 2;
-  puddle.scale.set(1, 0.55, 1);
-  puddle.position.y = 0.02;
-  const boat = new T.Group();
-  const pm = propModel('prop_boat'); // Blender boat (same size), else the code-built hull
-  if (pm) boat.add(pm); else boat.add(hull, inner, rim, stripe, mast, flag);
-  g.add(puddle, boat);
-  g.userData.zones = { in: { pos: V(0, 1.7, 0), rest: V(0, 0.32, 0), radius: 1.6, rim: 0.95 } };
-  g.userData.wobble = boat;
-  g.userData.rock = boat; // rocks gently on the water
+  rim.scale.set(SX, SZ, 1);
+  rim.position.y = RIM;
+  const bob = new T.Group();   // heave + roll (tick); riders are its children
+  const ship = new T.Group();  // hover squash / wrong-answer wiggle (never fights the bob)
+  const pm = propModel('prop_boat');
+  if (pm) ship.add(pm); else ship.add(hull, deck, rim);
+  bob.add(ship);
+  bob.position.y = Y0;
+  g.add(pool, bob);
+  // a calm buoyant wobble; sail() makes it rock and drift a little more for a moment
+  const st = { amp: 1, dx: 0, roll: 0, t: Math.random() * 10 };
+  g.userData.tick = (dt) => {
+    st.t += dt;
+    const t = st.t, a = st.amp;
+    bob.position.set(st.dx, Y0 + Math.sin(t * 1.7) * 0.018 * a, 0);
+    bob.rotation.z = Math.sin(t * 1.15) * 0.022 * a + st.roll;
+    bob.rotation.x = Math.sin(t * 1.4 + 0.8) * 0.014 * a;
+    ripples.forEach((r, i) => {
+      const p = (t * 0.35 + i * 0.5) % 1;   // rings drift outward and fade back in
+      const k = 1 + p * 0.12;
+      r.scale.set(k, 1, k);
+      r.visible = p < 0.85;
+    });
+  };
+  g.userData.sail = (s) => s.anim(1.8, (_, p) => {
+    const e = Math.sin(p * Math.PI);
+    st.amp = 1 + e * 1.5;
+    st.dx = Math.sin(p * Math.PI * 2) * 0.28;
+    st.roll = Math.sin(p * Math.PI * 3) * 0.06 * e;
+  }).then(() => { st.amp = 1; st.dx = 0; st.roll = 0; });
+  g.userData.ride = bob;
+  // seat: bob-local spot on the deck (rest is the same spot in prop space, at the bob's rest height)
+  g.userData.zones = { in: { pos: V(0, 1.7, 0), rest: V(0, Y0 + DECK, 0), seat: V(0, DECK, 0), radius: 1.6, rim: Y0 + RIM } };
+  // loose bits land on the deck (then ride along), and float on the pool's water if they bounce out
+  g.userData.phys = [{ cont: [0, Y0 + DECK - 0.1, 0], r: 0.65, h: 0.45 }, { box: [0, WATER - 0.06, 0], size: [PX * 1.6, 0.12, PZ * 1.6] }];
+  g.userData.deckY = Y0 + DECK;
+  g.userData.wobble = ship;
   return g;
 }
 
@@ -246,21 +312,25 @@ function makeUmbrellaProp() {
   const shade = blobShadow(1.9);
   shade.material = shade.material.clone();
   g.add(pole2 || pole, canopy, shade);
-  const tipY = POLE + CH / 2 + 0.12;
+  const tipY = POLE + 0.55;   // feet on the canopy's ball finial
   g.userData.zones = {
     on: { pos: V(0, tipY + 0.6, 0), rest: V(0, tipY, 0), radius: 1.3 },
-    under: { pos: V(0, 0.8, 0.8), rest: V(0, 0, 0.35), radius: 1.5 },
+    under: { pos: V(0, 0.8, 0.8), rest: V(0, 0, 1.05), radius: 1.5 },   // in front of the pole, well under the canopy
   };
-  // "under": the umbrella dips down low like a hat over the friend
+  // "under": the umbrella gives a little bow over the friend (the canopy dips 0.5 and tilts; the pole never squashes)
   g.userData.cover = {
     async lift() {},
-    async drop(s) {
-      sfx.boing2();
-      const pl = pole2 || pole;
-      await s.anim(0.22, (e) => { canopy.position.y = POLE - e * 1.55; pl.scale.y = 1 - e * 0.5; pl.position.y = POLE * pl.scale.y / 2; }, Ease.out);
+    async drop(s, dur = 0.5) {
+      sfx.swoosh();
+      await s.anim(dur, (e) => { canopy.position.y = POLE - e * 0.5; }, Ease.out);
     },
-    tip(s) { return s.anim(0.15, (_, p) => { canopy.rotation.x = -Math.sin(p * Math.PI) * 0.12; }); },
-    reset() { const pl = pole2 || pole; canopy.position.y = POLE; canopy.rotation.x = 0; pl.scale.y = 1; pl.position.y = POLE / 2; },
+    tip(s) { return s.anim(0.4, (_, p) => { canopy.rotation.x = -Math.sin(p * Math.PI) * 0.12; }); },
+    reset(s) {
+      if (!s) { canopy.position.y = POLE; canopy.rotation.x = 0; return; }
+      const y0 = canopy.position.y, r0 = canopy.rotation.x;
+      return s.anim(0.5, (e) => { canopy.position.y = y0 + (POLE - y0) * e; canopy.rotation.x = r0 * (1 - e); }, Ease.inOut);
+    },
+    open(s) { return this.reset(s); },   // the canopy rises back up before the friend comes out
     hides: false,
   };
   g.userData.wobble = canopy;
@@ -307,7 +377,7 @@ function makeTowelProp() {
 function makeChairProp() {
   const g = new T.Group();
   const ch = new T.Group();
-  const wood = 0xc98b4f, SEAT = 1.15, W = 2.1;
+  const wood = 0xc98b4f, SEAT = 1.25, W = 4.0;   // the Blender sling chair: big enough for a crab at full size
   for (const x of [-W / 2 + 0.1, W / 2 - 0.1]) for (const z of [-0.65, 0.65]) {
     const leg = mesh(geo.box(0.12, SEAT, 0.12), wood, { hull: 1.1, outline: 0 });
     leg.position.set(x, SEAT / 2, z);
@@ -331,20 +401,20 @@ function makeChairProp() {
   ch.add(frame, arm, arm2);
   const pm = propModel('prop_chair'); // Blender deck chair (same size) replaces the code-built one
   if (pm) { ch.clear(); ch.add(pm); }
-  g.add(ch, blobShadow(1.3));
+  g.add(ch, blobShadow(2.0));
   g.userData.zones = {
-    // fit: the friend sits between the arm rests / between the legs, claws clear of the frame (a crab is 3.5 wide)
-    on: { pos: V(0, 2.1, 0.1), rest: V(0, SEAT + 0.06, 0.2), radius: 1.3, fit: 0.52 },
-    under: { pos: V(0, 0.5, 1.3), rest: V(0, 0, 0.1), radius: 1.2, fit: 0.5 },
+    // the friend sits in the canvas at full size (no arm rests: claws hang free); underneath it fits between the legs
+    on: { pos: V(0, 2.3, 0.1), rest: V(0, SEAT - 0.07, 0.15), radius: 1.6, fit: 1 },
+    under: { pos: V(0, 0.5, 1.4), rest: V(0, 0, 0.1), radius: 1.4, fit: 0.8 },
   };
   g.userData.cover = {
     async lift() {},
-    async drop(s) { sfx.thunk(); await s.anim(0.18, (_, p) => { const k = Math.sin(p * Math.PI); ch.scale.set(1 + k * 0.05, 1 - k * 0.08, 1 + k * 0.05); }); ch.scale.setScalar(1); },
-    tip(s) { return s.anim(0.15, (_, p) => { ch.rotation.z = Math.sin(p * Math.PI * 2) * 0.03; }); },
+    async drop(s, dur = 0.35) { sfx.thunk(); await s.anim(dur, (_, p) => { const k = Math.sin(p * Math.PI); ch.scale.set(1 + k * 0.05, 1 - k * 0.08, 1 + k * 0.05); }); ch.scale.setScalar(1); },
+    tip(s) { return s.anim(0.4, (_, p) => { ch.rotation.z = Math.sin(p * Math.PI * 2) * 0.03; }); },
     reset() { ch.scale.setScalar(1); ch.rotation.z = 0; },
     hides: false,
   };
-  g.userData.phys = [{ box: [0, SEAT, 0], size: [W, 0.12, 1.5] }];
+  g.userData.phys = [{ box: [0, SEAT - 0.05, 0], size: [W - 0.2, 0.12, 1.6] }];
   g.userData.wobble = ch;
   return g;
 }
@@ -443,7 +513,7 @@ function makeChestProp(mode) {
     g.userData.zones = { in: { pos: V(0, 1.7, 0), rest: V(0, 0.15, 0.05), radius: 1.4, rim: H, fit: 0.8 } };
     g.userData.phys = [{ cont: [0, 0, 0], r: 0.6, h: H }];
   } else {
-    g.userData.zones = { on: { pos: V(0, 2.4, 0), rest: V(0, H + D / 2 - 0.05, 0), radius: 1.3 } };
+    g.userData.zones = { on: { pos: V(0, 2.4, 0), rest: V(0, H + 0.6, 0), radius: 1.3 } };   // on the barrel lid's top
     g.userData.phys = [{ box: [0, (H + D / 2) / 2, 0], size: [W, H + D / 2, D] }];
   }
   const pm = propModel('prop_chest'); // Blender chest (same size, lid on a bone); keeps the code-built coins
@@ -481,12 +551,12 @@ function makeHatProp() {
   h.position.z = 1.0;
   holder.add(h);
   holder.position.z = -1.0;
-  g.add(holder, blobShadow(1.6));
+  g.add(holder, blobShadow(2.1));
   g.userData.zones = {
     on: { pos: V(0, 1.9, 0), rest: V(0, 1.15, 0), radius: 1.2 },
-    under: { pos: V(0, 0.5, 1.5), rest: V(0, 0, 0), radius: 1.3, fit: 0.75 },
+    under: { pos: V(0, 0.5, 1.5), rest: V(0, 0, 0), radius: 1.4, fit: 0.65 },   // the brim (r 2.4) covers the claws
   };
-  g.userData.cover = liftCover(holder, 1.8, 0.35);
+  g.userData.cover = liftCover(holder, 1.8, 0.5);
   g.userData.phys = [{ box: [0, 0.6, 0], size: [2.0, 1.1, 2.0] }];
   g.userData.wobble = h;
   return g;
@@ -494,7 +564,7 @@ function makeHatProp() {
 
 const MAKERS = { bucket: makeBucketProp, box: makeBoxProp, boat: makeBoatProp, castle: makeCastleProp, umbrella: makeUmbrellaProp, towel: makeTowelProp, chair: makeChairProp, ring: makeRingProp, basket: makeBasketProp, chest: makeChestProp, hat: makeHatProp };
 // what the caption calls each place (short words, so the prompt stays on one line)
-export const PROP_NAME = { bucket: 'bucket', box: 'box', boat: 'boat', castle: 'castle', umbrella: 'umbrella', towel: 'towel', chair: 'chair', ring: 'ring', basket: 'basket', chest: 'chest', hat: 'hat' };
+export const PROP_NAME = { bucket: 'bucket', box: 'box', boat: 'boat', castle: 'castle', umbrella: 'umbrella', towel: 'towel', chair: 'chair', ring: 'ring', basket: 'basket', chest: 'treasure chest', hat: 'hat' };
 
 // which places a prop offers, without building it
 export function zoneIds(kind, mode) {
@@ -510,7 +580,6 @@ const PHYS = {
   'bucket:down': [{ box: [0, 0.82, 0], size: [2.3, 1.65, 2.3] }],
   'box:open': [{ cont: [0, 0, 0], r: 0.8, h: 1.35 }],
   'box:shut': [{ box: [0, 0.7, 0], size: [2.3, 1.4, 1.8] }],
-  'boat:': [{ cont: [0, 0.1, 0], r: 0.95, h: 0.85 }],
   'castle:': [{ box: [0, 1.05, 0], size: [2.6, 2.1, 2.6] }],
   'umbrella:': [{ box: [0, 1.5, 0], size: [0.16, 3.0, 0.16] }],
 };
@@ -566,33 +635,46 @@ export function makeRainbow() {
   return bow;
 }
 
-// "In": a crown of water drops bursts up around the rim.
+// A soft water drop: a little glossy teardrop with no ink outline (the engine's outlined drop read as a spiky ball).
+const softGeo = (() => {
+  const pts = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12, a = t * Math.PI;
+    const r = Math.sin(a) * (t < 0.5 ? 1 : 1 - (t - 0.5) * 1.1);   // round bottom, pointed top
+    pts.push(new T.Vector2(Math.max(0.0001, r), -Math.cos(a) * 1.25));
+  }
+  return new T.LatheGeometry(pts, 12);
+})();
+const glint = new T.SphereGeometry(0.28, 8, 6);
+export function makeSoftDrop(r = 0.1, color = 0x7fd0ff) {
+  const d = new T.Mesh(softGeo, toon(color));
+  const hi = new T.Mesh(glint, basic(0xffffff));
+  hi.position.set(-0.32, 0.25, 0.62);
+  d.add(hi);
+  d.scale.setScalar(r);
+  return d;
+}
+
+// "In": a ring of soft drops leaps up and outward from the rim on little parabolas, then falls back.
 export function splashCrown(s, parent, center, r, color = 0x7fd0ff) {
   sfx.splash();
   const drops = [];
   const n = 12;
   for (let i = 0; i < n; i++) {
-    const d = makeWaterDrop(0.085 + (i % 3) * 0.025, i % 3 ? color : 0xdff6ff);   // small, so the crown never hides the friend's face
-    const a = (i / n) * Math.PI * 2;
+    const d = makeSoftDrop(0.07 + (i % 3) * 0.02, i % 3 ? color : 0xdff6ff);   // small, so the crown never hides the friend's face
+    const a = (i / n) * Math.PI * 2 + (i % 2) * 0.2;
     d.userData.a = a;
+    d.userData.h = 0.9 + (i % 3) * 0.3;
     d.userData.k = d.scale.x;
     d.position.copy(center);
     parent.add(d);
     drops.push(d);
   }
-  // a tall centre spout
-  const spout = makeWaterDrop(0.16, color);
-  spout.userData.k = spout.scale.x;
-  spout.position.copy(center);
-  parent.add(spout);
-  return s.anim(0.6, (_, p) => {
+  return s.anim(0.75, (_, p) => {
     for (const d of drops) {
-      const rr = r * (0.95 + p * 1.1);   // flies outward, clear of the friend in the middle
-      d.position.set(center.x + Math.cos(d.userData.a) * rr, center.y + Math.sin(p * Math.PI) * 1.5 - p * 0.4, center.z + Math.sin(d.userData.a) * rr * 0.7);
-      d.scale.setScalar(d.userData.k * Math.max(0.01, 1 - p * p));
+      const rr = r * (0.9 + p * 0.9);   // flies outward, clear of the friend in the middle
+      d.position.set(center.x + Math.cos(d.userData.a) * rr, center.y + 4 * d.userData.h * p * (1 - p) - p * 0.3, center.z + Math.sin(d.userData.a) * rr * 0.7);
+      d.scale.setScalar(d.userData.k * Math.max(0.01, 1 - p * p * p));
     }
-    spout.position.y = center.y + Math.sin(p * Math.PI) * 2.0;
-    const k = spout.userData.k;
-    spout.scale.set(k * (1 - p * 0.6), k * (1 + Math.sin(p * Math.PI) * 1.2), k * (1 - p * 0.6));
-  }).then(() => { for (const d of drops) parent.remove(d); parent.remove(spout); });
+  }).then(() => { for (const d of drops) parent.remove(d); });
 }

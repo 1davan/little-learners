@@ -18,7 +18,7 @@ export const WALL_Z = -1;
 
 // Blender bulbs: hung higher so they clear the window frames (they hang from the eaves / sit on the train roof)
 const BULB_Y = { 4.35: 4.47, 4.2: 4.47 };
-function lamps(g, y, z, col = 0x8a8fa0, onRoof = false) {
+function lamps(g, y, z, col = 0xdde4ef, onRoof = false) {
   const out = [];
   for (let i = 0; i < 6; i++) {
     // fairy-light bulbs (the game re-tints one per round as it lights up)
@@ -73,9 +73,8 @@ function houseTheme(g, chimney, hinge) {
     wallBox: [new T.Vector3(0, 2.3, WALL_Z - 0.35), new T.Vector3(9.4, 4.6, 0.6)],
     // chimney puffs a cloud
     hooray(s) {
-      sfx.pop();
-      s.anim(0.3, (_, q) => { const k = Math.sin(q * Math.PI) * 0.25; chimney.scale.set(1 + k, 1 - k * 0.6, 1 + k); });
-      for (let i = 0; i < 3; i++) s.wait(i * 0.12).then(() => fx.float(new T.Vector3(3 + (i - 1) * 0.3, 6.7, WALL_Z), '☁', { color: '#ffffff', size: 6 + i * 2 }));
+      s.anim(0.6, (_, q) => { const k = Math.sin(q * Math.PI) * 0.25; chimney.scale.set(1 + k, 1 - k * 0.6, 1 + k); });
+      for (let i = 0; i < 3; i++) s.wait(i * 0.25).then(() => fx.float(new T.Vector3(3 + (i - 1) * 0.3, 6.7, WALL_Z), '☁', { color: '#ffffff', size: 6 + i * 2 }));
     },
   };
 }
@@ -136,16 +135,15 @@ function trainTheme(g, funnel, wheels) {
   return {
     id: 'train', group: g, door: null,
     spout: funnel, spoutTop: new T.Vector3(6.9, 4.6, WALL_Z - 0.35),
-    lamps: lamps(g, 4.32, WALL_Z + 0.05, 0x8a8fa0, !!funnel?.userData?.model), lampOn: C.yellow,
+    lamps: lamps(g, 4.32, WALL_Z + 0.05, 0xdde4ef, !!funnel?.userData?.model), lampOn: C.yellow,
     hole: { rim: C.yellow, box: 0x2f6fd6, flowers: false },
     wallBox: [new T.Vector3(0, 2.9, WALL_Z - 0.35), new T.Vector3(9.4, 3.6, 0.7)],
     // toot toot: wheels spin, the train rocks, steam puffs
     hooray(s) {
-      sfx.trumpetHi ? sfx.trumpetHi() : sfx.twinkle();
       const r0 = wheels.map((w) => w.rotation.z);
-      s.anim(0.8, (e) => wheels.forEach((w, i) => (w.rotation.z = r0[i] - e * Math.PI * 4)), Ease.out);
-      s.anim(0.5, (_, q) => { g.position.x = Math.sin(q * Math.PI * 3) * 0.08 * (1 - q); });
-      for (let i = 0; i < 3; i++) s.wait(i * 0.13).then(() => fx.float(new T.Vector3(6.9 + i * 0.2, 4.7, WALL_Z), '☁', { color: '#ffffff', size: 5 + i * 2 }));
+      s.anim(1.2, (e) => wheels.forEach((w, i) => (w.rotation.z = r0[i] - e * Math.PI * 4)), Ease.inOut);
+      s.anim(0.9, (_, q) => { g.position.x = Math.sin(q * Math.PI * 3) * 0.06 * (1 - q); });
+      for (let i = 0; i < 3; i++) s.wait(i * 0.25).then(() => fx.float(new T.Vector3(6.9 + i * 0.2, 4.7, WALL_Z), '☁', { color: '#ffffff', size: 5 + i * 2 }));
     },
   };
 }
@@ -226,16 +224,14 @@ function castleTheme(g, hinge, towers, flags) {
   return {
     id: 'castle', group: g, door: hinge, doorAxis: 'x', doorOpen: 1.45, doorPos: new T.Vector3(0, 0.9, WALL_Z + 0.4),
     spout: towers[1], spoutTop: new T.Vector3(5.9, 7.4, WALL_Z - 0.35),
-    lamps: lamps(g, 4.2, WALL_Z + 0.05, 0x8a8fa0), lampOn: 0xffb03b,
+    lamps: lamps(g, 4.2, WALL_Z + 0.05, 0xdde4ef), lampOn: 0xffb03b,
     hole: { rim: 0xb9b0cc, box: 0x9a90b0, flowers: false },
     wallBox: [new T.Vector3(0, 2.3, WALL_Z - 0.35), new T.Vector3(9.4, 4.6, 0.7)],
     // flags flap, fireworks pop over the towers
     hooray(s) {
-      sfx.twinkle();
+      // the flags flap (quietly: the success chime is the sound, the window's confetti the effect)
       const r0 = flags.map((f) => f.rotation.y);
-      s.anim(0.8, (_, q) => flags.forEach((f, i) => (f.rotation.y = r0[i] + Math.sin(q * Math.PI * 6) * 0.6 * (1 - q))));
-      s.wait(0.15).then(() => { sfx.pop(); fx.confetti(new T.Vector3(-5.9, 7.9, WALL_Z), 12); });
-      s.wait(0.35).then(() => { sfx.pop(); fx.confetti(new T.Vector3(5.9, 7.9, WALL_Z), 12); });
+      s.anim(1.2, (_, q) => flags.forEach((f, i) => (f.rotation.y = r0[i] + Math.sin(q * Math.PI * 4) * 0.5 * (1 - q))));
     },
   };
 }

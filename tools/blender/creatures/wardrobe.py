@@ -63,9 +63,10 @@ class Boxy(Creature):
         skin.data.remesh_voxel_size = self.voxel
         bpy.ops.object.voxel_remesh()
         n = len(skin.data.polygons)
-        if n > self.target_faces:
+        tf = self.layers[self._cur].get('target_faces') or self.target_faces
+        if n > tf:
             d = skin.modifiers.new('dec', 'DECIMATE')
-            d.ratio = self.target_faces / n
+            d.ratio = tf / n
             bpy.ops.object.modifier_apply(modifier='dec')
         sm = skin.modifiers.new('smooth2', 'CORRECTIVE_SMOOTH')
         sm.iterations = 4
@@ -84,7 +85,7 @@ INSIDE = 0x6f5aa8
 GOLD = 0xffc531
 CREAM = 0xfff4e0
 
-c = Boxy('wardrobe', base=MINT, target_faces=6000, voxel=0.02)
+c = Boxy('wardrobe', base=MINT, target_faces=9000, voxel=0.014)   # finer: the doors' rounded edges and the inside stay smooth (no ink wedges)
 W, H0, H1, D0, D1 = 1.3, 0.28, 3.1, -0.62, 0.6     # half width, bottom, top, back, front
 FZ = 0.7                                             # door plane
 T = 0.12                                             # wall thickness
@@ -114,6 +115,7 @@ for s in (-1, 1):
     c.prim('box', ((xi + xo) / 2, (H0 + H1) / 2 + 0.03, FZ), (abs(xo - xi) / 2, (H1 - H0) / 2 - 0.06, 0.06), bevel=0.06)
     c.blob((s * 0.2, 1.75, FZ + 0.1), (0.09, 0.09, 0.07), group='knob' + g)
 
+
 # ---------------- paint ----------------
 inside = lambda p: abs(p.x) < W - T + 0.01 and H0 + T - 0.01 < p.y < H1 - T + 0.01 and D0 + T - 0.01 < p.z < D1 - 0.01
 c.paint_fn(lambda p, n: inside(p), INSIDE)
@@ -127,10 +129,15 @@ for x, col in ((-0.6, 0xff6fa8), (0.0, 0xffd23f), (0.6, 0x5ab4ff)):
 c.paint_fn(lambda p, n: abs(p.y - 0.9) < 0.06 and inside(p), LILAC)                       # shelf
 for s in (-1, 1):
     c.paint_fn(lambda p, n, s=s: p.z > FZ - 0.08 and p.x * s > 0, LILAC)                  # door
-    c.paint_fn(lambda p, n, s=s: p.z > FZ - 0.08 and p.x * s > 0 and (abs(p.x) > DW - 0.1 or abs(p.x) < 0.11 or p.y < H0 + 0.11 or p.y > H1 - 0.13), 0xa184e6)  # rim
     c.paint('knob', (s * 0.2, 1.75, FZ + 0.14), (0.12, 0.12, 0.1), GOLD)
-    for y in (0.8, 1.15):
-        c.paint('dot', (s * 0.66, y, FZ + 0.06), (0.06, 0.06, 0.06), CREAM)
+
+# two clean raised panels per door, as their own layer (crisp edge and a clean outline of their own; they ride on
+# the door bones like the doors)
+c.layer('panels', base=0xcdb6f7, target_faces=700)
+for s in (-1, 1):
+    for py, ph in ((2.3, 0.55), (0.95, 0.42)):
+        c.prim('box', (s * (DW / 2 + 0.03), py, FZ + 0.075), (DW / 2 - 0.22, ph, 0.03), bevel=0.025)
+c.layer('skin')
 
 # ---------------- rig ----------------
 c.bone('body', (0, 0.05, 0), (0, 3.0, 0), region=lambda p: p.z < FZ - 0.08 or p.y > H1 + 0.05 or p.y < H0 - 0.02)
@@ -139,7 +146,7 @@ c.bone('door.R', (DW, H0, FZ), (DW, H1, FZ), parent='body', region=lambda p: p.z
 c.weight_smooth = 2
 c.anchor('inside', (0, 1.9, 0.0), 'body')
 c.anchor('knob', (0, 1.75, FZ + 0.15), 'body')
-c.extras['outline'] = 0.03
+c.extras['outline'] = 0.024
 c.build()
 if os.environ.get('DBGC'):
     from collections import Counter

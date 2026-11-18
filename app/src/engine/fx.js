@@ -82,6 +82,18 @@ function ripple(x, y) {
   setTimeout(() => r.remove(), 600);
 }
 
+// The demo hand: a chunky cartoon glove in the app's ink style (not an emoji). Its fingertip is at the top centre-left.
+export const HAND_SVG = '<svg viewBox="0 0 100 124" width="100%" height="100%" aria-hidden="true">'
+  + '<g stroke="#2a2440" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round">'
+  + '<rect x="24" y="96" width="56" height="24" rx="9" fill="#ffd23f"/>'
+  + '<path d="M38 60 V14 a10 10 0 0 1 20 0 V54 l2 -2 a9 9 0 0 1 14 3 a9 9 0 0 1 13 6 V82 a18 18 0 0 1 -18 18 H40 a18 18 0 0 1 -18 -18 V70 a9 9 0 0 1 16 -10 Z" fill="#fff"/>'
+  + '</g>'
+  + '<g stroke="#2a2440" stroke-width="3.5" stroke-linecap="round" fill="none" opacity=".55">'
+  + '<path d="M60 56 V66"/><path d="M74 60 V68"/></g>'
+  + '<ellipse cx="44" cy="20" rx="3" ry="6" fill="#fff" opacity=".9"/>'
+  + '<ellipse cx="34" cy="86" rx="5" ry="3.5" fill="#ff9db0" opacity=".55"/>'
+  + '</svg>';
+
 export const fx = {
   // A floating symbol (♪, ♥, +1, a number…) that rises from a world position and fades.
   float(pos, text = '♪', { color = '#ff5a5a', size = 7 } = {}) {
@@ -115,7 +127,9 @@ export const fx = {
   },
 
   // A soft glowing ring around an object's origin (drawn over everything), gently breathing. Returns a stop function.
-  halo(obj, r = 1.2) {
+  // opts.opacity scales its strength (default 0.7: a gentle glow, not a spotlight).
+  halo(obj, r = 1.2, opts = {}) {
+    const strength = opts.opacity ?? 0.7;
     const m = new T.Mesh(haloGeo, new T.MeshBasicMaterial({ map: haloTex(), transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
     m.renderOrder = 5;
     m.scale.setScalar(r);
@@ -129,7 +143,7 @@ export const fx = {
       const age = performance.now() / 1000 - t0;
       const k = 1 + Math.sin(t * 4.5) * 0.06;
       m.scale.setScalar(r * k * (age < 0.25 ? 0.7 + 1.2 * age : 1));
-      m.material.opacity = Math.min(1, age * 4) * (0.78 + Math.sin(t * 4.5) * 0.2);
+      m.material.opacity = strength * Math.min(1, age * 4) * (0.78 + Math.sin(t * 4.5) * 0.2);
     });
     return () => { off(); scene.remove(m); m.material.dispose(); };
   },
@@ -156,34 +170,37 @@ export const fx = {
   /**
    * Ghost-hand demo along world points. Modes:
    *  tap  – presses twice on the first point
-   *  drag – presses on the first point and glides through the rest (dotted trail)
+   *  drag – presses on the first point and glides through the rest
    *  rub  – glides to the last point, then scrubs back and forth there
    *  scan – hops over each point, pressing once on each (shows "choose one" without revealing the answer)
    * Returns a stop function. The hand is DOM-only, so it never completes a task.
    */
   ghostPath(points3, { mode = 'tap', maxDur = 2.4 } = {}) {
+    // Key frames hold the 3-D point (by index) and are projected to the screen EVERY frame, so a demo that
+    // starts during a camera glide still lands exactly on its target. (pts = projection now, for timing only.)
     const pts = points3.map((p) => project(p));
     const F = [];
-    const K = (p, press, dur, dx = 0, dy = 0) => F.push({ x: p.x + dx, y: p.y + dy, press, dur });
-    const a = pts[0], last = pts[pts.length - 1];
-    F.push({ x: a.x + 30, y: a.y + 60, press: 0, dur: 0 });
-    K(a, 0, 0.35);
-    if (mode === 'tap') { for (let i = 0; i < 2; i++) { K(a, 1, 0.22); K(a, 0, 0.3); } }
+    const K = (pi, press, dur, dx = 0, dy = 0) => F.push({ pi, dx, dy, press, dur });
+    const n = pts.length, a = pts[0];
+    F.push({ pi: 0, dx: 30, dy: 60, press: 0, dur: 0 });
+    K(0, 0, 0.35);
+    if (mode === 'tap') { for (let i = 0; i < 2; i++) { K(0, 1, 0.22); K(0, 0, 0.3); } }
     else if (mode === 'drag' || mode === 'rub') {
-      K(a, 1, 0.3);
-      for (const p of pts.slice(1)) K(p, 1, Math.min(1.3, Math.max(0.6, Math.hypot(p.x - a.x, p.y - a.y) / 350)));
-      if (mode === 'rub') for (let i = 0; i < 4; i++) { K(last, 1, 0.16, 45, -12); K(last, 1, 0.16, -45, 12); }
-      K(last, 1, 0.25); K(last, 0, 0.3);
+      K(0, 1, 0.3);
+      for (let j = 1; j < n; j++) K(j, 1, Math.min(1.3, Math.max(0.6, Math.hypot(pts[j].x - a.x, pts[j].y - a.y) / 350)));
+      if (mode === 'rub') for (let i = 0; i < 4; i++) { K(n - 1, 1, 0.16, 45, -12); K(n - 1, 1, 0.16, -45, 12); }
+      K(n - 1, 1, 0.25); K(n - 1, 0, 0.3);
     } else if (mode === 'scan') {
-      for (const p of pts) { K(p, 0, 0.45); K(p, 1, 0.18); K(p, 0, 0.2); }
+      for (let j = 0; j < n; j++) { K(j, 0, 0.45); K(j, 1, 0.18); K(j, 0, 0.2); }
     }
-    K(last, 0, 0.35);
+    K(n - 1, 0, 0.35);
+    const at = (f) => { const q = project(points3[f.pi]); return { x: q.x + f.dx, y: q.y + f.dy }; };
     // the whole demo always fits in maxDur seconds
     const want = F.reduce((s, f) => s + f.dur, 0);
     if (want > maxDur) for (const f of F) f.dur *= maxDur / want;
     const el = document.createElement('div');
     el.className = 'ghost-hand';
-    el.textContent = '👆';
+    el.innerHTML = HAND_SVG;
     const fxRoot = document.getElementById('fx');
     fxRoot.appendChild(el);
     const total = F.reduce((s, f) => s + f.dur, 0);
@@ -200,18 +217,12 @@ export const fx = {
       if (i >= F.length) { stop(); return; }
       const A = F[i - 1], B = F[i];
       const m = B.dur ? ease(Math.min(1, (t - acc) / B.dur)) : 1;
-      const x = A.x + (B.x - A.x) * m, y = A.y + (B.y - A.y) * m;
+      const pa = at(A), pb = at(B);
+      const x = pa.x + (pb.x - pa.x) * m, y = pa.y + (pb.y - pa.y) * m;
       const press = B.press && (A.press || m > 0.5);
       el.style.transform = `translate(${x}px, ${y}px) scale(${press ? 0.86 : 1})`;
       el.style.opacity = t < 0.2 ? t * 5 : t > total - 0.3 ? Math.max(0, (total - t) / 0.3) : 1;
-      if (press && A.press && (mode === 'drag' || mode === 'rub') && now - lastDot > 55) {
-        lastDot = now;
-        const d = document.createElement('div');
-        d.className = 'trail-dot';
-        d.style.left = x + 'px'; d.style.top = y + 'px';
-        fxRoot.appendChild(d);
-        setTimeout(() => d.remove(), 1400);
-      }
+      // (no dotted trail: the hand itself shows the move)
       if (press && !A.press && m > 0.5 && !el.dataset.pressed) { el.dataset.pressed = 1; ripple(x, y); }
       if (!press) delete el.dataset.pressed;
       requestAnimationFrame(step);

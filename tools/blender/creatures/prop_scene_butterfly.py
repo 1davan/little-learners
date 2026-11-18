@@ -3,7 +3,9 @@ wings lying flat (in the xz plane). The game flaps the two wings about the body 
 is modelled; the game mirrors it for the left. Layers:
   skin  the body: a soft segmented plum body, round head and two curly antennae with knobs
   wing  the right wing (front and back lobes), white with a soft grey rim: makeButterfly's colour tints it
-  dots  white spots on the right wing (never tinted)"""
+  dots  white spots on the right wing (never tinted)
+  wingL, dotsL  the mirrored left wing and dots, for direct uses only (the game mirrors 'wing' / 'dots' itself)
+The glb's rest pose pitches the body up 62 degrees (bind pose unchanged), so a direct use shows it facing the viewer."""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop
@@ -44,10 +46,23 @@ p.paint_fn(rim, 0xa8a8a8)
 p.layer('dots', base=0xffffff, target_faces=240, voxel=0.006)
 for x, z, r in ((0.31, 0.12, 0.042), (0.2, 0.17, 0.03), (0.2, -0.13, 0.034)):
     p.blob((x, 0.018, z), (r, 0.01, r), group='d%d%d' % (int(x * 100), int(z * 100)))
+# the LEFT wing and its dots, mirrored: only for direct uses of the kind (makeButterfly mirrors 'wing' / 'dots' itself
+# and never draws these), so the model on its own is a whole, symmetric butterfly
+p.layer('wingL', base=0xffffff, target_faces=500, voxel=0.007)
+for k, (c, sz, yaw) in enumerate(WING):
+    p.blob((-c[0], c[1], c[2]), sz, rot=(0, -yaw, 0), group='lobe%d' % k)
+p.paint_fn(lambda q, n: rim(type(q)((-q.x, q.y, q.z)), n), 0xa8a8a8)
+p.layer('dotsL', base=0xffffff, target_faces=240, voxel=0.006)
+for x, z, r in ((0.31, 0.12, 0.042), (0.2, 0.17, 0.03), (0.2, -0.13, 0.034)):
+    p.blob((-x, 0.018, z), (r, 0.01, r), group='d%d%d' % (int(x * 100), int(z * 100)))
 p.layer('skin')
 
 p.bone('body', (0, 0, -0.2), (0, 0, 0.2))
 p.extras['argMode'] = 'tint'
 p.extras['argDefault'] = 0xff8fc0
 p.extras['outline'] = 0.01
-p.build()
+path = p.build()
+# rest pose (bind pose unchanged): pitched up 62 degrees and lifted, so a direct use shows it facing the viewer with its
+# wings spread like a sticker, while scenery.js (raw layer geometry) keeps its flat flyer
+from glbpost import Glb
+Glb(path).move('body', lift=(0, 0.3, 0), turn_x=-62).save()

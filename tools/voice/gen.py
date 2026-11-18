@@ -3,6 +3,9 @@
 
 usage: python3 tools/voice/gen.py lines.txt [--voice Sulafat] [--key-file ~/Downloads/fal_key.txt]
 lines.txt: one caption per line (as the game shows it). Already-generated lines are skipped.
+  A line may also give the text the voice should say when it differs from the caption, and a style note:
+      caption => spoken text / style note        e.g.   A! => Ay! / Say the letter name A, like "ay".
+  The index key is always the caption; the spoken text (and the note, added to the style) is what is sent.
 The key is read from the key file (never printed). The index maps a normalised caption -> file, matching
 voiceKey() in app/src/engine/speech.js.
 """
@@ -27,8 +30,18 @@ def speakable(text):
 STYLE = 'Say warmly, clearly and cheerfully, like a kind preschool teacher talking to a two-year-old.'
 
 
-def gen(text, voice, k):
-    body = json.dumps({'prompt': speakable(text), 'style_instructions': STYLE, 'voice': voice, 'output_format': 'mp3'}).encode()
+def split_line(ln):
+    """'caption => spoken / style note' -> (caption, spoken, note); a plain line -> (line, line, '')"""
+    if ' => ' not in ln:
+        return ln, ln, ''
+    cap, rest = ln.split(' => ', 1)
+    spoken, note = (rest.split(' / ', 1) + [''])[:2] if ' / ' in rest else (rest, '')
+    return cap.strip(), spoken.strip() or cap.strip(), note.strip()
+
+
+def gen(text, voice, k, note=''):
+    style = STYLE + (' ' + note if note else '')
+    body = json.dumps({'prompt': speakable(text), 'style_instructions': style, 'voice': voice, 'output_format': 'mp3'}).encode()
     req = urllib.request.Request('https://fal.run/fal-ai/gemini-tts', data=body,
                                  headers={'Authorization': 'Key ' + k, 'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=180) as r:
@@ -48,18 +61,23 @@ def main():
     idx_path = os.path.join(OUT, 'index.json')
     idx = json.load(open(idx_path)) if os.path.exists(idx_path) else {}
     lines = []
+    spoken = {}
     for ln in open(a.lines, encoding='utf-8'):
         ln = ln.strip()
-        if ln and key_of(ln) and key_of(ln) not in idx and ln not in lines:
-            lines.append(ln)
+        cap, say, note = split_line(ln) if ln else ('', '', '')
+        if cap and key_of(cap) and key_of(cap) not in idx and cap not in lines:
+            lines.append(cap)
+            spoken[cap] = (say, note)
     print('to generate:', len(lines))
 
     def one(text):
         kk = key_of(text)
         fid = hashlib.sha1((a.voice + '|' + kk).encode()).hexdigest()[:12] + '.ogg'
         mp3 = os.path.join(OUT, fid + '.mp3')
+        say, note = spoken.get(text, (text, ''))
         try:
-            open(mp3, 'wb').write(gen(text, a.voice, k))
+            audio = gen(say, a.voice, k, note)  # fetch first, so a failed request never leaves an empty file
+            open(mp3, 'wb').write(audio)
             subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', mp3, '-vn', '-ac', '1', '-ar', '48000',
                             '-af', 'silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,loudnorm=I=-16:TP=-2',
                             '-c:a', 'libopus', '-b:a', '48k', os.path.join(OUT, fid)], check=True)

@@ -176,20 +176,25 @@ export class Pail {
   }
 }
 
-// the castle a full pail of sand leaves when it's tipped out (pail sized)
-export function makeCastle(sx = 1, sy = sx) {
+// the castle a pail of sand leaves when it's tipped out (pail sized). A pail under three-quarters full turns out the
+// half-height castle (its own model: full-size battlements and flag, never a squashed full castle).
+export function makeCastle(sx = 1, sy = sx, level = 1) {
   const g = new T.Group();
-  const m = new T.Group(); m.scale.set(sx, sy, sx); g.add(m);
-  m.add(part('prop_bal_castle', 'prop_bal_castle', {}, () => mesh(geo.cyl(PAIL.RB, PAIL.R, PAIL.H, 24), 0xedc477, { outline: 0.02 })));
-  m.add(part('prop_bal_castle', 'shells', {}), part('prop_bal_castle', 'flag', {}));
+  const half = level < 0.75 && scMesh('prop_bal_castle_half', 'prop_bal_castle_half', {});
+  const kind = half ? 'prop_bal_castle_half' : 'prop_bal_castle';
+  const ky = half || level >= 0.75 ? sy : sy * Math.max(0.5, level);
+  const m = new T.Group(); m.scale.set(sx, half ? sy : ky, sx); g.add(m);
+  m.add(half || part(kind, kind, {}, () => mesh(geo.cyl(PAIL.RB, PAIL.R, PAIL.H, 24), 0xedc477, { outline: 0.02 })));
+  m.add(part(kind, 'shells', {}), part(kind, 'flag', {}), part(kind, 'door', {}));
   g.add(blobShadow(0.85 * sx));
   return g;
 }
 
-export function makeHeap() {
+// bare: just the sand (a little spill heap: no flag, no pebbles)
+export function makeHeap({ bare = false } = {}) {
   const g = new T.Group();
   g.add(part('prop_bal_heap', 'prop_bal_heap', {}, () => { const d = mesh(geo.sphere(1, 20, 10), 0xedc477, { outline: 0.02 }); d.scale.set(1.6, 1.2, 1.1); return d; }));
-  g.add(part('prop_bal_heap', 'pebbles', {}), part('prop_bal_heap', 'flag', {}));
+  if (!bare) g.add(part('prop_bal_heap', 'pebbles', {}), part('prop_bal_heap', 'flag', {}));
   return g;
 }
 export function makeTub(col = 0x3f8cff) {
@@ -448,7 +453,7 @@ export class SeeSaw {
     hold.add(part('prop_bal_seesaw', 'plank', {}, () => { const b = mesh(geo.box(8.2, 0.2, 1.32), 0xe5a865, { hull: 1.03 }); b.position.y = 1.1; return b; }));
     hold.add(part('prop_bal_seesaw', 'level', {}));
     // the bubble in the spirit level
-    const bub = (this.bubble = mesh(geo.sphere(0.05, 12, 8), 0xffffff, { outline: 0.012 }));
+    const bub = (this.bubble = mesh(geo.sphere(0.075, 14, 10), 0xffffff, { outline: 0.014 }));   // big enough to read from the main camera
     bub.scale.set(1.5, 0.95, 0.5);
     bub.position.set(0, SEESAW.LEVEL[1], SEESAW.LEVEL[2]);
     hold.add(bub);

@@ -1,15 +1,15 @@
 // Dress Monkey: the clothes catalogue (every garment is a layer on the Blender monkey: cloth_<slot>_<name>),
 // the body part each slot goes on, and the level plans (one whole outfit per level).
 
-// slot -> where it goes (words + the anchor on the monkey model + the picture-bubble emoji)
+// slot -> where it goes (words + the anchor(s) on the monkey model; the picture bubble shows the real garment)
 export const SLOTS = {
-  head: { part: 'head', kind: 'a hat', go: 'Hats go on heads!', anchors: ['top'], icon: '👒' },
-  body: { part: 'body', kind: 'a top', go: 'Tops go on the body!', anchors: ['chest'], icon: '👕' },
-  feet: { part: 'feet', kind: 'shoes', go: 'Shoes go on feet!', anchors: ['footL', 'footR'], icon: '👟' },
-  legs: { part: 'legs', kind: 'something for legs', go: 'That goes round the legs!', anchors: ['legs'], icon: '🩳' },
-  eyes: { part: 'eyes', kind: 'glasses', go: 'Glasses go on eyes!', anchors: ['eyeL', 'eyeR'], icon: '🕶️' },
-  neck: { part: 'neck', kind: 'something for the neck', go: 'That goes round the neck!', anchors: ['neck'], icon: '🧣' },
-  hands: { part: 'hands', kind: 'mittens', go: 'Mittens go on hands!', anchors: ['handL', 'handR'], icon: '🧤' },
+  head: { part: 'head', kind: 'a hat', go: 'Hats go on heads!', anchors: ['top'] },
+  body: { part: 'body', kind: 'a top', go: 'Tops go on the body!', anchors: ['chest'] },
+  feet: { part: 'feet', kind: 'shoes', go: 'Shoes go on feet!', anchors: ['footL', 'footR'] },
+  legs: { part: 'legs', kind: 'something for legs', go: 'That goes round the legs!', anchors: ['legs'] },
+  eyes: { part: 'eyes', kind: 'glasses', go: 'Glasses go on eyes!', anchors: ['eyeL', 'eyeR'] },
+  neck: { part: 'neck', kind: 'something for the neck', go: 'That goes round the neck!', anchors: ['neck'] },
+  hands: { part: 'hands', kind: 'mittens', go: 'Mittens go on hands!', anchors: ['handL', 'handR'] },
 };
 
 // name -> { slot, word (caption name), col (caption colour), move (the monkey's reaction), go (custom redirect) }
@@ -49,19 +49,21 @@ export const layerOf = (name) => `cloth_${CLOTHES[name].slot}_${name}`;
 
 // Weather for the window (and the Level 3 reasons). sky: window colours; fx: what falls / blows past.
 export const WEATHER = {
-  sunny: { sky: ['#5fc2ff', '#bfe9ff'], fx: 'sun', icon: '☀️' },
-  rainy: { sky: ['#8a9bb5', '#c4cfdd'], fx: 'rain', icon: '🌧️' },
-  snowy: { sky: ['#a9c3e0', '#e8f2ff'], fx: 'snow', icon: '❄️' },
-  windy: { sky: ['#7cc0f0', '#d4ecff'], fx: 'wind', icon: '💨' },
-  night: { sky: ['#2a2f6b', '#5a5aa8'], fx: 'stars', icon: '🌙' },
-  party: { sky: ['#ff9ecb', '#ffe0f0'], fx: 'balloons', icon: '🎉' },
+  sunny: { sky: ['#5fc2ff', '#bfe9ff'], fx: 'sun' },
+  rainy: { sky: ['#8a9bb5', '#c4cfdd'], fx: 'rain' },
+  snowy: { sky: ['#a9c3e0', '#e8f2ff'], fx: 'snow' },
+  windy: { sky: ['#7cc0f0', '#d4ecff'], fx: 'wind' },
+  night: { sky: ['#2a2f6b', '#5a5aa8'], fx: 'stars' },
+  party: { sky: ['#ff9ecb', '#ffe0f0'], fx: 'balloons' },
 };
 
 // A level = ONE whole outfit, put on one garment at a time (one round per garment, so the rounds per level are
 // items.length). Each item: name (a CLOTHES key), part (where it goes on Monkey, if not its own slot: the dungarees
 // are bottoms here), say (the caption when it comes out of the wardrobe), done (the praise line once it is on),
-// where (Level 3's gentle redirect when it lands on the wrong body part). Captions will be spoken later: short,
-// natural, kid-friendly.
+// where (the gentle redirect, Levels 2-3, when it lands on the wrong body part), alsoOk (other body parts that are a
+// sensible drop too: the dungarees' bib is on the tummy), fallback (the older, already-voiced wording to use until the
+// new line has a recorded clip). Captions are spoken: short, natural, kid-friendly.
+// parts: the garment must land on the right body part (Levels 2-3). glow: the body part still glows (Level 2).
 export const PLANS = [
   // Level 1: a sunny day. 4 items; drop anywhere on Monkey.
   {
@@ -69,26 +71,27 @@ export const PLANS = [
     items: [
       { name: 'tshirt', say: 'A T-shirt! Put it on Monkey!', done: 'T-shirt on!' },
       { name: 'shorts', say: 'Shorts! Put them on Monkey!', done: 'Shorts on!' },
-      { name: 'sneakers', say: 'Sneakers! Put them on Monkey!', done: 'Sneakers on!' },
+      { name: 'sneakers', say: 'Shoes! Put them on Monkey!', done: 'Shoes on!', fallback: 'Sneakers! Put them on Monkey!' },
       { name: 'sunhat', say: 'A sun hat! Put it on Monkey!', done: 'Hat on!' },
     ],
   },
-  // Level 2: a party. 5 items; drop anywhere on Monkey.
+  // Level 2: a party. 5 items. The middle step between L1 and L3: Monkey's body part still glows (and he points at
+  // it), but the garment must land on that part; a tap no longer puts it on.
   {
-    weather: 'party', look: 'Party time!',
+    weather: 'party', look: 'Party time!', parts: true, glow: true,
     items: [
-      { name: 'dress', say: 'A party dress! Put it on Monkey!', done: 'So pretty!' },
-      { name: 'tutu', say: 'A tutu! Put it on Monkey!', done: 'Twirl twirl!' },
-      { name: 'bowtie', say: 'A bow tie! Put it on Monkey!', done: 'Bow tie on!' },
-      { name: 'hearts', say: 'Heart glasses! Put them on Monkey!', done: 'Glasses on!' },
-      { name: 'party', say: 'A party hat! Put it on Monkey!', done: 'Party hat on!' },
+      { name: 'dress', say: 'A party dress! Put it on Monkey!', done: 'So pretty!', where: "On Monkey's tummy!" },
+      { name: 'tutu', say: 'A tutu! Put it on Monkey!', done: 'Twirl twirl!', where: "On Monkey's legs!", alsoOk: ['body'] },
+      { name: 'bowtie', say: 'A bow tie! Put it on Monkey!', done: 'Bow tie on!', where: "Round Monkey's neck!" },
+      { name: 'hearts', say: 'Heart glasses! Put them on Monkey!', done: 'Glasses on!', where: "On Monkey's eyes!" },
+      { name: 'party', say: 'A party hat! Put it on Monkey!', done: 'Party hat on!', where: "On Monkey's head!" },
     ],
   },
   // Level 3: a snowy day. 6 items, and each one must go on the right body part.
   {
     weather: 'snowy', look: 'Snowy day!', parts: true,
     items: [
-      { name: 'dungarees', part: 'legs', say: "Dungarees! Put them on Monkey's legs!", done: 'Dungarees on!', where: "On Monkey's legs!" },
+      { name: 'dungarees', part: 'legs', alsoOk: ['body'], say: "Dungarees! Put them on Monkey's legs!", done: 'Dungarees on!', where: "On Monkey's legs!" },
       { name: 'jumper', say: "A cosy jumper! Put it on Monkey's tummy!", done: 'Nice and cosy!', where: "On Monkey's tummy!" },
       { name: 'wellies', say: "Wellies! Put them on Monkey's feet!", done: 'Stomp stomp!', where: "On Monkey's feet!" },
       { name: 'scarf', say: "A scarf! Put it round Monkey's neck!", done: 'Scarf on!', where: "Round Monkey's neck!" },

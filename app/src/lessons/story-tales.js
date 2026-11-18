@@ -1,7 +1,10 @@
 // What happens next? The six little stories. Each step is a tiny 3D scene built inside a story card (on the turf:
 // y = 0 is the grass, the frame's inside is about x ±0.95, y 0..1.5, z -0.38..0.45), plus a short act that plays
 // when the finished story runs in order (the egg wobbles, the shell cracks, the chick hops out…).
-//   tale = { id, tint, line, three: [step keys], four: [step keys], steps: { key: { build(d, st), act(s, st) } } }
+//   tale = { id, tint, line, ask, lines: { key: line }, three: [step keys], four: [step keys],
+//            steps: { key: { build(d, st), act(s, st) } } }
+//   line = the ending (voiced when she tells the finished story), ask = the story's own question for its last card,
+//   lines = what the narrator says as each earlier card shows its moment ("An egg!", "Crack, crack!").
 // build(d, st) adds the scene to group d and keeps what the act needs in st.
 import * as T from '../three.js';
 import { setFace } from '../engine/actors.js';
@@ -9,7 +12,7 @@ import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
 import { project } from '../engine/stage.js';
-import { prop, critter, tintSkin } from './story-props.js';
+import { prop, critter } from './story-props.js';
 
 const wpos = (o) => o.getWorldPosition(new T.Vector3());
 const sparkleAt = (o, dy = 0) => { const p = wpos(o); p.y += dy; const c = project(p); fx.sparkle(c.x, c.y); };
@@ -59,7 +62,8 @@ function onHead(c, obj, at, worldScale) {
 const nest = (d, x = -0.04, s = 0.84) => d.add(prop('prop_st_nest', { s, at: [x, 0, 0.04] }));
 const NEST_IN = 0.12;   // the nest's hollow floor (at s 0.84)
 const chick = {
-  id: 'chick', tint: 0xffc93a, line: 'The chick hatched!',
+  id: 'chick', tint: 0xffc93a, line: 'The chick hatched!', ask: 'Who comes out?',
+  lines: { egg: 'An egg!', crack: 'Crack, crack!' },
   three: ['egg', 'crack', 'chick'], four: ['hen', 'egg', 'crack', 'chick'],
   steps: {
     hen: {
@@ -76,9 +80,9 @@ const chick = {
     },
     chick: {
       build(d, st) {
-        nest(d, -0.47, 0.7);
-        d.add(prop('prop_st_shell', { s: 0.62, at: [-0.47, 0.09, 0.05] }));
-        st.chick = critter('chick', { s: 0.82, at: [0.44, 0, 0.1], ry: -0.25 });
+        nest(d, -0.42, 0.62);
+        d.add(prop('prop_st_shell', { s: 0.55, at: [-0.42, 0.08, 0.05] }));
+        st.chick = critter('chick', { s: 0.68, at: [0.3, 0, 0.1], ry: -0.25 });
         const cap = new T.Group(), top = prop('prop_st_shelltop', { at: [0, -0.48, 0] });
         cap.add(top);
         cap.rotation.z = -0.32;
@@ -94,7 +98,8 @@ const chick = {
 const soil = (d) => d.add(prop('prop_st_soil', { s: 1.45, at: [0, 0, 0.06] }));
 const SOIL_TOP = 0.3;
 const flower = {
-  id: 'flower', tint: 0xff8fc0, line: 'The flower grew!',
+  id: 'flower', tint: 0xff8fc0, line: 'The flower grew!', ask: 'What grows?',
+  lines: { seed: 'A little seed!', sprout: 'A tiny sprout!' },
   three: ['seed', 'sprout', 'flower'], four: ['seed', 'sprout', 'bud', 'flower'],
   steps: {
     seed: {
@@ -111,8 +116,8 @@ const flower = {
     bud: {
       build(d, st) {
         soil(d);
-        d.add(prop('prop_st_stem', { s: 0.92, at: [0, SOIL_TOP - 0.03, 0.08] }));
-        st.bud = prop('prop_growbud', { s: 1.05, at: [0, SOIL_TOP + 0.84, 0.08], tint: 0xff7fae }); d.add(st.bud);
+        d.add(prop('prop_st_stem', { s: 0.78, at: [0, SOIL_TOP - 0.03, 0.08] }));
+        st.bud = prop('prop_growbud', { s: 1.05, at: [0, SOIL_TOP + 0.68, 0.08], tint: 0xff7fae }); d.add(st.bud);
       },
       act(s, st) { sfx.twinkle(); return pulse(s, st.bud, 0.25, 0.45); },
     },
@@ -133,16 +138,17 @@ const flower = {
 
 // ---------------------------------------------------------------- 3. caterpillar to butterfly
 const butterfly = {
-  id: 'butterfly', tint: 0xa98cff, line: 'A butterfly!',
+  id: 'butterfly', tint: 0xa98cff, line: 'A butterfly!', ask: 'Who comes out?',
+  lines: { cat: 'A caterpillar!', cocoon: 'It goes to sleep!' },
   three: ['cat', 'cocoon', 'fly'], four: ['eggs', 'cat', 'cocoon', 'fly'],
   steps: {
     eggs: {
-      build(d, st) { st.leaf = prop('prop_st_leafbed', { s: 1.15, at: [0.08, 0, 0.08] }); st.leaf.userData.model?.userData.wear('cloth_eggs', true); d.add(st.leaf); },
+      build(d, st) { st.leaf = prop('prop_st_leafbed', { s: 1.02, at: [0.1, 0, 0.08] }); st.leaf.userData.model?.userData.wear('cloth_eggs', true); d.add(st.leaf); },
       act(s, st) { sfx.twinkle(); sparkleAt(st.leaf, 0.2); return pulse(s, st.leaf, 0.08, 0.4); },
     },
     cat: {
       build(d, st) {
-        d.add(prop('prop_st_leafbed', { s: 1.15, at: [0.08, 0, 0.08] }));
+        d.add(prop('prop_st_leafbed', { s: 1.02, at: [0.1, 0, 0.08] }));
         st.cat = prop('prop_st_caterpillar', { s: 0.45, at: [0.02, 0.1, 0.14], r: [0, -0.15, 0] }); d.add(st.cat);
       },
       act(s, st) {
@@ -165,25 +171,40 @@ const butterfly = {
     fly: {
       build(d, st) {
         d.add(prop('prop_st_branch', { s: 1.0, at: [0, 0, 0.0] }));
-        st.bf = prop('prop_m_butterfly', { s: 1.0, at: [0.3, 0.9, 0.16], r: [-1.35, 0, -0.18], tint: 0xff8fc0 }); d.add(st.bf);
+        // in the air below the twig, open wings to the camera (clear of the leaves and the frame)
+        st.bf = prop('prop_m_butterfly', { s: 1.02, at: [0.38, 0.48, 0.16], r: [-1.35, 0, -0.18], tint: 0xff8fc0 }); d.add(st.bf);
       },
       act(s, st) {
-        sfx.twinkle(); sparkleAt(st.bf);
+        sfx.twinkle(); sparkleAt(st.bf, 0.35);
+        // the wings beat about their resting (open) pose and settle back open
         const w = st.bf.userData.model?.userData.wings, y0 = st.bf.position.y;
+        const r0 = w ? w.map((x) => x.rotation.z) : null;
         return s.anim(0.7, (_, p) => {
-          st.bf.position.y = y0 + Math.sin(p * Math.PI) * 0.18;
-          if (w) { const a = Math.sin(p * Math.PI * 7) * 0.7; w[0].rotation.z = a; w[1].rotation.z = -a; }
-        }).then(() => { st.bf.position.y = y0; if (w) { w[0].rotation.z = 0; w[1].rotation.z = 0; } });
+          st.bf.position.y = y0 + Math.sin(p * Math.PI) * 0.07;
+          if (w) { const a = Math.abs(Math.sin(p * Math.PI * 3)) * 0.55; w[0].rotation.z = r0[0] + a; w[1].rotation.z = r0[1] - a; }
+        }).then(() => { st.bf.position.y = y0; if (w) { w[0].rotation.z = r0[0]; w[1].rotation.z = r0[1]; } });
       },
     },
   },
 };
 
 // ---------------------------------------------------------------- 4. the apple falls and Bunny eats it
-const tree = (d) => d.add(prop('prop_m_tree', { s: 0.3, at: [-0.42, 0, 0], tint: 0x67c94f, hide: ['snow'] }));
-const APPLE_ON_TREE = [-0.2, 0.86, 0.34];
+const tree = (d) => d.add(prop('prop_m_tree', { s: 0.3, at: [-0.5, 0, 0], tint: 0x67c94f, hide: ['snow'] }));
+const APPLE_ON_TREE = [-0.28, 0.86, 0.34];
+// Bunny holds the bitten apple in both paws in front of its chest, head bowed to it (the apple rides in Bunny's own
+// space, so it stays in the paws whatever Bunny does)
+const EAT_TILT = 0.16;
+function holdApple(st) {
+  const u = st.bun.userData, a = u.arms;
+  if (a) { a[0].rotation.x -= 1.2; a[0].rotation.z -= 0.9; a[1].rotation.x -= 1.2; a[1].rotation.z += 0.9; }
+  u.noLook = true;
+  if (u.head) u.head.rotation.x = EAT_TILT;
+  st.apple = prop('prop_st_applebite', { s: 0.5 / 0.36, at: [0, 0.8, 0.5], r: [0.1, -1.0, 0] });
+  st.bun.add(st.apple);
+}
 const apple = {
-  id: 'apple', tint: 0xff6a5a, line: 'Yum! Bunny ate the apple!',
+  id: 'apple', tint: 0xff6a5a, line: 'Yum! Bunny ate the apple!', ask: 'Who eats it?',
+  lines: { tree: 'An apple tree!', fall: 'The apple falls!' },
   three: ['tree', 'fall', 'eat'], four: ['tree', 'fall', 'eat', 'core'],
   steps: {
     tree: {
@@ -205,20 +226,20 @@ const apple = {
     eat: {
       build(d, st) {
         tree(d);
-        st.bun = critter('bunny', { s: 0.36, at: [0.5, 0, -0.02], ry: -0.3 }); d.add(st.bun);
-        st.apple = prop('prop_st_applebite', { s: 0.5, at: [0.44, 0.36, 0.3], r: [0.1, -0.7, 0] }); d.add(st.apple);
+        st.bun = critter('bunny', { s: 0.36, at: [0.36, 0, -0.02], ry: -0.3 }); d.add(st.bun);
+        holdApple(st);
       },
       act(s, st) {
         sfx.crunch(); s.wait(0.25).then(() => sfx.crunch());
         const h = st.bun.userData.head;
-        if (h) s.anim(0.5, (_, p) => { h.rotation.x = Math.abs(Math.sin(p * Math.PI * 2)) * 0.25; }).then(() => { h.rotation.x = 0; });
+        if (h) s.anim(0.5, (_, p) => { h.rotation.x = EAT_TILT + Math.abs(Math.sin(p * Math.PI * 2)) * 0.18; }).then(() => { h.rotation.x = EAT_TILT; });
         return pulse(s, st.apple, -0.12, 0.5);
       },
     },
     core: {
       build(d, st) {
         tree(d);
-        st.bun = critter('bunny', { s: 0.36, at: [0.5, 0, -0.02], ry: -0.3 }); d.add(st.bun);
+        st.bun = critter('bunny', { s: 0.36, at: [0.36, 0, -0.02], ry: -0.3 }); d.add(st.bun);
         st.core = prop('prop_st_core', { s: 0.5, at: [0.08, 0.13, 0.22], r: [0, 0, 0.15] }); d.add(st.core);
       },
       act(s, st) { sfx.mmm(); joy(s, st.bun); return bounce(s, st.bun, 0.22, 0.4); },
@@ -229,20 +250,21 @@ const apple = {
 // ---------------------------------------------------------------- 5. sun, rain, rainbow
 const sky = (k, o) => prop(k, o);
 const rain = {
-  id: 'rain', tint: 0x4aa8ff, line: 'A rainbow!',
+  id: 'rain', tint: 0x4aa8ff, line: 'A rainbow!', ask: 'What comes now?',
+  lines: { sun: 'Sunny day!', rain: 'Rain!' },
   three: ['sun', 'rain', 'rainbow'], four: ['sun', 'cloud', 'rain', 'rainbow'],
   steps: {
     sun: {
       build(d, st) {
         st.sun = sky('prop_word_sun', { s: 0.42, at: [0, 0.4, -0.12] }); d.add(st.sun);
-        d.add(prop('prop_scene_flower', { s: 0.5, at: [-0.7, 0, 0.18] }), prop('prop_scene_flower', { s: 0.45, at: [0.72, 0, 0.12] }));
+        d.add(prop('prop_scene_flower', { s: 0.75, at: [-0.55, 0, 0.18] }), prop('prop_scene_flower', { s: 0.7, at: [0.56, 0, 0.12] }));
       },
       act(s, st) { sfx.twinkle(); joy(s, st.sun); return pulse(s, st.sun, 0.12, 0.45); },
     },
     cloud: {
       build(d, st) {
-        st.sun = sky('prop_word_sun', { s: 0.34, at: [-0.4, 0.62, -0.24] }); d.add(st.sun);
-        st.cloud = sky('prop_cloud', { s: 0.4, at: [0.25, 1.0, 0.12] }); d.add(st.cloud);
+        st.sun = sky('prop_word_sun', { s: 0.34, at: [-0.55, 0.75, -0.24] }); d.add(st.sun);
+        st.cloud = sky('prop_cloud', { s: 0.4, at: [0.25, 0.85, 0.12] }); d.add(st.cloud);
         const f = st.cloud.userData.model?.userData.face; if (f) setFace(f, 'sad');
       },
       act(s, st) {
@@ -253,23 +275,23 @@ const rain = {
     rain: {
       build(d, st) {
         d.add(prop('prop_icon_puddle', { s: 0.36, at: [0, 0.0, 0.12] }));
-        st.cloud = sky('prop_cloud', { s: 0.42, at: [0, 1.1, 0.0] }); d.add(st.cloud);
+        st.cloud = sky('prop_cloud', { s: 0.42, at: [0, 0.95, 0.0] }); d.add(st.cloud);
         const f = st.cloud.userData.model?.userData.face; if (f) setFace(f, 'sad');
-        st.drops = [[-0.35, 0.55, 0.15], [0.05, 0.38, 0.2], [0.4, 0.62, 0.12], [-0.12, 0.75, 0.1], [0.22, 0.2, 0.18]].map((at) => {
+        st.drops = [[-0.35, 0.5, 0.15], [0.05, 0.34, 0.2], [0.4, 0.56, 0.12], [-0.12, 0.62, 0.1], [0.22, 0.18, 0.18]].map((at) => {
           const o = prop('prop_m_drop', { s: 1.3, at }); d.add(o); o.userData.y0 = at[1]; return o;
         });
       },
       act(s, st) {
         sfx.patter();
         return s.anim(0.7, (_, p) => {
-          st.drops.forEach((o, i) => { const u = (p * 1.6 + i * 0.23) % 1; o.position.y = 0.8 - u * 0.75; });
+          st.drops.forEach((o, i) => { const u = (p * 1.6 + i * 0.23) % 1; o.position.y = 0.66 - u * 0.61; });
         }).then(() => st.drops.forEach((o) => { o.position.y = o.userData.y0; }));
       },
     },
     rainbow: {
       build(d, st) {
         st.bow = sky('prop_rainbow', { s: 0.25, at: [0.04, 0.135, -0.15] }); d.add(st.bow);
-        st.sun = sky('prop_word_sun', { s: 0.24, at: [-0.66, 0.93, -0.2] }); d.add(st.sun);
+        st.sun = sky('prop_word_sun', { s: 0.24, at: [-0.5, 0.74, -0.2] }); d.add(st.sun);
       },
       act(s, st) { sfx.sparkle(); joy(s, st.sun); sparkleAt(st.bow, 0.6); return pulse(s, st.bow, 0.12, 0.45); },
     },
@@ -277,24 +299,29 @@ const rain = {
 };
 
 // ---------------------------------------------------------------- 6. Piggy gets muddy and has a bath
-const MUD = 0xb98e6a;
+// a muddy pig is still a pink pig: the pig's own mud splat layers (tools/blender/creatures/pig.py), on body and head
+function muddy(c) {
+  const wear = c.userData.wear || c.userData.model?.userData.wear;
+  if (wear) { wear('cloth_mud', true); wear('cloth_mud_head', true); }
+}
 const pig = {
-  id: 'pig', tint: 0x7fd36a, line: 'Piggy is clean!',
+  id: 'pig', tint: 0x7fd36a, line: 'Piggy is clean!', ask: 'What does piggy need?',
+  lines: { mud: 'A mud puddle!', muddy: 'Muddy piggy!' },
   three: ['mud', 'muddy', 'bath'], four: ['mud', 'muddy', 'bath', 'dry'],
   steps: {
     mud: {
       build(d, st) {
-        d.add(prop('prop_mud', { s: 0.36, at: [0.48, 0, 0.12] }));
-        st.pig = critter('pig', { s: 0.46, at: [-0.44, 0, 0.06], ry: 0.45 }); d.add(st.pig);
+        d.add(prop('prop_mud', { s: 0.36, at: [0.55, 0, 0.12] }));
+        st.pig = critter('pig', { s: 0.44, at: [-0.32, 0, 0.06], ry: 0.45 }); d.add(st.pig);
       },
       act(s, st) { sfx.oink(); joy(s, st.pig); return bounce(s, st.pig, 0.2, 0.36); },
     },
     muddy: {
       build(d, st) {
         st.mud = prop('prop_mud', { s: 0.5, at: [0.04, 0, 0.1] }); d.add(st.mud);
-        st.pig = critter('pig', { s: 0.46, at: [0.04, 0.02, 0.06], ry: -0.15 }); tintSkin(st.pig, MUD); d.add(st.pig);
+        st.pig = critter('pig', { s: 0.46, at: [0.04, 0.02, 0.06], ry: -0.15 }); muddy(st.pig); d.add(st.pig);
       },
-      act(s, st) { sfx.splash(); joy(s, st.pig); sparkleAt(st.mud); return wobble(s, st.pig, 0.18, 0.5, 3); },
+      act(s, st) { sfx.splash(); joy(s, st.pig); return wobble(s, st.pig, 0.18, 0.5, 3); },
     },
     bath: {
       build(d, st) {
@@ -310,8 +337,8 @@ const pig = {
     },
     dry: {
       build(d, st) {
-        d.add(prop('prop_metaltub', { s: 0.38, at: [0.52, 0, -0.02] }));
-        st.pig = critter('pig', { s: 0.46, at: [-0.4, 0, 0.08], ry: 0.25 }); d.add(st.pig);
+        d.add(prop('prop_metaltub', { s: 0.38, at: [0.4, 0, -0.02] }));
+        st.pig = critter('pig', { s: 0.42, at: [-0.45, 0, 0.08], ry: 0.25 }); d.add(st.pig);
       },
       act(s, st) { sfx.sparkle(); joy(s, st.pig); sparkleAt(st.pig, 0.8); return bounce(s, st.pig, 0.25, 0.4); },
     },

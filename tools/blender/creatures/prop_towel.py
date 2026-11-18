@@ -1,6 +1,6 @@
 """Beach towel lying flat (Pattern parade choices, Where's Crab?, Bear's nose). 3.0 x 2.0 (x by z), about 0.07 thick,
-origin under the middle on the sand. Soft rounded corners and a gentle crumple; seven bands across x: four tinted
-(argMode 'tint', the main skin) and three white bands on layer 'white'; little white tassels along both short ends."""
+origin under the middle on the sand. Soft rounded corners and a gentle crumple; seven full-thickness bands across x: four tinted
+(argMode 'tint', the main skin) and three white bands on layer 'white' (straight seams); little white tassels along both short ends."""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from kit import Prop
@@ -36,15 +36,17 @@ def slab(x0, x1, z0, z1, y0, y1, nx=8, nz=10):
     p.mesh(verts, faces)
 
 
-slab(-W / 2, W / 2, -D / 2, D / 2, 0.0, T, nx=30, nz=20)
-for c in (-1, 1):                         # soften the corners a little (rounded blobs fill them)
-    pass
 bw = W / 7
+# the towel is woven in seven full-thickness bands: four tinted (skin) and three white (own layer), side by side, so
+# every stripe edge is a straight, crisp seam right through the cloth (thin white stickers on top went ragged)
+for k in (0, 2, 4, 6):
+    x0 = -W / 2 + bw * k
+    slab(x0, x0 + bw, -D / 2, D / 2, 0.0, T, nx=6, nz=20)
 p.layer('white', base=0xfffaf0, target_faces=1200, voxel=0.012)
 p.quadriflow = False
 for k in (1, 3, 5):
     x0 = -W / 2 + bw * k
-    slab(x0, x0 + bw, -D / 2 + 0.002, D / 2 - 0.002, T - 0.012, T + 0.012, nx=4, nz=16)
+    slab(x0 - 0.004, x0 + bw + 0.004, -D / 2, D / 2, 0.0, T + 0.004, nx=6, nz=20)
 p.layer('fringe', base=0xfffaf0, target_faces=600, voxel=0.01)
 p.quadriflow = False
 for s in (-1, 1):

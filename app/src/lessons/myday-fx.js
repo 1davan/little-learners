@@ -2,50 +2,89 @@
 // (paint, mud, jam), toothpaste foam, a sneeze puff, Zzz and night stars. Bubbles, foam and splats come from the old
 // Splash wash game.
 import * as T from '../three.js';
-import { mesh, geo, toonUnique, basic } from '../engine/toon.js';
+import { mesh, geo, toon, toonUnique, basic } from '../engine/toon.js';
 import { makeWaterDrop } from '../engine/beach.js';
 
 // ---------------- running water ----------------
-// A soft see-through stream from a spout down to `floorY`, with a shiny core and a splash ring where it lands.
-// set(on) eases it in / out; update(dt, t) wobbles it.
-const streamMat = new T.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.55, depthWrite: false });
-const coreMat = new T.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.7, depthWrite: false });
-streamMat.userData.shared = coreMat.userData.shared = true;
+// A soft see-through ribbon of water from a spout down onto whatever is under it (`floorY`), with a bright wobbling
+// core and a little crown of splashes where it lands. set(on) eases it in / out; setLen(l) sets where it lands.
+const streamMat = new T.MeshBasicMaterial({ color: 0x7fd2ff, transparent: true, opacity: 0.62, depthWrite: false });
+const coreMat = new T.MeshBasicMaterial({ color: 0xf2fcff, transparent: true, opacity: 0.85, depthWrite: false });
+const splashMat = new T.MeshBasicMaterial({ color: 0xbfeaff, transparent: true, opacity: 0.85, depthWrite: false });
+streamMat.userData.shared = coreMat.userData.shared = splashMat.userData.shared = true;
 export function makeStream(top, floorY, r = 0.07) {
   const g = new T.Group();
   g.position.copy(top);
   const len = Math.max(0.05, top.y - floorY);
-  const col = new T.Mesh(new T.CylinderGeometry(r, r * 1.25, 1, 14, 1, true), streamMat);
+  const col = new T.Mesh(new T.CylinderGeometry(r * 0.9, r * 1.2, 1, 16, 1, true), streamMat);
   col.geometry.translate(0, -0.5, 0);
-  const core = new T.Mesh(new T.CylinderGeometry(r * 0.35, r * 0.45, 1, 8, 1, true), coreMat);
+  const core = new T.Mesh(new T.CylinderGeometry(r * 0.28, r * 0.36, 1, 8, 1, true), coreMat);
   core.geometry.translate(0, -0.5, 0);
-  core.position.x = -r * 0.3;
-  const ring = new T.Mesh(new T.TorusGeometry(r * 2.2, r * 0.45, 6, 18), streamMat);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = -len + 0.02;
-  g.add(col, core, ring);
-  g.userData = { col, core, ring, len, amt: 0, want: 0, r };
+  core.position.set(-r * 0.35, 0, r * 0.4);
+  // where it lands: a few little drops jumping out in a ring
+  const crown = new T.Group();
+  const drops = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new T.Mesh(new T.SphereGeometry(r * 0.42, 10, 8), splashMat);
+    d.userData.a = (i / 6) * Math.PI * 2;
+    crown.add(d); drops.push(d);
+  }
+  crown.position.y = -len;
+  g.add(col, core, crown);
+  g.userData = { col, core, crown, len, amt: 0, want: 0, r };
   col.scale.y = core.scale.y = 0.001;
-  ring.visible = false;
+  crown.visible = false;
   g.userData.set = (on) => { g.userData.want = on ? 1 : 0; };
-  g.userData.setLen = (l) => { g.userData.len = l; ring.position.y = -l + 0.02; };
+  g.userData.setLen = (l) => { g.userData.len = l; crown.position.y = -l; };
   g.userData.update = (dt, t) => {
     const u = g.userData;
     u.amt += Math.sign(u.want - u.amt) * Math.min(Math.abs(u.want - u.amt), dt * 4);
     const L = u.len * u.amt;
     col.scale.y = core.scale.y = Math.max(0.001, L);
-    const w = 1 + Math.sin(t * 40) * 0.06;
+    const w = 1 + Math.sin(t * 40) * 0.07;
     col.scale.x = col.scale.z = w;
     core.scale.x = core.scale.z = 2 - w;
-    ring.visible = u.amt > 0.95;
-    ring.scale.setScalar(1 + Math.sin(t * 25) * 0.15);
+    crown.visible = u.amt > 0.9;
+    if (crown.visible) for (const d of drops) {
+      const ph = (t * 3.2 + d.userData.a * 0.7) % 1;
+      const rr = r * (1.2 + 2.2 * ph);
+      d.position.set(Math.cos(d.userData.a) * rr, Math.sin(ph * Math.PI) * r * 2.2, Math.sin(d.userData.a) * rr);
+      d.scale.setScalar(1 - ph * 0.6);
+    }
   };
   return g;
 }
 
+// ---------------- bath water ----------------
+// The water in the claw-foot tub (prop_md_bath): a soft blue surface with a lighter rim where it meets the tub and a
+// couple of shine streaks. setLevel(y) keeps it just inside the tub's inner wall at that height.
+export function makeBathWater(rx = 1.9, rz = 0.84) {
+  const g = new T.Group();
+  const flat = (geo, col, y, opts = {}) => { const m = new T.Mesh(geo, toonUnique(col, opts)); m.rotation.x = -Math.PI / 2; m.position.y = y; g.add(m); return m; };
+  flat(new T.CircleGeometry(1, 56), 0x7fd0f5, 0);
+  flat(new T.RingGeometry(0.86, 1.0, 56), 0xbfe9fb, 0.004);
+  const s1 = flat(new T.CircleGeometry(1, 24), 0xeefaff, 0.008); s1.scale.set(0.32, 0.06, 1); s1.position.set(-0.3, 0.008, -0.25);
+  const s2 = flat(new T.CircleGeometry(1, 24), 0xeefaff, 0.008); s2.scale.set(0.16, 0.045, 1); s2.position.set(0.25, 0.008, 0.3);
+  // the tub's inner wall radius (fraction of its 2.1 x 0.95 size) at height y, from prop_md_bath's profile
+  const inner = (y) => (y < 0.88 ? 0.78 + 0.12 * Math.max(0, (y - 0.64) / 0.24) : 0.9 + 0.035 * Math.min(1, (y - 0.88) / 0.42));
+  g.userData.setLevel = (y) => { const k = inner(y) * 0.985; g.scale.set(2.1 * k, 1, 0.95 * k); };
+  g.userData.setLevel(0.62);
+  g.userData.update = (dt, t) => { s1.position.x = -0.3 + Math.sin(t * 0.7) * 0.06; s2.position.x = 0.25 + Math.sin(t * 0.9 + 1) * 0.05; };
+  return g;
+}
+
 // ---------------- foam and bubbles ----------------
+// a soft puff of foam: a few smooth round blobs melted together, pale blue-white with a little shine (no ink line)
+const foamMat = toonUnique(0xf6fbff);
+const foamShine = basic(0xffffff);
 export function makeFoam(r = 0.09 + Math.random() * 0.08) {
-  return mesh(geo.sphere(Math.round(r * 100) / 100, 10, 8), 0xffffff, { outline: 0.012 });
+  const g = new T.Group();
+  const s = geo.sphere(1, 20, 14);
+  for (const [x, y, z, k] of [[0, 0, 0, 1], [0.62, -0.18, 0.05, 0.68], [-0.55, -0.22, 0.1, 0.6], [0.1, 0.42, -0.05, 0.55]]) {
+    const m = new T.Mesh(s, foamMat); m.position.set(x * r, y * r, z * r); m.scale.setScalar(r * k); g.add(m);
+  }
+  const hi = new T.Mesh(geo.sphere(1, 10, 8), foamShine); hi.scale.set(r * 0.22, r * 0.15, r * 0.1); hi.position.set(-r * 0.35, r * 0.45, r * 0.82); g.add(hi);
+  return g;
 }
 // a soap bubble: see-through with a bright rim and a shine (reads as a bubble on any background)
 const bubbleBody = new T.MeshBasicMaterial({ color: 0xeaf8ff, transparent: true, opacity: 0.32, depthWrite: false });
@@ -64,62 +103,43 @@ export function makeSoapBubble(r = 0.3) {
 }
 export const makeDrop = (r = 0.08, col) => makeWaterDrop(r, col);
 
-// ---------------- mess on the paws (flat splats that lie on the fur) ----------------
-let layerN = 0;
-function messMat(col, layer) {
-  return toonUnique(col, { transparent: true, polygonOffset: true, polygonOffsetFactor: -2 - layer * 2, polygonOffsetUnits: -4 - layer * 4 });
-}
-function splatGeo(outline, R, cx, cy, lift, rings = 4, segs = 32) {
-  const pos = [], idx = [];
-  pos.push(cx, cy, lift);
-  for (let i = 1; i <= rings; i++) {
-    const u = i / rings;
-    for (let j = 0; j < segs; j++) {
-      const t = (j / segs) * Math.PI * 2, r = R * u * outline(t);
-      pos.push(cx + Math.cos(t) * r, cy + Math.sin(t) * r, lift - 0.03 * u * u);
-    }
-  }
-  for (let j = 0; j < segs; j++) idx.push(0, 1 + j, 1 + ((j + 1) % segs));
-  for (let i = 1; i < rings; i++) for (let j = 0; j < segs; j++) {
-    const a = 1 + (i - 1) * segs + j, b = 1 + (i - 1) * segs + ((j + 1) % segs), c = a + segs, d = b + segs;
-    idx.push(a, c, d, a, d, b);
-  }
-  const g = new T.BufferGeometry();
-  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  return g;
-}
-function blobby(seed, lobes = 6) {
-  const ph = seed * 1.7;
-  return (t) => 1 + 0.1 * Math.sin(t * 3 + ph) + 0.16 * Math.max(0, Math.sin(t * lobes + ph * 2)) ** 2;
-}
-function splat(g, { col, rim, R, x = 0, y = 0, seed = 0, lobes = 6, lift = 0.012 }) {
-  const out = blobby(seed, lobes);
-  const L = layerN; layerN += 2;
-  g.add(new T.Mesh(splatGeo((t) => out(t) + 0.12, R, x, y, lift), messMat(rim, L % 12)));
-  g.add(new T.Mesh(splatGeo(out, R, x, y, lift + 0.004), messMat(col, (L + 1) % 12)));
-}
+// ---------------- mess on the paws: small glossy blobs the size of a paw pad ----------------
 export const MESS = {
-  paint: { cols: [[0xff4b6b, 0xc23050], [0x4a90ff, 0x2f64c0], [0xffd23f, 0xd9a520]] },
-  mud: { cols: [[0x7a5030, 0x4a2c14]] },
-  jam: { cols: [[0xd0306b, 0x8a0e40]] },
+  paint: { cols: [0xff4b6b, 0x4a90ff, 0xffd23f] },
+  mud: { cols: [0x8a5a34, 0x7a4f2c] },
+  jam: { cols: [0xd8306b, 0xc22a60] },
 };
-// a little mess splat (about 0.5 across) facing +z
+// one rounded blob (about 0.15 across, facing +z), a soft bulge with a little white shine
 export function makeMess(kind, seed = Math.random() * 9) {
   const g = new T.Group();
   const cols = MESS[kind].cols;
-  const [c, r] = cols[Math.floor(seed * 7) % cols.length];
-  splat(g, { col: c, rim: r, R: 0.2, seed, lobes: kind === 'mud' ? 5 : 7 });
-  if (kind === 'paint') { const [c2, r2] = cols[(Math.floor(seed * 7) + 1) % cols.length]; splat(g, { col: c2, rim: r2, R: 0.1, x: 0.12, y: 0.1, seed: seed + 3, lift: 0.02 }); }
-  if (kind === 'mud') splat(g, { col: 0x8f6040, rim: 0x6b4423, R: 0.07, x: -0.06, y: 0.05, seed: 2, lift: 0.02 });
-  if (kind === 'jam') splat(g, { col: 0xff7aa8, rim: 0xd0306b, R: 0.06, x: -0.06, y: 0.06, seed: 4, lift: 0.02 });
+  const col = cols[Math.floor(seed * 7) % cols.length];
+  const R = 0.075 + 0.015 * Math.sin(seed * 3);
+  const mat = toonUnique(col, { transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+  const b = new T.Mesh(geo.sphere(1, 18, 12), mat);
+  b.scale.set(R * (1 + 0.15 * Math.sin(seed)), R * (1 - 0.1 * Math.sin(seed)), R * 0.38);
+  g.add(b);
+  if (kind === 'mud' || kind === 'jam') {   // a second little lump
+    const b2 = new T.Mesh(geo.sphere(1, 14, 10), mat);
+    b2.scale.set(R * 0.5, R * 0.45, R * 0.3); b2.position.set(R * 0.75, -R * 0.45, 0); g.add(b2);
+  }
+  const hi = new T.Mesh(geo.sphere(1, 10, 8), toonUnique(0xffffff, { transparent: true }));
+  hi.scale.set(R * 0.28, R * 0.18, R * 0.1); hi.position.set(-R * 0.35, R * 0.38, R * 0.32);
+  g.add(hi);
   return g;
 }
-export function setMessLook(m, p, base = 1) {
-  const k = Math.max(0, 1 - p);
-  m.scale.setScalar(base * (0.35 + 0.65 * k));
-  m.traverse((o) => { if (o.material) o.material.opacity = 0.15 + 0.85 * k; });
+// a ruffled tuft of fur (3 soft spikes fanning out, fur white with the ink line), base at the origin pointing +y
+const furMat = toon(0xfffbf7);
+export function makeTuft(size = 0.18) {
+  const g = new T.Group();
+  for (const [a, k] of [[-0.45, 0.8], [0, 1], [0.45, 0.75]]) {
+    const m = mesh(geo.sphere(1, 12, 10), 0xfffbf7, { outline: 0.18, mat: furMat });
+    m.scale.set(size * 0.22, size * 0.6 * k, size * 0.16);
+    m.position.set(Math.sin(a) * size * 0.4, Math.cos(a) * size * 0.45 * k, 0);
+    m.rotation.z = -a;
+    g.add(m);
+  }
+  return g;
 }
 
 // ---------------- the sleepy Zzz and the night ----------------

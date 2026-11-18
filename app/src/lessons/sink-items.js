@@ -8,34 +8,47 @@ import { layerColor } from '../engine/beach.js';
 
 // b = buoyancy (how hard the water pushes up when it is all under: > 1 floats, < 1 sinks; a floater settles with
 // about 1/b of itself under water). up = keep it upright while it floats (a duck sits on the water, not on its side).
-// rolls / bounces: for the Level 3 "which rolls? which bounces?" tests.
+// rolls / bounces: for the Level 3 "which rolls? which bounces?" tests. rx/ry: how it sits on the crate (display).
+// tubRx: its tilt once it rests in a tub (a leaf shown tilted on the crate lies flat on the water). gores: the beach ball's three coloured panels. noInk: layers whose ink outline is hidden (flush stickers).
+// The sink lab's own models (prop_sink*) are in tools/blender/creatures/prop_sinklab.py.
 export const ITEMS = {
   duck: { kind: 'prop_duckie', name: 'duck', size: 0.85, floats: true, b: 1.8, up: true, rx: 0, ry: -0.5 },
-  rock: { kind: 'prop_rock', name: 'rock', size: 0.36, tint: 0x9da3ad, floats: false, b: 0.25, bounces: false },
-  ball: { kind: 'prop_m_beachball', name: 'beach ball', size: 1.2, tint: 0x7fd6ff, floats: true, b: 2.6, rolls: true, bounces: true, r: 0.53 },
-  stone: { kind: 'prop_farmrock', name: 'stone', size: 0.62, floats: false, b: 0.25 },
-  sponge: { kind: 'prop_sponge', name: 'sponge', size: 0.62, tint: 0xffd23f, floats: true, b: 1.9, scrub: 0x5fd068 },
-  shell: { kind: 'prop_seashell', name: 'shell', size: 0.5, tint: 0xffb6c9, floats: false, b: 0.3 },
+  rock: { kind: 'prop_sinkrock', name: 'rock', size: 0.74, floats: false, b: 0.25, bounces: false, ry: 0.3 },
+  ball: { kind: 'prop_beachball', name: 'beach ball', size: 0.4, gores: [0xff5a5a, 0xffd23f, 0x4a90ff], floats: true, b: 2.6, rolls: true, bounces: true, r: 0.4, ry: 0.5 },
+  stone: { kind: 'prop_sinkstone', name: 'stone', size: 0.95, floats: false, b: 0.25, ry: -0.2 },
+  sponge: { kind: 'prop_sponge', name: 'sponge', size: 0.62, tint: 0xffd23f, floats: true, b: 1.9, scrub: 0x5fd068, up: true },
+  shell: { kind: 'prop_seashell', name: 'shell', size: 0.68, tint: 0xffb6c9, floats: false, b: 0.3 },
   apple: { kind: 'prop_m_apple', name: 'apple', size: 1.0, tint: 0xff4b4b, floats: true, b: 1.4, up: true },
-  key: { kind: 'prop_sinkkey', name: 'key', size: 0.9, floats: false, b: 0.2 },
-  leaf: { kind: 'prop_m_leaf', name: 'leaf', size: 1.7, tint: 0x5fd068, floats: true, b: 3, up: true },
-  marble: { kind: 'prop_m_marble', name: 'marble', size: 1.0, tint: 0x4a90ff, floats: false, b: 0.2, r: 0.2 },
-  block: { kind: 'prop_m_block', name: 'block', size: 0.95, tint: 0xf0b45a, floats: true, b: 1.8, rolls: false, up: true },
+  key: { kind: 'prop_sinkkey', name: 'key', size: 1.15, floats: false, b: 0.2, rx: -Math.PI / 2, ry: 0.25 },
+  leaf: { kind: 'prop_sinkleaf', name: 'leaf', size: 1.45, floats: true, b: 3, up: true, rx: 0.45, tubRx: 0, ry: -0.15 },
+  marble: { kind: 'prop_m_marble', name: 'marble', size: 1.1, tint: 0x4a90ff, floats: false, b: 0.2, r: 0.22 },
+  block: { kind: 'prop_sinkblock', name: 'block', size: 1.05, floats: true, b: 1.8, rolls: false, up: true, ry: -0.35, noInk: ['star'] },
   gem: { kind: 'prop_m_gem', name: 'gem', size: 1.6, tint: 0xb07bff, floats: false, b: 0.2 },
-  log: { kind: 'prop_sinklog', name: 'big log', size: 1.0, floats: true, b: 1.35, big: true, up: true },
-  coin: { kind: 'prop_coin', name: 'tiny coin', size: 0.2, floats: false, b: 0.15, small: true },
-  bigapple: { kind: 'prop_m_apple', name: 'big apple', size: 1.65, tint: 0x8ee04a, floats: true, b: 1.4, up: true, big: true },
-  tinymarble: { kind: 'prop_m_marble', name: 'tiny marble', size: 0.7, tint: 0xff7a59, floats: false, b: 0.2, r: 0.14, small: true },
+  log: { kind: 'prop_sinklog', name: 'big log', size: 0.85, floats: true, b: 1.35, big: true, up: true },
+  coin: { kind: 'prop_sinkcoin', name: 'tiny coin', size: 0.72, floats: false, b: 0.15, small: true, rx: -0.25, noInk: ['star'] },
+  bigapple: { kind: 'prop_m_apple', name: 'big apple', size: 1.3, tint: 0x8ee04a, floats: true, b: 1.4, up: true, big: true },
+  tinymarble: { kind: 'prop_m_marble', name: 'tiny marble', size: 0.8, tint: 0xff7a59, floats: false, b: 0.2, r: 0.16, small: true },
+  // Level 3 tests
+  orange: { kind: 'prop_m_orange', name: 'orange', size: 0.95, tint: 0xff9a2a, floats: true, b: 1.5, rolls: true, r: 'fit' },
+  bouncy: { kind: 'prop_sinkbouncy', name: 'bouncy ball', size: 0.72, floats: true, b: 2.2, bounces: true, rolls: true, r: 0.36 },
 };
+// the two tubs: named by colour, so "the blue tub" / "the orange tub" is something she can see
+export const TUB_COL = { float: 0x4a90ff, sink: 0xff8a2a };
 
 export function makeItem(id) {
   const d = ITEMS[id];
   const w = propModel(d.kind, { tint: d.tint, size: d.size });
   if (!w) return null;
   if (d.scrub) layerColor(w, 'scrub', d.scrub);
-  // gloss stickers have no ink outline
+  if (d.gores) d.gores.forEach((c, i) => layerColor(w, 'g' + (i + 1), c));
+  // gloss stickers and flush printed stickers have no ink outline
   const L = w.userData.model?.userData?.layers || {};
-  for (const [k, l] of Object.entries(L)) if (k.startsWith('shine') && l.outline) l.outline.visible = false;
+  for (const [k, l] of Object.entries(L)) if ((k.startsWith('shine') || (d.noInk || []).includes(k)) && l.outline) l.outline.visible = false;
+  // centre the model on the wrapper's origin (a ball collider sits at the origin, and it spins about its middle)
+  const m = w.userData.model;
+  m.updateMatrixWorld(true);
+  const c = new T.Box3().setFromObject(m).getCenter(new T.Vector3());
+  m.position.sub(c);
   w.userData.id = id;
   w.userData.item = d;
   w.userData.floats = d.floats;
@@ -82,7 +95,7 @@ export function makeTank() {
   // the water: a see-through body (tints whatever is under the surface) and a lighter surface sheet that ripples
   const { IX, IZ, FLOOR, WATER } = TANK;
   const body = new T.Mesh(new T.BoxGeometry(IX * 2 - 0.02, WATER - FLOOR, IZ * 2 - 0.02),
-    new T.MeshBasicMaterial({ color: 0x1f95e6, transparent: true, opacity: 0.5, depthWrite: false }));
+    new T.MeshBasicMaterial({ color: 0x1f95e6, transparent: true, opacity: 0.4, depthWrite: false }));   // (lighter: what sank stays easy to see)
   body.position.y = (WATER + FLOOR) / 2;
   body.renderOrder = 2;
   const NX = 28, NZ = 10;
@@ -95,6 +108,7 @@ export function makeTank() {
   const lip = new T.Mesh(new T.BoxGeometry(IX * 2 - 0.02, 0.05, 0.01), new T.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.85, depthWrite: false }));
   lip.position.set(0, WATER, IZ - 0.005);
   lip.renderOrder = 3;
+  lip.visible = false;   // (a second, lower water line on the front glass: the surface itself is the line)
   g.add(body, surf, lip);
   g.userData.water = { body, surf, lip, base: sg.attributes.position.array.slice(), ripples: [] };
   return g;
@@ -128,6 +142,22 @@ export function animateWater(tank, dt, t, level) {
 export function makeSign(floats) {
   const pm = propModel(floats ? 'prop_sinksign_float' : 'prop_sinksign_sink');
   if (!pm) return null;
+  // the picture inside the white ring is printed flat: only its things (duck, stone) keep an ink line
+  const L = pm.userData.model?.userData?.layers || {};
+  // the picture's round ground: a clean code disc (a remeshed thin slab came out with a ragged edge), its edge under
+  // the white ring
+  if (L.pic) {
+    L.pic.mesh.visible = false; if (L.pic.outline) L.pic.outline.visible = false;
+    const disc = new T.Mesh(new T.CircleGeometry(0.51, 72), new T.MeshBasicMaterial({ color: floats ? 0xcff0ff : 0x5cc0f0 }));
+    disc.position.set(0, SIGN_Y, 0.075);
+    pm.add(disc);
+  }
+  for (const k of ['sea', 'sand', 'bubble']) {
+    if (!L[k]) continue;
+    if (L[k].outline) L[k].outline.visible = false;
+    // flat printed colour (toon shading on these thin discs showed facets)
+    L[k].mesh.material = new T.MeshBasicMaterial({ vertexColors: true, color: 0xffffff });
+  }
   pm.add(blobShadow(0.35));
   return pm;
 }
@@ -138,4 +168,4 @@ export function makeRamp() {
   if (!pm) return null;
   return pm;
 }
-export const RAMP = { X0: -1.6, X1: 1.6, HI: 1.05, FLAT: 0.4, Z: 0.65 };
+export const RAMP = { X0: -1.6, X1: 1.6, HI: 1.05, FLAT: 0.4, Z: 0.65, T: 0.07 };   // must match prop_sinklab.py ramp()

@@ -30,15 +30,22 @@ import StoryLesson from './lessons/story.js';
 import DressLesson from './lessons/dress.js';
 import MydayLesson from './lessons/myday.js';
 import SnackLesson from './lessons/snack.js';
+import CookLesson from './lessons/cook.js';
+import CandyLesson from './lessons/candy.js';
 import BricksLesson from './lessons/bricks.js';
 import BlocksLesson from './lessons/blocks.js';
 import SinkLesson from './lessons/sink.js';
 import BalanceLesson from './lessons/balance.js';
+import RollLesson from './lessons/roll.js';
+import PuzzlesLesson from './lessons/puzzles.js';
+import LettersLesson from './lessons/letters.js';
+import WordsLesson from './lessons/words.js';
+import PaintLesson from './lessons/paint.js';
 
 const LESSONS = {
   colours: ColoursLesson, counting: CountingLesson, shapes: ShapesLesson, feelings: FeelingsLesson, sizes: SizesLesson,
-  patterns: PatternsLesson, where: WhereLesson, more: MoreLesson, body: BodyLesson,
-  moo: MooLesson, share: ShareLesson, band: BandLesson, pots: PotsLesson, story: StoryLesson, dress: DressLesson, myday: MydayLesson, snack: SnackLesson, bricks: BricksLesson, blocks: BlocksLesson, sink: SinkLesson, balance: BalanceLesson,
+  patterns: PatternsLesson, where: WhereLesson, more: MoreLesson, body: BodyLesson, puzzles: PuzzlesLesson,
+  moo: MooLesson, share: ShareLesson, band: BandLesson, pots: PotsLesson, story: StoryLesson, dress: DressLesson, myday: MydayLesson, snack: SnackLesson, cook: CookLesson, candy: CandyLesson, bricks: BricksLesson, blocks: BlocksLesson, sink: SinkLesson, balance: BalanceLesson, roll: RollLesson, letters: LettersLesson, words: WordsLesson, paint: PaintLesson,
 };
 
 let current = null;

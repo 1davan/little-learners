@@ -11,7 +11,7 @@ ring = []
 for i in range(72):
     a = i / 72 * math.tau
     x, z = 1.16 * math.cos(a), 0.8 * math.sin(a)
-    ring.append((x, 0.165 + 0.05 * (x * x / 1.7 + z * z / 0.86), z))
+    ring.append((x, 0.165 + 0.025 * (x * x / 1.7 + z * z / 0.86), z))
 p.tube(ring, 0.055, closed=True, rseg=10)
 p.layer('leaf', base=LEAF, target_faces=1800, voxel=0.016)
 # outline: an ellipse-ish leaf with a pointed tip at +x
@@ -27,7 +27,7 @@ for i in range(N):
     pts.append((px, pz))
 for y, k in ((0.02, 0.97), (0.11, 1.0), (0.15, 0.985)):
     for px, pz in pts:
-        cup = 0.05 * (px * px / 1.7 + pz * pz / 0.86)    # gently cupped: the edges curl up
+        cup = 0.025 * (px * px / 1.7 + pz * pz / 0.86)   # barely cupped: the edges lift a little, the middle stays flat
         V.append((px * k, y + cup, pz * k))
 for ring in range(2):
     for i in range(N):
@@ -42,7 +42,7 @@ p.mesh(V, F)
 p.paint_fn(lambda q, n: q.z < -0.025 + 0.04 * q.x, LEAF_D)
 p.paint_fn(lambda q, n: abs(q.z - 0.04 * q.x + 0.0) < 0.03 and n.y > 0.5 and q.x > -1.2, RIB)
 p.layer('stalk', base=0x4fa84a, target_faces=200, voxel=0.012)
-p.tube([(-1.25, 0.08, 0), (-1.55, 0.07, 0.04), (-1.72, 0.1, 0.16), (-1.68, 0.15, 0.3)], [0.06, 0.05, 0.04, 0.035], rseg=8)
+p.tube([(-1.25, 0.08, 0), (-1.42, 0.075, 0.03), (-1.52, 0.1, 0.13), (-1.47, 0.14, 0.22)], [0.06, 0.05, 0.042, 0.036], rseg=8)   # a short curled stalk, clear of the next plate
 p.layer('skin')
 p.bone('body', (0, 0, 0), (0, 0.2, 0))
 p.extras['argMode'] = 'tint'

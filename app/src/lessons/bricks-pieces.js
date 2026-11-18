@@ -48,7 +48,8 @@ function template() {
 }
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-export const studsFor = (L) => Math.max(1, Math.round(L / PITCH));
+// whole studs only, with room between them so their ink rings never touch on a short brick
+export const studsFor = (L) => Math.max(1, Math.floor(L / 0.56));
 
 // A fresh geometry for a brick of length L (model units).
 export function brickGeometry(L) {

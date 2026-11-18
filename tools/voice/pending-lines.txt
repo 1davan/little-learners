@@ -523,10 +523,8 @@ That's quiet. Tap loud!
 That's red. Find green!
 That's the big ball. Find the small one!
 That's the big tree. Find the small one!
-That's the shell. Find ⭐!
 That's the small elephant. Find the big one!
 That's the square. Find the circle!
-That's the starfish. Find 🐚!
 That's the tummy. Find eyes!
 That's the tummy. Find nose!
 The bunnies are hungry!

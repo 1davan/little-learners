@@ -1,6 +1,9 @@
 """Sunflower (farm scenery, Grow icon, Big and small). Layers: skin = the seed disc (head centre at the origin, facing
 +z), 'petals' (two rings of yellow petals around it), 'stem' (a 2.2 tall stem from y = 0 to the head with two leaves;
-scenery.js scales it to the flower's height)."""
+scenery.js scales it to the flower's height).
+scenery.js builds its static flowers from the raw layer geometry (head at the origin, placed at height h). For every
+direct use of the kind (makeCreature, viewer) the rest pose stands the flower up: the 'body' bone (head + petals) is
+lifted to the top of the stem and the stem is bound to the fixed 'root' bone (see stand_up)."""
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'props'))
 from skit import SProp, dome_profile, rounded
@@ -39,4 +42,6 @@ for (y, side, tilt) in ((0.75, 1, -50), (1.25, -1, 55)):
 p.paint_fn(lambda q, n: q.y < 2.3 and abs(q.x) > 0.12 and n.z < 0.0, GREEN_D)
 p.layer('skin')
 p.extras['outline'] = 0.02
-p.build()
+path = p.build()
+from glbpost import Glb
+Glb(path).bind_layer('stem', 'root').move('body', lift=(0.0, 2.2, 0.05)).save()   # stand the flower up (see top)

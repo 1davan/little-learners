@@ -1,21 +1,23 @@
 // Lesson 4 — Feelings. Topic mt_LhkP_KKIRS "Naming basic emotions".
-// A short story shows Pip feeling something; the child finds the friend whose face shows the same feeling.
-// Then comes a little "fix the feeling" moment: a hug for sad, a big breath for angry, a cuddle for scared,
-// a happy dance for happy — and the story gets put right (a new balloon, the tower rebuilt…).
+// A short story shows Pip feeling something, and at that moment the feeling is named ("Pip is sad.").
+// The child finds a friend whose face shows the same feeling ("Find a sad friend!"). The friend walks over and
+// hops up beside Pip, and then SHE does the comforting: press and hold Pip for a hug (sad, scared: his face
+// goes sad, calm, happy under her finger), press and hold for a big breath (angry: they puff up, let go and
+// they breathe out), or tap Pip for a happy dance (happy). Then the story gets put right (a new balloon, the
+// tower rebuilt…) and the friend goes to sit beside the hill, where it stays for the level (the finale's crowd).
 // Each level has its own stage and story set: L1 a picnic hill, L2 a toy table, L3 a tree stump in the garden.
 // Falling, tumbling and bouncing props use real physics; tapping a loose prop makes it hop.
 import * as T from '../three.js';
 import { Lesson, shuffle } from '../engine/lesson.js';
-import { makeAnimal, setFace, popIn, popOut, hop } from '../engine/actors.js';
+import { makeAnimal, setFace, hop, poke } from '../engine/actors.js';
 import { input } from '../engine/input.js';
 import { sfx } from '../engine/audio.js';
 import { fx } from '../engine/fx.js';
 import { Ease } from '../engine/tween.js';
 import { physics } from '../engine/physics.js';
 import { project, screenRadius } from '../engine/stage.js';
-import { makeFlower } from '../engine/scenery.js';
 import { STORIES } from './feelings-stories.js';
-import { TOP, makeStage, stagePhysics, makeBasket, flowerProp } from './feelings-props.js';
+import { TOP, makeStage, stagePhysics, makeBasket } from './feelings-props.js';
 import { frame, calmBackdrop } from './view-tools.js';
 
 // Per level: the stage Pip stands on, the friends who visit, and one round per row:
@@ -58,27 +60,37 @@ const PLANS = [
 
 const KIND_NAME = { bear: 'Bear', bunny: 'Bunny', cat: 'Kitty', frog: 'Froggy', hedgehog: 'Hedgehog', pig: 'Piggy', sheep: 'Sheep' };
 const SAY_FEEL = { happy: 'happy', sad: 'sad', angry: 'angry', scared: 'scared' };
+const A = (e) => (e === 'angry' ? 'an' : 'a');
 const FACE_ICON = { happy: '😊', sad: '😢', angry: '😠', scared: '😨' };
-// fix-the-feeling moves rotate, so the payoff is never the same twice in a row
-const FIXES = {
-  sad: [['hug', 'Sad. 😢 Big hug!'], ['pat', 'Sad. 😢 Pat pat, all better!'], ['flower', 'Sad. 😢 A flower for you!']],
-  angry: [['breath', 'Angry! 😠 Big breath…'], ['stomp', 'Angry! 😠 Stomp it out!'], ['breath', 'Angry! 😠 Breathe in… and out.']],
-  scared: [['cuddle', "Scared! 😨 It's okay. Cuddle!"], ['brave', 'Scared! 😨 We are brave together!'], ['cuddle', "Scared! 😨 I'm here with you."]],
-  happy: [['dance', 'Happy! 😊 Happy dance!'], ['five', 'Happy! 😊 High five!'], ['dance', 'Happy! 😊 Spin spin!']],
-};
+// her comforting gesture per feeling, and the instruction (voiced)
+const GESTURE = { sad: 'hug', scared: 'hug', angry: 'breath', happy: 'tap' };
+const GESTURE_LINE = { hug: 'Give Pip a hug!', breath: 'Big breath with Pip!', tap: 'Tap Pip! Happy dance!' };
 const SOUND = { happy: 'giggle', sad: 'aww', angry: 'grr', scared: 'gasp' };
 const STAGE_C = new T.Vector3(0, 0, -3.2);
 const PIP_POS = new T.Vector3(0, TOP, -3.2);
 const HEAD_S = 1.22; // bigger heads → bigger, easier-to-read faces
+// where the chosen friend stands on the stage (Pip's left; the story props are on his right), and where it steps up
+// from (the stage's front foot)
+const ON_STAGE = { picnic: [-2.4, 1.0], toytable: [-1.9, 0.2], stump: [-2.2, 0.5] }; // (picnic: clear of the basket)
+const FOOT_Z = { picnic: 2.0, toytable: -0.6, stump: 0.9 };
+// the friends who stayed gather on the grass at the stage's left (the side they hop down), two rows of three
+const SLOTS = [[-6.4, -4.6], [-8.0, -4.6], [-7.2, -6.2], [-9.6, -4.6], [-8.8, -6.2], [-10.4, -6.2]]; // 1.6 apart
+// the finale: they all walk into one row in front of the stage, at least 1.7 apart, facing the child
+const ROW_Z = 2.4, ROW_DX = 1.7, ROW_CX = -3.0;
+const rowSpot = (i, n) => new T.Vector3(ROW_CX + (i - (n - 1) / 2) * ROW_DX, 0, ROW_Z);
+const CAM_WIDE = [[0, 4.7, 13.2], [0, 2.6, 0]];
+const CAM_STORY = [[0, 4.3, 9.6], [0, 3.1, -1.5]]; // Pip and the story big while it plays and while she comforts
 
 export default class FeelingsLesson extends Lesson {
   build() {
     const L = this.level;
     this.lv = PLANS[L];
     this.plan = this.lv.rounds;
-    const stage = makeStage(this.lv.stage, STAGE_C);
+    const stage = (this.stage = makeStage(this.lv.stage, STAGE_C));
     this.root.add(stage);
     stagePhysics(this.lv.stage, STAGE_C);
+    // Pip's body is solid for the story props: rain, a flying lid or a ball bounce off him, never pass through
+    physics.box(new T.Vector3(PIP_POS.x, TOP + 1.2, PIP_POS.z), new T.Vector3(1.4, 2.4, 1.1));
     if (this.lv.stage === 'stump') {
       // a basket on the grass (a real physics container: acorns can be thrown in)
       const b = makeBasket(0xd9a066, 0.75, 0.6);
@@ -102,12 +114,28 @@ export default class FeelingsLesson extends Lesson {
     this.props = new T.Group();
     this.root.add(this.props);
     this.kindTurn = Math.floor(Math.random() * this.lv.kinds.length);
-    this.fixTurn = {};
+    this.stayed = []; // friends who comforted Pip and stay beside the stage
+    this.shown = {};  // which comforting gestures have had their slow hand demo
     // a higher camera looks down over the friends in front, so nobody ever hides Pip's face or the hug payoff
-    frame(0, 4.7, 13.2, 0, 2.6, 0);
-    calmBackdrop(this.meadow);
+    frame(...CAM_WIDE[0], ...CAM_WIDE[1]);
+    // (no snowman / pumpkins at the near flanks: they were cut by the frame edge or hid behind a friend)
+    calmBackdrop(this.meadow, { hide: (o) => Math.abs(o.position.x) > 6 && o.position.z > -9 });
+    this.offs.push(this.listenPip());
   }
 
+  // the height of the stage's top under a friend's feet (the highest point under its footprint), never below TOP
+  standY(x, z) {
+    if (!this.stage) return TOP;
+    this.stage.updateMatrixWorld(true);
+    const rc = new T.Raycaster(), dn = new T.Vector3(0, -1, 0);
+    let y = TOP;
+    for (const [dx, dz] of [[0, 0], [0.35, 0], [-0.35, 0], [0, 0.35], [0, -0.35]]) {
+      rc.set(new T.Vector3(x + dx, TOP + 2, z + dz), dn);
+      const h = rc.intersectObject(this.stage, true).find((q) => q.object.material?.side !== T.BackSide && q.point.y < TOP + 0.5);
+      if (h) y = Math.max(y, h.point.y);
+    }
+    return y;
+  }
   // stuck child: the friend who feels the same as Pip hops
   nudgeTarget() { return this.busy ? null : this.friends.find((f) => f.userData.feeling === this.emo) || null; }
 
@@ -120,8 +148,10 @@ export default class FeelingsLesson extends Lesson {
   get P() { return PIP_POS; }
 
   // A tap that hits nothing else: loose physics props hop, then characters giggle (base class).
+  // While she comforts Pip, a touch on Pip (or the friend) belongs to the comforting, not to a poke.
   pokeAt(x, y) {
     if (this.dead) return false;
+    if (this.comforting && this.hitPip(x, y)) return true;
     const wp = new T.Vector3();
     let best = null, bd = Infinity;
     for (const o of this.dynProps) {
@@ -132,14 +162,15 @@ export default class FeelingsLesson extends Lesson {
       const d = Math.hypot(c.x - x, c.y - y) / r;
       if (d < 1 && d < bd) { bd = d; best = o; }
     }
-    if (best) { physics.poke(best, 0.8); sfx.boing(); return true; }
+    if (best) { physics.poke(best, 0.7); sfx.pop(); return true; }
     return super.pokeAt(x, y);
   }
 
+  // last round's story props settle away slowly (0.5 s); they are not something she made
   clearProps() {
     for (const p of [...this.props.children]) {
       physics.remove(p);
-      popOut(this.s, p, 0.2).then(() => this.props.remove(p));
+      this.fadeAway(p, 0.5).then(() => this.props.remove(p));
     }
     this.dynProps = [];
   }
@@ -148,23 +179,39 @@ export default class FeelingsLesson extends Lesson {
     this.busy = true;
     const [emo, others, storyId] = this.plan[r];
     this.emo = emo;
-    // last round's friends hop away; their tap targets go too (a stale one must never answer a tap)
+    // the friends who were not chosen walk off at the sides (the chosen one already sits by the stage)
     for (const f of this.friends) {
       if (f.userData.tap) input.remove(f.userData.tap);
-      sfx.swoosh();
       if (f.userData.col) { physics.removeStatic(f.userData.col); f.userData.col = null; }
-      popOut(this.s, f, 0.2).then(() => this.root.remove(f));
+      if (this.stayed.includes(f)) continue;
+      const out = new T.Vector3(f.position.x < 0 ? -11 : 11, 0, f.position.z);
+      this.walkTo(f, out, { speed: 3, faceCamera: false }).then(() => this.root.remove(f));
     }
     this.friends = [];
-    this.clearProps();
-    await this.wait(0.22);
-    setFace(this.pip.userData.face, 'calm');
-    this.pip.userData.head.rotation.x = 0;
-    this.pip.position.copy(PIP_POS);
-    this.pip.rotation.set(0, 0, 0);
+    this.glideCamera(...CAM_WIDE, 0.6);
 
-    this.fix = await STORIES[storyId](this, PIP_POS);
-    await this.wait(0.1);
+    // The story (one quick moment, about 1.5-2 s) plays WHILE the friends step in: she can tap a friend from the
+    // start of the round (rule 0). At the story's peak Pip's face changes, the feeling is named, and the prompt
+    // follows. A friend tapped early is fine: the story simply completes before the comforting starts.
+    // (the last round's story is still being put right while the new friends step in: it finishes first)
+    this.fix = null;
+    const round = r, prevFix = this.fixP;
+    this.fixP = null;
+    this.storyP = (async () => {
+      if (prevFix) await prevFix;
+      if (this.dead) return null;
+      this.clearProps();
+      setFace(this.pip.userData.face, 'calm');
+      this.pip.userData.head.rotation.x = 0;
+      this.pip.position.copy(PIP_POS);
+      this.pip.rotation.set(0, 0, 0);
+      return STORIES[storyId](this, PIP_POS);
+    })().then((fix) => {
+      this.fix = fix;
+      if (this.dead || this.round !== round) return;
+      this.say(`Pip is ${SAY_FEEL[emo]}.`);
+      if (!this.busy) this.cue();
+    });
     // friends appear, each showing a feeling — different animals every round
     const feelings = shuffle([emo, ...others]);
     const kinds = [];
@@ -172,9 +219,9 @@ export default class FeelingsLesson extends Lesson {
     const two = feelings.length === 2;
     // two friends stand either side of Pip's stage; with three, the middle one stands further forward and smaller,
     // so (seen from the raised camera) its head stays below the stage top and never covers Pip
-    const xs = two ? [-4.4, 4.4] : [-4.7, 0, 4.7];
-    const zs = two ? [2.3, 2.3] : [2.2, 3.9, 2.2]; // the middle one's feet stay on screen
-    const ss = two ? [1.22, 1.22] : [1.15, 0.82, 1.15];
+    const xs = two ? [-3.9, 3.9] : [-4.0, 0, 4.0];
+    const zs = two ? [2.3, 2.3] : [2.2, 3.3, 2.2];
+    const ss = two ? [1.05, 1.05] : [1.0, 0.75, 1.0];
     feelings.forEach((f, i) => {
       const a = makeAnimal(kinds[i]);
       const S = ss[i];
@@ -189,24 +236,23 @@ export default class FeelingsLesson extends Lesson {
       this.friends.push(a);
       a.userData.tap = this.fitTap(a, S);
       a.scale.setScalar(0.001);
-      // friends bounce in from the side, one after another
+      // friends step in from just beside their place, one after another, growing smoothly (no overshoot)
       const x1 = xs[i];
-      const x0 = x1 + (x1 < 0 ? -2.5 : x1 > 0 ? 2.5 : 0);
-      a.position.x = x0;
-      this.s.wait(i * 0.1).then(() => {
+      const x0 = x1 + (x1 < 0 ? -1.2 : x1 > 0 ? 1.2 : 0);
+      const z0 = x1 === 0 ? zs[i] + 1.0 : zs[i];
+      a.position.set(x0, 0, z0);
+      this.s.wait(i * 0.25).then(() => {
         if (this.dead) return;
-        popIn(this.s, a, S, 0.35);
-        this.s.anim(0.35, (e, p) => { a.position.x = x0 + (x1 - x0) * e; a.position.y = Math.sin(p * Math.PI) * 0.6; }, Ease.out).then(() => {
+        this.s.anim(0.6, (e) => { a.scale.setScalar(Math.max(0.001, S * e)); a.position.x = x0 + (x1 - x0) * e; a.position.z = z0 + (zs[i] - z0) * e; }, Ease.out).then(() => {
           a.position.set(x1, 0, zs[i]);
+          a.scale.setScalar(S);
           // a static body where the friend stands, so a ball or lid that rolls off the stage bumps them, never passes through
           if (!this.dead && this.friends.includes(a) && !a.userData.col) a.userData.col = physics.box(new T.Vector3(x1, S, zs[i]), new T.Vector3(1.1 * S, 2 * S, 0.9 * S));
         });
       });
-      this.s.wait(0.25 + i * 0.12).then(() => { if (!this.dead) sfx[SOUND[f]](); });
     });
-    await this.wait(0.35);
-    this.busy = false;
-    this.cue();
+    await this.wait(0.25 * (feelings.length - 1) + 0.35);
+    this.busy = false; // taps open now; the prompt comes at the story's peak
   }
 
   // Tap area = the friend's visible body at its final size.
@@ -219,7 +265,7 @@ export default class FeelingsLesson extends Lesson {
     return input.addTap(a, { radius: Math.max(size.x, size.y) / 2 * 0.85, offset: c, onTap: () => this.tapFriend(a) });
   }
 
-  promptText() { return `Pip is ${SAY_FEEL[this.emo]} ${FACE_ICON[this.emo]}. Who else?`; }
+  promptText() { return `Find ${A(this.emo)} ${SAY_FEEL[this.emo]} friend!`; }
 
   async tapFriend(a) {
     if (this.busy || !this.friends.includes(a)) return;
@@ -227,135 +273,230 @@ export default class FeelingsLesson extends Lesson {
     sfx[SOUND[f]]();
     if (f !== this.emo) {
       hop(this.s, a, 0.4);
-      fx.float(a.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 3.6, 0)), FACE_ICON[f], { size: 6 });
-      this.redirect(`${a.userData.label} is ${SAY_FEEL[f]} ${FACE_ICON[f]}. Find ${SAY_FEEL[this.emo]} ${FACE_ICON[this.emo]}!`);
+      fx.float(a.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 3.0, 0)), FACE_ICON[f], { size: 6 });
+      this.redirect(`That one is ${SAY_FEEL[f]}. Find ${A(this.emo)} ${SAY_FEEL[this.emo]} friend!`);
       return;
     }
-    this.busy = true;
-    input.lock(3000);
-    // the friend hops over to Pip's left on the stage (props are on the right)
+    for (const o of this.friends) if (o.userData.tap) o.userData.tap.enabled = false;
     if (a.userData.col) { physics.removeStatic(a.userData.col); a.userData.col = null; }
-    const from = a.position.clone(), s0 = a.scale.x;
-    const to = new T.Vector3(PIP_POS.x - 2.05, TOP, PIP_POS.z + 1.0); // beside Pip and a step forward, never over his face (the hug leans in)
-    sfx.swoosh();
-    await this.s.anim(0.4, (e, p) => {
-      a.position.lerpVectors(from, to, e);
-      a.position.y += Math.sin(p * Math.PI) * 1.6;
-      a.scale.setScalar(s0 + (1.0 - s0) * e);
-    }, Ease.inOut);
-    a.userData.baseScale = 1.0;
-    a.rotation.y = 0.6;
-    sfx.land();
-    // the feeling icon pops over the friend once it has landed (floated at the old spot it was left hanging there)
-    fx.float(to.clone().add(new T.Vector3(0, 3.0, 0)), FACE_ICON[f], { size: 6 });
-    const list = FIXES[this.emo];
-    const k = (this.fixTurn[this.emo] = ((this.fixTurn[this.emo] ?? -1) + 1) % list.length);
-    const [move, line] = list[k];
-    this.fixP = this.fixFeeling(a, move);
-    this.busy = false;
-    this.success(a.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 2, 0)), line);
+    // the others wave bye and walk off at the sides (so the close-up of the comforting has nobody in front)
+    for (const o of this.friends) if (o !== a) {
+      if (o.userData.col) { physics.removeStatic(o.userData.col); o.userData.col = null; }
+      setFace(o.userData.face, 'happy');
+      const out = new T.Vector3(o.position.x < 0 ? -11 : 11, 0, o.position.z);
+      this.walkTo(o, out, { speed: 3, faceCamera: false }).then(() => { this.root.remove(o); this.friends = this.friends.filter((x) => x !== o); });
+    }
+    this.chosen = a;
+    // it walks to the foot of the stage and hops up beside Pip (on his left: the story props are on his right)
+    const st = this.lv.stage;
+    const [ox, oz] = ON_STAGE[st];
+    const to = new T.Vector3(PIP_POS.x + ox, TOP, PIP_POS.z + oz);
+    to.y = this.standY(to.x, to.z); // on the stage's real top (the stump's rings stand a little proud of TOP)
+    const foot = new T.Vector3(to.x, 0, FOOT_Z[st]);
+    const go = (async () => {
+      await this.walkTo(a, foot, { speed: 3.0, faceCamera: false });
+      if (this.dead) return;
+      const from = a.position.clone(), s0 = a.scale.x;
+      sfx.land();
+      // up first, then over (it clears the stage's front slope instead of hopping through it)
+      await this.s.anim(1.0, (_, p) => {
+        const up = 1 - (1 - p) ** 2, over = Ease.inOut(p); // (a gentler take-off: no jump in speed)
+        a.position.set(from.x + (to.x - from.x) * over, from.y + (to.y - from.y) * up + Math.sin(p * Math.PI) * 1.2, from.z + (to.z - from.z) * over);
+        a.scale.setScalar(s0 + (1.0 - s0) * p);
+      });
+      a.position.copy(to);
+      a.userData.baseScale = 1.0;
+      await this.s.tween(a.rotation, { y: 0.6 }, 0.3, Ease.inOut);
+    })();
+    this.arriveP = go;
+    // the comforting starts at once (it is on Pip, who is already there): the friend joins in when it arrives
+    this.success(a.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 2, 0)), '', { payoff: this.storyP, still: 0 });
   }
 
-  // Pip's celebration in this game IS the fix-the-feeling moment (played from tapFriend).
+  // Pip's reaction in this game IS the comforting moment (played from afterSuccess).
   celebrate() {}
 
-  async fixFeeling(a, move) {
-    const pip = this.pip, s = this.s;
-    const top = PIP_POS.clone().add(new T.Vector3(-0.7, 3.3, 0.6)); // above both heads, never over a face
-    const storyFix = this.fix ? Promise.resolve(this.fix()) : Promise.resolve();
-    const cheer = () => { setFace(pip.userData.face, 'happy'); setFace(a.userData.face, 'happy'); pip.userData.head.rotation.x = 0; };
-    const PS = 1.2;
-    const hearts = (sym = '♥', col = '#ff6f9c') => { for (let i = 0; i < 3; i++) s.wait(i * 0.1).then(() => fx.float(top.clone().add(new T.Vector3((i - 1) * 0.8, 0, 0)), sym, { color: col, size: 6 })); };
-    if (move === 'hug' || move === 'cuddle') {
-      // a squeezy hug: both lean in and squash together, hearts pop out
-      const ax = a.position.x, pr = pip.rotation.z, ar = a.rotation.z;
-      sfx.mmm();
-      await s.anim(0.25, (e) => { a.position.x = ax + 0.25 * e; pip.rotation.z = pr + 0.2 * e; a.rotation.z = ar - 0.2 * e; }, Ease.out);
-      hearts();
-      await s.anim(0.3, (_, p) => { const k = 1 + Math.sin(p * Math.PI) * 0.12; pip.scale.set(PS * k, PS / k, PS * k); a.scale.set(k, 1 / k, k); });
-      cheer(); sfx.twinkle();
-      await s.anim(0.2, (e) => { a.position.x = ax + 0.25 * (1 - e); pip.rotation.z = pr + 0.2 * (1 - e); a.rotation.z = ar - 0.2 * (1 - e); });
-      pip.scale.setScalar(PS); a.scale.setScalar(1);
-    } else if (move === 'pat') {
-      // the friend pats Pip's head: pat, pat, pat
-      const arm = a.userData.arms?.[1] || a.userData.arms?.[0];
-      const r0 = arm ? arm.rotation.z : 0;
-      for (let i = 0; i < 3; i++) {
-        sfx.tap();
-        if (arm) s.anim(0.18, (_, p) => { arm.rotation.z = r0 - Math.sin(p * Math.PI) * 1.2; });
-        await s.anim(0.18, (_, p) => { const k = 1 - Math.sin(p * Math.PI) * 0.1; pip.scale.set(PS / Math.sqrt(k), PS * k, PS / Math.sqrt(k)); });
-      }
-      if (arm) arm.rotation.z = r0;
-      pip.scale.setScalar(PS);
-      cheer(); hearts(); sfx.twinkle();
-    } else if (move === 'flower') {
-      // the friend gives Pip a flower
-      const fl = flowerProp(0xff8fc0, 1);
-      fl.position.copy(a.position).add(new T.Vector3(0.8, 0.9, 0.4));
-      this.props.add(fl);
-      sfx.pop();
-      await popIn(s, fl, 2.2, 0.3, { sound: false });
-      await s.tween(fl.position, { x: PIP_POS.x - 0.45, y: TOP + 0.9 }, 0.25, Ease.out);
-      cheer(); hearts('✿', '#ff8fc0'); sfx.twinkle();
-      await hop(s, pip, 0.4, 0.3);
-    } else if (move === 'breath') {
-      // a big breath in… and out
-      sfx.swoosh();
-      await s.anim(0.35, (e) => { pip.scale.setScalar(PS * (1 + 0.2 * e)); a.scale.setScalar(1 + 0.2 * e); }, Ease.out);
-      sfx.whoosh();
-      fx.float(top, '💨', { size: 6 });
-      setFace(pip.userData.face, 'calm'); setFace(a.userData.face, 'calm');
-      await s.anim(0.35, (e) => { pip.scale.setScalar(PS * (1.2 - 0.2 * e)); a.scale.setScalar(1.2 - 0.2 * e); }, Ease.inOut);
-      cheer();
-    } else if (move === 'stomp') {
-      // stomp stomp the cross away… then a giggle
-      for (let i = 0; i < 2; i++) {
-        await Promise.all([hop(s, pip, 0.3, 0.2), hop(s, a, 0.3, 0.2)]);
-        sfx.drumLoud();
-      }
-      cheer(); sfx.giggle(); hearts('☺', '#ffb020');
-      await Promise.all([hop(s, pip, 0.5, 0.3), hop(s, a, 0.5, 0.3)]);
-    } else if (move === 'brave') {
-      // puff up tall and brave together, with a star
-      sfx.trumpetHi ? sfx.trumpetHi() : sfx.twinkle();
-      cheer();
-      await s.anim(0.35, (e) => { pip.scale.set(PS, PS * (1 + 0.25 * e), PS); a.scale.set(1, 1 + 0.25 * e, 1); }, Ease.back);
-      fx.float(top, '⭐', { size: 7 });
-      await s.anim(0.3, (e) => { pip.scale.set(PS, PS * (1.25 - 0.25 * e), PS); a.scale.set(1, 1.25 - 0.25 * e, 1); });
-      pip.scale.setScalar(PS); a.scale.setScalar(1);
-    } else if (move === 'five') {
-      // jump up and high-five
-      const ax = a.position.x;
-      sfx.boing2();
-      await Promise.all([
-        hop(s, pip, 0.8, 0.36),
-        s.anim(0.36, (_, p) => { a.position.x = ax + Math.sin(p * Math.PI) * 0.6; a.position.y = TOP + Math.sin(p * Math.PI) * 0.8; }),
-      ]);
-      a.position.set(ax, TOP, a.position.z);
-      sfx.pop(); fx.confetti(top.clone(), 16);
-      cheer();
-    } else {
-      // happy: a little spin dance together
-      sfx.giggle();
-      fx.float(top, '✨', { color: '#ffd23f', size: 6 });
-      const r0 = pip.rotation.y, a0 = a.rotation.y;
-      cheer();
-      await Promise.all([
-        s.anim(0.6, (e) => { pip.rotation.y = r0 + e * Math.PI * 2; a.rotation.y = a0 - e * Math.PI * 2; }, Ease.inOut),
-        hop(s, pip, 0.6, 0.3).then(() => hop(s, pip, 0.4, 0.28)),
-        hop(s, a, 0.6, 0.3).then(() => hop(s, a, 0.4, 0.28)),
-      ]);
-      pip.rotation.y = r0; a.rotation.y = a0;
+  // ---- her comforting gesture ----
+  // pointer listeners of our own: press and hold needs the down and the up (input only gives taps and drags)
+  listenPip() {
+    const cv = document.getElementById('c');
+    const down = (e) => { const c = this.comforting; if (!c || c.auto || !this.hitPip(e.clientX, e.clientY)) return; c.idle = 0; this.comfortDown(); };
+    const up = () => { const c = this.comforting; if (c && c.holding) this.comfortUp(); };
+    cv.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => { cv.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  }
+  hitPip(x, y) {
+    const near = (o, h, r) => {
+      const wp = o.getWorldPosition(new T.Vector3()); wp.y += h;
+      const c = project(wp);
+      const rr = Math.max(screenRadius(wp, r), Math.min(innerWidth, innerHeight) * 0.1);
+      return Math.hypot(c.x - x, c.y - y) < rr;
+    };
+    return near(this.pip, 1.3 * this.pip.scale.y, 1.3) || (this.chosen && near(this.chosen, 1.0, 1.0));
+  }
+  // the slow hand demo of the gesture: a long press (hug, breath) or two taps (dance) on Pip
+  comfortDemo(kind) {
+    const h = this.pip.userData.head.getWorldPosition(new T.Vector3());
+    h.y -= 0.35;
+    if (kind === 'tap') fx.ghostPath([h], { mode: 'tap' });
+    else fx.ghostPath([h, h, h], { mode: 'drag', maxDur: 2.6 }); // a press held for about 1.5 s
+  }
+  async comfort(a) {
+    const kind = GESTURE[this.emo];
+    const c = (this.comforting = { kind, a, prog: 0, puff: 0, holding: false, taps: 0, anim: false, idle: 0, said: 0, auto: false, ready: false, x0: a.position.x, ar: a.rotation.z, pr: this.pip.rotation.z });
+    const done = new Promise((res) => { c.res = res; });
+    (this.arriveP || Promise.resolve()).then(() => { c.x0 = a.position.x; c.ar = a.rotation.z; c.ready = true; });
+    this.glideCamera(...CAM_STORY, 0.9);
+    this.say(GESTURE_LINE[kind]);
+    if (!this.shown[kind]) { this.shown[kind] = true; this.s.wait(0.6).then(() => { if (this.comforting === c && !c.holding && !c.taps) this.comfortDemo(kind); }); }
+    this.endStep = () => this.autoComfort(); this.endWaiting = true; // (autoplay: tools/autoplay.js)
+    await done;
+    this.endWaiting = false;
+    this.comforting = null;
+    fx.clearHands();
+  }
+  comfortDown() {
+    const c = this.comforting;
+    fx.clearHands();
+    if (c.kind === 'tap') { this.danceStep(); return; }
+    c.holding = true;
+    if (c.kind === 'hug') sfx.mmm();
+  }
+  comfortUp() {
+    const c = this.comforting;
+    c.holding = false;
+    if (c.kind === 'breath' && c.puff > 0.45 && !c.anim) this.breatheOut();
+  }
+  // happy: each tap is one spin-hop together; three and the dance is done
+  async danceStep() {
+    const c = this.comforting, pip = this.pip, a = c.a, s = this.s;
+    if (c.anim) return;
+    c.anim = true;
+    if (c.taps === 0) sfx.giggle();
+    const r0 = pip.rotation.y, a0 = a.rotation.y, withA = c.ready; // (the friend joins in once it has arrived)
+    await Promise.all([
+      s.anim(0.7, (e) => { pip.rotation.y = r0 + e * Math.PI * 2; if (withA) a.rotation.y = a0 - e * Math.PI * 2; }, Ease.inOut),
+      hop(s, pip, 0.45, 0.7), withA ? hop(s, a, 0.45, 0.7) : null,
+    ]);
+    pip.rotation.y = r0; if (withA) a.rotation.y = a0;
+    c.anim = false;
+    if (++c.taps >= 3) this.comfortDone();
+  }
+  // angry: let go after a big breath in -> they breathe out (whoosh), deflate and calm down
+  async breatheOut() {
+    const c = this.comforting, s = this.s, pip = this.pip, a = c.a, PS = pip.userData.baseScale || 1.2;
+    c.anim = true;
+    sfx.whoosh();
+    const p0 = c.puff;
+    setFace(pip.userData.face, 'calm'); setFace(a.userData.face, 'calm');
+    await s.anim(1.0, (e) => { c.puff = p0 * (1 - e); }, Ease.inOut);
+    c.puff = 0;
+    pip.scale.setScalar(PS); if (c.ready) a.scale.setScalar(1);
+    this.comfortDone();
+  }
+  comfortDone() {
+    const c = this.comforting;
+    if (!c || c.finished) return;
+    c.finished = true;
+    const pip = this.pip, a = c.a;
+    setFace(pip.userData.face, 'happy'); setFace(a.userData.face, 'happy');
+    pip.userData.head.rotation.x = 0;
+    // they let go of the hug gently
+    const ax = a.position.x, pr = pip.rotation.z, ar = a.rotation.z, withA = c.ready;
+    this.s.anim(0.45, (e) => { pip.rotation.z = pr + (c.pr - pr) * e; if (withA) { a.position.x = ax + (c.x0 - ax) * e; a.rotation.z = ar + (c.ar - ar) * e; } }, Ease.inOut)
+      .then(() => { pip.scale.setScalar(pip.userData.baseScale || 1.2); if (withA) a.scale.setScalar(1); c.res(); });
+  }
+  // nothing from her for a while: the gesture plays by itself (and autoplay uses this too)
+  async autoComfort() {
+    const c = this.comforting;
+    if (!c || c.auto || c.finished) return;
+    c.auto = true;
+    fx.clearHands();
+    if (c.kind === 'tap') { while (this.comforting === c && !c.finished && !this.dead) { if (!c.anim) this.danceStep(); await this.wait(0.1); } return; }
+    c.holding = true;
+    if (c.kind === 'hug') { sfx.mmm(); while (this.comforting === c && c.prog < 1 && !this.dead) await this.wait(0.05); return; }
+    while (this.comforting === c && c.puff < 0.95 && !this.dead) await this.wait(0.05);
+    c.holding = false;
+    if (!c.anim) this.breatheOut();
+  }
+  // the gesture under her finger, every frame
+  comfortTick(dt) {
+    const c = this.comforting, pip = this.pip, a = c.a, PS = pip.userData.baseScale || 1.2;
+    if (c.finished) return;
+    if (!c.holding && !c.anim && !c.auto) {
+      c.idle += dt;
+      if (c.idle > 6 && c.said < 1) { c.said = 1; this.say(GESTURE_LINE[c.kind], { repeat: true }); this.comfortDemo(c.kind); }
+      if (c.idle > 11) this.autoComfort();
     }
-    await Promise.race([storyFix, s.wait(0.5)]);
+    if (c.kind === 'hug') {
+      // holding: they squeeze together and Pip's face goes sad -> calm -> happy over 1.5 s of hugging
+      if (c.holding) c.prog = Math.min(1, c.prog + dt / 1.5);
+      const k = c.holding ? 1 : 0;
+      c.lean = (c.lean || 0) + (k - (c.lean || 0)) * Math.min(1, dt * 6);
+      pip.rotation.z = c.pr + 0.12 * c.lean;
+      const sq = 1 + 0.07 * c.lean * (0.6 + 0.4 * Math.sin(performance.now() / 160));
+      pip.scale.set(PS * sq, PS / sq, PS * sq);
+      if (c.ready) { // the friend joins the hug once it has arrived
+        a.position.x = c.x0 + (Math.min(c.x0 + 0.35, PIP_POS.x - 1.45) - c.x0) * c.lean; // leans in, never into Pip
+        a.rotation.z = c.ar - 0.15 * c.lean;
+        a.scale.set(sq, 1 / sq, sq);
+      }
+      const face = c.prog > 0.66 ? 'happy' : c.prog > 0.33 ? 'calm' : this.emo;
+      if (pip.userData.face && pip.userData.face.userData.emotion !== face) { setFace(pip.userData.face, face); if (c.prog > 0.33) pip.userData.head.rotation.x = 0; }
+      if (c.prog >= 1) this.comfortDone();
+    } else if (c.kind === 'breath') {
+      // holding: both slowly puff up (a big breath in)
+      if (c.holding) c.puff = Math.min(1, c.puff + dt / 1.2);
+      else if (!c.anim) c.puff = Math.max(0, c.puff - dt / 0.6);
+      pip.scale.setScalar(PS * (1 + 0.2 * c.puff)); if (c.ready) a.scale.setScalar(1 + 0.2 * c.puff);
+    }
   }
 
+  // The round's ending: her comforting, then the story is put right, then the friend goes to sit beside the stage.
   async afterSuccess() {
-    setFace(this.pip.userData.face, 'happy');
-    this.pip.userData.head.rotation.x = 0;
-    for (const f of this.friends) setFace(f.userData.face, 'happy');
-    if (this.fixP) await Promise.race([this.fixP, this.wait(0.35)]);
-    this.fixP = null;
+    const a = this.chosen;
+    this.chosen = null;
+    for (const f of this.friends) if (f !== a) setFace(f.userData.face, 'happy');
+    if (!a || this.dead) return;
+    if (this.storyP) await this.storyP; // (tapped early: the story completes first)
+    if (this.dead) return;
+    await this.comfort(a);
+    if (this.dead) return;
+    // the story is put right and the friend goes to sit with the others WHILE the next round's friends step in
+    const fix = this.fix;
+    this.fixP = fix ? this.wait(0.2).then(() => Promise.race([Promise.resolve(fix()), this.wait(3)])) : null;
+    this.stayed.push(a);
+    (this.arriveP || Promise.resolve()).then(() => this.toSlot(a));
+  }
+
+  // the friend hops down off the stage's left side and walks (round the back, for the right-hand slots) to its place
+  async toSlot(a) {
+    const i = this.stayed.indexOf(a);
+    const [sx, sz] = SLOTS[i % SLOTS.length];
+    const from = a.position.clone(), s0 = a.scale.x, S = 0.8;
+    const down = new T.Vector3(-5.0, 0, PIP_POS.z - 0.2);
+    sfx.land();
+    // over first, then down (clear of the stage's side slope)
+    await this.s.anim(0.85, (_, p) => { const over = Ease.out(p), dn = Ease.in(p); a.position.set(from.x + (down.x - from.x) * over, from.y * (1 - dn) + Math.sin(p * Math.PI) * 0.25, from.z + (down.z - from.z) * over); a.scale.setScalar(s0 + (S - s0) * p); });
+    a.position.copy(down);
+    a.userData.baseScale = S;
+    if (this.dead) return;
+    if (this.finaleNow) return this.toRow(a); // (the level ended meanwhile: straight into the finale row)
+    await this.walkTo(a, new T.Vector3(sx, 0, sz), { speed: 2.4, faceCamera: false });
+    if (this.finaleNow) return this.toRow(a);
+    await this.s.tween(a.rotation, { y: 0.45 }, 0.4, Ease.inOut);
+    a.userData.seated = true;
+  }
+  // the finale row in front of the stage (via a point clear of the stage's left side and the flowers)
+  async toRow(a) {
+    const n = this.stayed.length, i = a.userData.rowI ?? this.stayed.indexOf(a), spot = rowSpot(i, n);
+    if (a.userData.rowDelay) await this.wait(a.userData.rowDelay); // (one after another: a little queue, never a clump)
+    if (this.dead) return;
+    if (a.position.z < 1.5) await this.walkTo(a, new T.Vector3(-6.4, 0, 2.6), { speed: 3.6, faceCamera: false });
+    if (this.dead) return;
+    await this.walkTo(a, spot, { speed: 3.6, faceCamera: true });
   }
 
   update(dt, t) {
@@ -367,6 +508,7 @@ export default class FeelingsLesson extends Lesson {
       if (!w[0] || !w[1]) continue;
       if (w[0].isGroup || w[0].isBone) { w[0].rotation.z = k; w[1].rotation.z = -k; } else { w[0].rotation.x = k; w[1].rotation.x = -k; }
     }
+    if (this.comforting) this.comfortTick(dt);
     // friends act out their feeling while waiting
     this.friends.forEach((a, i) => {
       const h = a.userData.head;
@@ -383,10 +525,12 @@ export default class FeelingsLesson extends Lesson {
     const a = this.friends.find((f) => f.userData.feeling === this.emo);
     if (!a) return;
     if (glow) this.addHalo(a.userData.head, 1.3);
-    fx.ghostHand(a.userData.head.getWorldPosition(new T.Vector3()));
+    // point at the tummy: the face (the answer) stays visible
+    const p = a.getWorldPosition(new T.Vector3()); p.y += 0.7 * a.scale.y;
+    fx.ghostHand(p);
   }
 
-  choicePoints() { return this.friends.map((a) => a.userData.head.getWorldPosition(new T.Vector3())); }
+  choicePoints() { return this.friends.map((a) => { const p = a.getWorldPosition(new T.Vector3()); p.y += 0.7 * a.scale.y; return p; }); }
 
   makeErrorless() {
     for (const a of this.friends) if (a.userData.feeling !== this.emo) {
@@ -396,8 +540,28 @@ export default class FeelingsLesson extends Lesson {
     }
   }
 
+  // ---- the ending: Pip on his stage with every friend who stayed; a poke makes a friend giggle ----
+  // framed from the row of friends plus Pip on his stage, so it fills about 60% of the height and fits the 4:3 photo
+  creationView() {
+    const n = Math.max(1, this.stayed.length);
+    const half = Math.max(3.4, ((n - 1) * ROW_DX) / 2 + 1.0);
+    const cx = Math.min(0, ROW_CX + 0.4);
+    const look = new T.Vector3(cx * 0.6, 2.5, -0.6);
+    const dist = Math.max(12.0, (half + Math.abs(cx * 0.4) + 0.6) / 0.484);
+    return { pos: [look.x, look.y + dist * 0.22, look.z + dist], look: [look.x, look.y, look.z] };
+  }
+  creationObjects() { return this.stayed.slice(); }
+  onAdmirePoke(obj) { setFace(obj.userData.face, 'joy'); poke(this.s, obj); this.s.wait(0.8).then(() => { if (obj.userData.face) setFace(obj.userData.face, 'happy'); }); }
   onFinale() {
-    for (const a of this.friends) { setFace(a.userData.face, 'happy'); hop(this.s, a, 0.8); }
-    for (const o of this.dynProps) physics.poke(o, 1.2);
+    setFace(this.pip.userData.face, 'happy');
+    this.finaleNow = true;
+    this.admireTime = 5;
+    for (const a of this.friends) if (!this.stayed.includes(a)) this.walkTo(a, new T.Vector3(a.position.x < 0 ? -11 : 11, 0, a.position.z), { speed: 3, faceCamera: false });
+    // everyone who stayed walks into one row in front of the stage and turns to the child: the one nearest the
+    // stage goes first, to the far (right) end, the others follow in a queue
+    const order = this.stayed.slice().sort((p, q) => q.position.x - p.position.x);
+    const n = order.length;
+    order.forEach((a, k) => { a.userData.rowI = n - 1 - k; a.userData.rowDelay = k * 0.35; });
+    for (const a of this.stayed) { setFace(a.userData.face, 'happy'); if (a.userData.seated) this.toRow(a); }
   }
 }
